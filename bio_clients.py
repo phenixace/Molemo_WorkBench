@@ -12,6 +12,7 @@ from urllib.parse import quote, urlparse
 
 ALLOWED_HOSTS = {
     "api.platform.opentargets.org",
+    "clinicaltrials.gov",
     "clinicaltables.nlm.nih.gov",
     "eutils.ncbi.nlm.nih.gov",
     "gnomad.broadinstitute.org",
@@ -25,7 +26,7 @@ ALLOWED_HOSTS = {
 MAX_JSON_BYTES = 6 * 1024 * 1024
 MAX_JSON_REQUEST_BYTES = 256 * 1024
 MAX_STRUCTURE_BYTES = 24 * 1024 * 1024
-USER_AGENT = "Molemo-WorkBench/0.8 (public scientific database client)"
+USER_AGENT = "Molemo-WorkBench/0.9 (public scientific database client)"
 
 
 class ExternalDataError(RuntimeError):

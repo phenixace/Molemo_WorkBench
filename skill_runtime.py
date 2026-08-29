@@ -199,6 +199,54 @@ def compact_tool_result(result: dict[str, Any], limit: int = 24000) -> str:
         encoded = json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
         if len(encoded) <= limit:
             return encoded
+    if isinstance(data, dict) and isinstance(data.get("studies"), list):
+        compact_data = {
+            key: value
+            for key, value in data.items()
+            if key not in {"studies", "outputs", "api_url"}
+        }
+        compact_data["studies"] = []
+        for study in data["studies"][:8]:
+            if not isinstance(study, dict):
+                continue
+            item = {
+                key: value
+                for key, value in study.items()
+                if key in {
+                    "rank",
+                    "nct_id",
+                    "title",
+                    "status",
+                    "study_type",
+                    "phases",
+                    "enrollment",
+                    "enrollment_type",
+                    "sponsor",
+                    "sponsor_class",
+                    "conditions",
+                    "design",
+                    "dates",
+                    "countries",
+                    "has_results",
+                    "url",
+                }
+            }
+            item["interventions"] = list(study.get("interventions") or [])[:6]
+            item["primary_outcomes"] = list(study.get("primary_outcomes") or [])[:3]
+            item["publications"] = list(study.get("publications") or [])[:4]
+            compact_data["studies"].append(item)
+        compact = {
+            "ok": result.get("ok", True),
+            "tool": result.get("tool"),
+            "skill": result.get("skill"),
+            "summary": result.get("summary"),
+            "data": compact_data,
+            "caveats": result.get("caveats") or [],
+            "artifacts_omitted": True,
+        }
+        encoded = json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+        if len(encoded) <= limit:
+            return encoded
     compact = {
         "ok": result.get("ok", True),
         "tool": result.get("tool"),

@@ -759,6 +759,9 @@ function renderArtifacts() {
       } else if (artifact.type === "literature-evidence-map") {
         card.classList.add("literature-evidence-artifact");
         card.innerHTML = renderLiteratureEvidenceMap(title, artifact.data || {});
+      } else if (artifact.type === "clinical-trial-landscape") {
+        card.classList.add("clinical-trials-artifact");
+        card.innerHTML = renderClinicalTrialLandscape(title, artifact.data || {});
       } else if (artifact.type === "variant-evidence-preflight") {
         card.innerHTML = renderVariantEvidencePreflight(title, artifact.data || {});
       } else if (artifact.type === "variant-evidence-review") {
@@ -991,6 +994,107 @@ function renderLiteraturePaper(paper, open) {
       </div>
     </details>
   `;
+}
+
+function renderClinicalTrialLandscape(title, data) {
+  const studies = data.studies || [];
+  const statusCounts = data.status_counts || [];
+  const phaseCounts = data.phase_counts || [];
+  const sourceUrl = safeExternalUrl(data.search_url) ? data.search_url : "";
+  return `
+    <header>
+      <strong>${title}</strong>
+      <span>${escapeHtml(data.source || "ClinicalTrials.gov")}</span>
+    </header>
+    <div class="trial-query">
+      <span>Approved query</span>
+      <strong>${escapeHtml(data.condition || "n/a")}</strong>
+      <code>${escapeHtml(data.intervention || "Any intervention")}</code>
+    </div>
+    <div class="trial-metrics">
+      ${[
+        ["Matches", Number(data.hit_count || 0).toLocaleString("en-US")],
+        ["Mapped", data.returned_count || studies.length],
+        ["Posted results", data.results_available_count || 0],
+        ["Countries", data.country_count ?? (data.country_counts || []).length],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="trial-filters">
+      <span>${escapeHtml(formatTrialLabel(data.status_scope || "all"))} status</span>
+      <span>${escapeHtml(formatTrialLabel(data.study_scope || "all"))} studies</span>
+      <span>${escapeHtml(data.source_order || "Source order")}</span>
+      <span>${escapeHtml(formatTimestamp(data.retrieved_at))}</span>
+    </div>
+    <div class="trial-distributions">
+      <section>
+        <header><strong>Status</strong><span>mapped set</span></header>
+        <div>${statusCounts.map((item) => `<p><span>${escapeHtml(formatTrialLabel(item.label))}</span><b>${escapeHtml(item.count)}</b></p>`).join("") || "<p>No status metadata.</p>"}</div>
+      </section>
+      <section>
+        <header><strong>Phase</strong><span>mapped set</span></header>
+        <div>${phaseCounts.map((item) => `<p><span>${escapeHtml(formatTrialLabel(item.label))}</span><b>${escapeHtml(item.count)}</b></p>`).join("") || "<p>No phase metadata.</p>"}</div>
+      </section>
+    </div>
+    <div class="trial-records">
+      ${studies.map((study, index) => renderClinicalTrialRecord(study, index === 0)).join("")}
+    </div>
+    <div class="trial-review-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "Registry metadata does not establish efficacy or safety.")}</p>
+      ${Object.keys(data.outputs || {}).length ? `<div class="target-output-paths">${Object.entries(data.outputs).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>` : ""}
+      ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open approved query in ClinicalTrials.gov</a>` : ""}
+    </div>
+  `;
+}
+
+function renderClinicalTrialRecord(study, open) {
+  const studyUrl = safeExternalUrl(study.url) ? study.url : "";
+  const interventions = study.interventions || [];
+  const outcomes = study.primary_outcomes || [];
+  const publications = study.publications || [];
+  const eligibility = study.eligibility || {};
+  const design = study.design || {};
+  const dates = study.dates || {};
+  return `
+    <details ${open ? "open" : ""}>
+      <summary>
+        <span class="trial-rank">${escapeHtml(study.rank)}</span>
+        <span class="trial-title"><strong>${escapeHtml(study.title || study.nct_id)}</strong><small>${escapeHtml(study.nct_id || "")}${study.has_results ? " · posted results" : ""}</small></span>
+        <span class="trial-status">${escapeHtml(formatTrialLabel(study.status || "unknown"))}</span>
+      </summary>
+      <div class="trial-body">
+        <div class="trial-meta">
+          <span><b>Phase</b>${escapeHtml((study.phases || []).map(formatTrialLabel).join(", ") || "n/a")}</span>
+          <span><b>Enrollment</b>${escapeHtml(`${study.enrollment || 0} ${formatTrialLabel(study.enrollment_type || "")}`.trim())}</span>
+          <span><b>Sponsor</b>${escapeHtml(study.sponsor || "Not returned")}</span>
+          <span><b>Countries</b>${escapeHtml((study.countries || []).join(", ") || "Not returned")}</span>
+        </div>
+        <div class="trial-design-line">${escapeHtml([design.allocation, design.intervention_model, design.masking, design.primary_purpose].filter(Boolean).map(formatTrialLabel).join(" · ") || formatTrialLabel(study.study_type || ""))}</div>
+        <section>
+          <span>Interventions</span>
+          <p>${interventions.map((item) => `<b>${escapeHtml(item.name)}</b><small>${escapeHtml(formatTrialLabel(item.type))}</small>`).join("") || "No intervention metadata returned."}</p>
+        </section>
+        <section>
+          <span>Registered primary outcomes</span>
+          <p>${outcomes.map((item) => `<b>${escapeHtml(item.measure)}</b><small>${escapeHtml(item.time_frame || "Time frame not returned")}</small>`).join("") || "No primary outcome metadata returned."}</p>
+        </section>
+        <div class="trial-footline">
+          <span>${escapeHtml([eligibility.sex, eligibility.minimum_age && `from ${eligibility.minimum_age}`, eligibility.maximum_age && `to ${eligibility.maximum_age}`].filter(Boolean).join(" · ") || "Eligibility summary unavailable")}</span>
+          <span>${escapeHtml([dates.start && `start ${dates.start}`, dates.primary_completion && `primary completion ${dates.primary_completion}`, dates.last_updated && `updated ${dates.last_updated}`].filter(Boolean).join(" · "))}</span>
+        </div>
+        <div class="trial-links">
+          ${studyUrl ? `<a href="${escapeHtml(studyUrl)}" target="_blank" rel="noreferrer">${escapeHtml(study.nct_id)} official record</a>` : ""}
+          ${publications.filter((item) => item.pmid).slice(0, 6).map((item) => `<a href="https://pubmed.ncbi.nlm.nih.gov/${escapeHtml(item.pmid)}/" target="_blank" rel="noreferrer">PMID ${escapeHtml(item.pmid)}</a>`).join("")}
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function formatTrialLabel(value) {
+  return String(value || "")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function renderVariantEvidencePreflight(title, data) {
@@ -1310,6 +1414,8 @@ function renderWorkflowPreflight(preflight) {
     detail = `${preflight.exact_query} · ${Number(preflight.hit_count || 0).toLocaleString("en-US")} matches`;
   } else if (preflight.variant?.accession) {
     detail = `${preflight.variant.accession} · ${preflight.variant.hgvs_c || preflight.variant.canonical_spdi || preflight.query}`;
+  } else if (preflight.condition && preflight.hit_count !== undefined) {
+    detail = `${preflight.condition}${preflight.intervention ? ` · ${preflight.intervention}` : ""} · ${Number(preflight.hit_count || 0).toLocaleString("en-US")} studies`;
   } else if (preflight.design_formula || preflight.contrast) {
     detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
   }
@@ -1479,6 +1585,8 @@ function workflowFieldDefault(templateId, field) {
   if (templateId === "target-evidence-review" && field.name === "candidates") return "IL4R, TSLP, IL6R, JAK1";
   if (templateId === "literature-evidence-review" && field.name === "query") return "(IL4R OR TSLP) AND asthma";
   if (templateId === "variant-evidence-review" && field.name === "variant") return "NM_000518.5:c.20A>T";
+  if (templateId === "clinical-trial-landscape-review" && field.name === "condition") return "asthma";
+  if (templateId === "clinical-trial-landscape-review" && field.name === "intervention") return "dupilumab";
   if (field.name === "smiles") return sample.smiles || "";
   if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
   if (field.name === "pdb_id") return sample.pdbId || "";
@@ -2853,6 +2961,7 @@ function safeExternalUrl(value) {
       "www.ncbi.nlm.nih.gov",
       "rest.ensembl.org",
       "gnomad.broadinstitute.org",
+      "clinicaltrials.gov",
     ].includes(url.hostname);
   } catch {
     return false;

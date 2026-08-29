@@ -12,13 +12,14 @@ LANES = (
     ("public biological databases", r"pubchem|uniprot|rcsb|database|accession|数据库|条目"),
     ("target evidence and prioritization", r"target evidence|target priorit|disease association|靶点证据|靶点优先|疾病关联"),
     ("human genetics and variant evidence", r"clinvar|gnomad|hgvs|\brs\d+\b|variant interpret|pathogenic|人类遗传|变异解释|致病|人群频率"),
+    ("clinical and translational evidence", r"clinical trial|trial landscape|clinical development|临床试验|临床开发|试验版图"),
     ("literature and study discovery", r"paper|publication|literature|pubmed|europe pmc|文献|论文|研究综述|证据地图"),
     ("experimental protein structure", r"pdb|rcsb|mmcif|coordinate|atom-level|原子|坐标|三维结构"),
     ("sequencing quality control", r"fastq|phred|q20|q30|read quality|测序|质控|读长"),
     ("transcriptomics and expression", r"rna-?seq|count matrix|differential expression|transcriptom|差异表达|转录组|表达矩阵"),
     ("sequence similarity search", r"blast|homolog|sequence search|同源|相似序列|序列搜索"),
     ("sequence comparison", r"align|alignment|identity|比对|相似度"),
-    ("scientific visualization", r"plot|chart|visual|viewer|图|可视化|显示|结构"),
+    ("scientific visualization", r"plot|chart|visual|viewer|绘图|作图|画图|图表|可视化|显示|结构"),
     ("local workspace", r"workspace|file|dataset|本地|文件|数据集"),
     ("design and validation", r"design|optimi[sz]e|candidate|validate|设计|优化|候选|验证"),
 )
@@ -42,6 +43,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
         suggested.extend(["target_evidence_preflight", "workflow_create_plan"])
     if "human genetics and variant evidence" in lanes:
         suggested.extend(["variant_evidence_preflight", "workflow_create_plan"])
+    if "clinical and translational evidence" in lanes:
+        suggested.extend(["clinical_trials_preview", "workflow_create_plan"])
     if "literature and study discovery" in lanes:
         suggested.extend(["literature_search_preview", "workflow_create_plan"])
     if "experimental protein structure" in lanes:

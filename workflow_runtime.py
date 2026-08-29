@@ -16,6 +16,7 @@ from transcriptomics import TranscriptomicsError, preflight_bulk_rnaseq
 from target_evidence import TargetEvidenceError, resolve_target_review_inputs
 from literature_review import LiteratureReviewError, preflight_literature_review
 from variant_evidence import VariantEvidenceError, preflight_variant_evidence
+from clinical_trials import ClinicalTrialsError, preflight_clinical_trial_landscape
 
 
 ROOT = Path(__file__).resolve().parent
@@ -205,6 +206,41 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "审批前必须确认具体等位基因、转录本与基因组版本；rsID 可能对应多个等位基因。",
             "ClinVar 分类是提交者断言，VEP 是计算注释，gnomAD 是人群观察，三者不合成为自定义致病性分数。",
             "结果不是诊断、治疗建议或新的 ACMG/AMP 临床分类。",
+        ],
+    },
+    "clinical-trial-landscape-review": {
+        "title": "临床试验版图",
+        "description": "用明确疾病、干预与状态过滤检索 ClinicalTrials.gov，形成可追溯的转化证据版图。",
+        "fields": [
+            _field("condition", "疾病 / 条件", "text", required=True, placeholder="asthma"),
+            _field("intervention", "干预（可选）", "text", placeholder="dupilumab"),
+            _field(
+                "status_scope",
+                "试验状态",
+                "select",
+                required=True,
+                options=[
+                    {"value": "all", "label": "全部状态"},
+                    {"value": "active", "label": "活跃 / 招募相关"},
+                    {"value": "completed", "label": "已完成"},
+                ],
+            ),
+            _field(
+                "study_scope",
+                "研究类型",
+                "select",
+                required=True,
+                options=[
+                    {"value": "interventional", "label": "干预性研究"},
+                    {"value": "all", "label": "全部研究"},
+                ],
+            ),
+            _field("max_results", "最多收集试验", "number", value=20, min=1, max=30),
+        ],
+        "assumptions": [
+            "ClinicalTrials.gov 登记信息描述研究计划和状态，不直接证明疗效或安全性。",
+            "总体状态不等于每个研究中心的实时招募状态；采取行动前应检查最新官方记录。",
+            "登记终点不是结果值；posted results、方案、统计分析和关联论文需要分别审阅。",
         ],
     },
     "pairwise-alignment-review": {
@@ -461,6 +497,33 @@ def _variant_evidence_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
         raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
 
 
+def _clinical_trials_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    condition = _require_text(inputs, "condition", "Condition")
+    intervention = str(inputs.get("intervention") or "").strip()
+    status_scope = str(inputs.get("status_scope") or "all").strip().casefold()
+    study_scope = str(inputs.get("study_scope") or "interventional").strip().casefold()
+    try:
+        max_results = int(inputs.get("max_results") or 20)
+    except (TypeError, ValueError) as exc:
+        raise WorkflowError("Clinical trial result limit must be an integer.", "invalid_workflow_inputs") from exc
+    arguments = {
+        "condition": condition,
+        "intervention": intervention,
+        "status_scope": status_scope,
+        "study_scope": study_scope,
+        "max_results": max_results,
+    }
+    inputs.update(arguments)
+    return [_step("收集并整理临床试验版图", "clinical_trials_collect", arguments)]
+
+
+def _clinical_trials_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_clinical_trial_landscape(**inputs)
+    except ClinicalTrialsError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _workflow_boolean(value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -551,6 +614,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "target-evidence-review": _target_evidence_steps,
     "literature-evidence-review": _literature_steps,
     "variant-evidence-review": _variant_evidence_steps,
+    "clinical-trial-landscape-review": _clinical_trials_steps,
     "pairwise-alignment-review": _alignment_steps,
     "sequence-similarity-search": _sequence_search_steps,
     "database-record-review": _database_steps,
@@ -561,6 +625,7 @@ PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "target-evidence-review": _target_evidence_preflight,
     "literature-evidence-review": _literature_preflight,
     "variant-evidence-review": _variant_evidence_preflight,
+    "clinical-trial-landscape-review": _clinical_trials_preflight,
 }
 
 

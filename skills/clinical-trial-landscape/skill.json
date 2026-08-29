@@ -1,0 +1,43 @@
+{
+  "id": "clinical-trial-landscape",
+  "title": "Clinical Trial Landscape",
+  "kind": "retrieval",
+  "description": "Search ClinicalTrials.gov with explicit bounded filters and organize registry records into a source-linked translational evidence landscape.",
+  "tools": [
+    {
+      "name": "clinical_trials_preview",
+      "description": "Preview up to ten source-ordered ClinicalTrials.gov records for a condition and optional intervention. Return registration status, phase, sponsor, design, endpoints, results availability, NCT IDs, and official links without treating registry metadata as efficacy evidence.",
+      "handler": "scripts/handler.py:preview",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "condition": { "type": "string", "description": "Disease or condition term, preferably in English." },
+          "intervention": { "type": "string", "description": "Optional drug, biologic, device, procedure, or other intervention term." },
+          "status_scope": { "type": "string", "enum": ["active", "completed", "all"], "default": "all" },
+          "study_scope": { "type": "string", "enum": ["interventional", "all"], "default": "interventional" },
+          "max_results": { "type": "integer", "minimum": 1, "maximum": 10, "default": 8 }
+        },
+        "required": ["condition"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "clinical_trials_collect",
+      "description": "Collect and persist an approved ClinicalTrials.gov landscape with up to 30 registry records, exact filters, normalized trial metadata, NCT links, TSV, report, manifest, and interpretation limits.",
+      "handler": "scripts/handler.py:collect",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "condition": { "type": "string" },
+          "intervention": { "type": "string" },
+          "status_scope": { "type": "string", "enum": ["active", "completed", "all"], "default": "all" },
+          "study_scope": { "type": "string", "enum": ["interventional", "all"], "default": "interventional" },
+          "max_results": { "type": "integer", "minimum": 1, "maximum": 30, "default": 20 }
+        },
+        "required": ["condition"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

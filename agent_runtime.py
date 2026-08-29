@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -200,6 +200,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         "molecular chemistry": "分子化学",
         "literature and study discovery": "文献与研究发现",
         "human genetics and variant evidence": "人类遗传与变异证据",
+        "clinical and translational evidence": "临床与转化证据",
     }
     lane = ", ".join(lane_labels.get(item, item) for item in raw_lanes)
     evidence_text = " ".join(evidence) if evidence else "No structured molecule or protein is active yet."
@@ -212,6 +213,11 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         reply = (
             f"当前问题被路由到 {lane}。{evidence_text} "
             "结果按 Europe PMC relevance 保留，并附 PMID、DOI 或来源链接；该顺序不代表研究质量，形成结论前仍需检查摘要、全文与研究设计。"
+        )
+    elif "clinical and translational evidence" in raw_lanes:
+        reply = (
+            f"当前问题被路由到 {lane}。{evidence_text} "
+            "ClinicalTrials.gov 登记状态、研究设计和注册终点不等同于疗效或安全性结论；请用 NCT ID 核对实时记录，并分别审阅 posted results、方案与关联论文。"
         )
     elif "human genetics and variant evidence" in raw_lanes:
         reply = (
@@ -281,6 +287,9 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a guided plan request without granting execution authority."""
+    clinical_trials = extract_clinical_trial_plan(message)
+    if clinical_trials:
+        return "clinical-trial-landscape-review", clinical_trials
     variant = extract_variant_identifier(message)
     if variant and re.search(
         r"variant\s+(?:interpretation|review|evidence)|interpret\s+(?:the\s+)?variant|"
@@ -370,6 +379,110 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     if sample_type == "protein" and context.get("sequence"):
         return "protein-sequence-review", {"sequence": context["sequence"]}
     return None
+
+
+def extract_clinical_trial_plan(message: str) -> dict[str, Any] | None:
+    if not re.search(
+        r"clinical\s+trials?(?:\s+(?:landscape|pipeline|progress|review))?|trial\s+landscape|"
+        r"临床试验(?:版图|进展|布局|审阅|管线)?|临床开发版图",
+        message,
+        re.I,
+    ):
+        return None
+
+    aliases = {
+        "哮喘": "asthma",
+        "乳腺癌": "breast cancer",
+        "肺癌": "lung cancer",
+        "阿尔茨海默病": "Alzheimer disease",
+        "类风湿关节炎": "rheumatoid arthritis",
+        "克罗恩病": "Crohn disease",
+        "溃疡性结肠炎": "ulcerative colitis",
+        "2型糖尿病": "type 2 diabetes mellitus",
+        "二型糖尿病": "type 2 diabetes mellitus",
+    }
+    condition = ""
+    intervention = ""
+
+    labeled_condition = re.search(
+        r"(?:condition|disease|indication|疾病|适应症)\s*[:：=]\s*([^,，;；.。]{1,100})",
+        message,
+        re.I,
+    )
+    labeled_intervention = re.search(
+        r"(?:intervention|drug|therapy|干预|药物|疗法)\s*[:：=]\s*([^,，;；.。]{1,100})",
+        message,
+        re.I,
+    )
+    if labeled_condition:
+        condition = labeled_condition.group(1).strip()
+    if labeled_intervention:
+        intervention = labeled_intervention.group(1).strip()
+
+    if not condition:
+        chinese_pair = re.search(
+            r"([^，。；,;:：]{1,60}?)\s*在\s*([^，。；,;:：]{1,60}?)(?:中|中的)(?:的)?\s*临床试验",
+            message,
+        )
+        if chinese_pair:
+            intervention = intervention or _clean_trial_term(chinese_pair.group(1))
+            condition = _clean_trial_term(chinese_pair.group(2))
+
+    if not condition:
+        english_pair = re.search(
+            r"clinical\s+trials?(?:\s+(?:landscape|pipeline|progress|review))?\s+(?:for|of)\s+"
+            r"(.{1,80}?)\s+in\s+(.{1,80}?)(?:[.,;]|$)",
+            message,
+            re.I,
+        )
+        if english_pair:
+            intervention = intervention or _clean_trial_term(english_pair.group(1))
+            condition = _clean_trial_term(english_pair.group(2))
+
+    if not condition:
+        chinese_condition = re.search(
+            r"(?:在|针对)\s*([^，。；,;]{1,80}?)(?:中|中的|的)\s*(?:临床)?试验",
+            message,
+        )
+        if chinese_condition:
+            condition = _clean_trial_term(chinese_condition.group(1))
+
+    if not condition:
+        english_condition = re.search(
+            r"clinical\s+trials?(?:\s+(?:landscape|pipeline|progress|review))?\s+(?:for|in|of)\s+"
+            r"(.{1,100}?)(?:[.,;]|$)",
+            message,
+            re.I,
+        )
+        if english_condition:
+            condition = _clean_trial_term(english_condition.group(1))
+
+    condition = aliases.get(condition, condition)
+    if not condition:
+        return None
+    status_scope = "all"
+    if re.search(r"active|recruiting|not yet recruiting|正在招募|尚未招募|活跃", message, re.I):
+        status_scope = "active"
+    elif re.search(r"completed|complete studies|已完成|完成试验", message, re.I):
+        status_scope = "completed"
+    study_scope = "all" if re.search(r"observational|all studies|观察性|全部研究", message, re.I) else "interventional"
+    return {
+        "condition": condition,
+        "intervention": intervention,
+        "status_scope": status_scope,
+        "study_scope": study_scope,
+        "max_results": 20,
+    }
+
+
+def _clean_trial_term(value: str) -> str:
+    cleaned = re.sub(
+        r"^(?:(?:请|帮我|看看|梳理|整理|map|review|show|find)\s*)+",
+        "",
+        str(value or "").strip(),
+        flags=re.I,
+    )
+    return cleaned.strip(" ：:,，。.;；")
 
 
 def extract_variant_identifier(message: str) -> str:
