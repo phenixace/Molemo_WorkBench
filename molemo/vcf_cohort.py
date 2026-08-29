@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from workspace_utils import WORKSPACE_ROOT, resolve_workspace_path
+from .workspace_utils import WORKSPACE_ROOT, resolve_workspace_path
 
 
 MAX_VCF_BYTES = 20 * 1024 * 1024

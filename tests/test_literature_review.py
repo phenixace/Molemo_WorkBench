@@ -4,14 +4,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_runtime import extract_literature_query, local_workflow_plan
-from literature_review import (
+from molemo.agent_runtime import extract_literature_query, local_workflow_plan
+from molemo.literature_review import (
     LiteratureReviewError,
     collect_literature_review,
     normalize_literature_inputs,
     search_literature_preview,
 )
-from skill_runtime import SkillRegistry, compact_tool_result
+from molemo.skill_runtime import SkillRegistry, compact_tool_result
 
 
 EUROPE_PMC_PAYLOAD = {
@@ -84,7 +84,7 @@ class LiteratureReviewTests(unittest.TestCase):
             normalize_literature_inputs("asthma sort_cited:y")
 
     def test_preview_preserves_source_order_types_and_identifiers(self):
-        with patch("literature_review.get_json", return_value=EUROPE_PMC_PAYLOAD):
+        with patch("molemo.literature_review.get_json", return_value=EUROPE_PMC_PAYLOAD):
             result = search_literature_preview(query="IL4R AND asthma", max_results=2)
 
         self.assertEqual([paper["pmid"] for paper in result["papers"]], ["111", "222"])
@@ -96,8 +96,8 @@ class LiteratureReviewTests(unittest.TestCase):
 
     def test_approved_collection_persists_query_manifest_and_tables(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "literature_review.get_json", return_value=EUROPE_PMC_PAYLOAD
-        ), patch("literature_review.WORKSPACE_ROOT", Path(temporary)):
+            "molemo.literature_review.get_json", return_value=EUROPE_PMC_PAYLOAD
+        ), patch("molemo.literature_review.WORKSPACE_ROOT", Path(temporary)):
             result = collect_literature_review(query="IL4R AND asthma", max_results=2)
 
             report_path = Path(temporary) / result["outputs"]["report"]

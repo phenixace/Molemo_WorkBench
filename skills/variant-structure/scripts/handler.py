@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from variant_structure import collect_variant_structure, preflight_variant_structure
+from molemo.variant_structure import collect_variant_structure, preflight_variant_structure
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:

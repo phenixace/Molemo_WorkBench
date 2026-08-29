@@ -5,15 +5,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agent_runtime import local_workflow_plan
-from single_cell import (
+from molemo.agent_runtime import local_workflow_plan
+from molemo.single_cell import (
     SingleCellError,
     preflight_single_cell,
     single_cell_toolchain_status,
 )
-from skill_runtime import SkillError, SkillRegistry
-from workflow_runtime import WorkflowManager
-from workspace_utils import WORKSPACE_ROOT, resolve_workspace_path
+from molemo.skill_runtime import SkillError, SkillRegistry
+from molemo.workflow_runtime import WorkflowManager
+from molemo.workspace_utils import WORKSPACE_ROOT, resolve_workspace_path
 
 
 COUNTS = "examples/single_cell_counts.csv"

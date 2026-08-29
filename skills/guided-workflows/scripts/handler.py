@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from workflow_runtime import WORKFLOW_MANAGER
+from molemo.workflow_runtime import WORKFLOW_MANAGER
 
 
 def list_templates(_arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:

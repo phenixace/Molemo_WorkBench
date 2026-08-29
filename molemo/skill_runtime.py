@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 SKILLS_ROOT = ROOT / "skills"
 
 

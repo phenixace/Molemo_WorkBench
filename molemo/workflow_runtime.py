@@ -12,45 +12,45 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from transcriptomics import TranscriptomicsError, preflight_bulk_rnaseq
-from target_evidence import TargetEvidenceError, resolve_target_review_inputs
-from literature_review import LiteratureReviewError, preflight_literature_review
-from geo_dataset_discovery import GeoDatasetError, preflight_geo_dataset_discovery
-from geo_series_matrix import GeoSeriesMatrixError, preflight_geo_series_matrix
-from variant_evidence import VariantEvidenceError, preflight_variant_evidence
-from clinical_trials import ClinicalTrialsError, preflight_clinical_trial_landscape
-from clinical_trial_results import ClinicalTrialResultsError, preflight_clinical_trial_results
-from vcf_cohort import VcfCohortError, preflight_vcf_cohort
-from hmmer_search import (
+from .transcriptomics import TranscriptomicsError, preflight_bulk_rnaseq
+from .target_evidence import TargetEvidenceError, resolve_target_review_inputs
+from .literature_review import LiteratureReviewError, preflight_literature_review
+from .geo_dataset_discovery import GeoDatasetError, preflight_geo_dataset_discovery
+from .geo_series_matrix import GeoSeriesMatrixError, preflight_geo_series_matrix
+from .variant_evidence import VariantEvidenceError, preflight_variant_evidence
+from .clinical_trials import ClinicalTrialsError, preflight_clinical_trial_landscape
+from .clinical_trial_results import ClinicalTrialResultsError, preflight_clinical_trial_results
+from .vcf_cohort import VcfCohortError, preflight_vcf_cohort
+from .hmmer_search import (
     HmmerSearchError,
     normalize_hmmer_inputs,
     preflight_hmmer_profile_search,
 )
-from single_cell import SingleCellError, preflight_single_cell
-from functional_analysis import (
+from .single_cell import SingleCellError, preflight_single_cell
+from .functional_analysis import (
     FunctionalAnalysisError,
     normalize_parameters as normalize_functional_parameters,
     parse_gene_terms,
     preflight_functional_analysis,
 )
-from chembl_bioactivity import (
+from .chembl_bioactivity import (
     ChemblBioactivityError,
     normalize_chembl_inputs,
     preflight_chembl_bioactivity,
 )
-from variant_structure import (
+from .variant_structure import (
     VariantStructureError,
     normalize_variant_structure_inputs,
     preflight_variant_structure,
 )
-from multiple_alignment import (
+from .multiple_alignment import (
     MultipleAlignmentError,
     normalize_alignment_inputs,
     preflight_multiple_alignment,
 )
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_STORAGE_ROOT = Path(
     os.environ.get("MOLEMO_WORKFLOW_STORAGE_ROOT") or ROOT / "workspace" / ".molemo" / "runs"
 )

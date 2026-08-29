@@ -12,20 +12,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from bio_clients import (
+from .bio_clients import (
     ExternalDataError,
     fetch_rcsb_pdb_text,
     lookup_rcsb_entry,
     normalize_pdb_id,
 )
-from structure_io import (
+from .structure_io import (
     AA3_TO1,
     StructureError,
     build_structure_from_atoms,
     build_structure_sample,
     parse_structure_atoms,
 )
-from workspace_utils import WORKSPACE_ROOT
+from .workspace_utils import WORKSPACE_ROOT
 
 
 AMINO_ACIDS = set("ACDEFGHIKLMNPQRSTVWY")

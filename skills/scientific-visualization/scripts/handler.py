@@ -6,7 +6,7 @@ import math
 import re
 from typing import Any
 
-from pipeline import HYDROPATHY, VALID_AA
+from molemo.pipeline import HYDROPATHY, VALID_AA
 
 
 def property_chart(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:

@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_runtime import local_workflow_plan
-from skill_runtime import SkillRegistry
-from target_evidence import TargetEvidenceError, parse_target_terms, review_target_evidence
+from molemo.agent_runtime import local_workflow_plan
+from molemo.skill_runtime import SkillRegistry
+from molemo.target_evidence import TargetEvidenceError, parse_target_terms, review_target_evidence
 
 
 def fake_open_targets(_url, request):
@@ -115,8 +115,8 @@ class TargetEvidenceTests(unittest.TestCase):
 
     def test_review_preserves_source_score_and_persists_auditable_outputs(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "target_evidence.post_json", side_effect=fake_open_targets
-        ), patch("target_evidence.WORKSPACE_ROOT", Path(temporary)):
+            "molemo.target_evidence.post_json", side_effect=fake_open_targets
+        ), patch("molemo.target_evidence.WORKSPACE_ROOT", Path(temporary)):
             result = review_target_evidence("哮喘", "IL4R, TSLP")
 
             self.assertEqual([item["symbol"] for item in result["candidates"]], ["IL4R", "TSLP"])

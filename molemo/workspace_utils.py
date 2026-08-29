@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = ROOT / "workspace"
 MAX_TEXT_BYTES = 512 * 1024
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024

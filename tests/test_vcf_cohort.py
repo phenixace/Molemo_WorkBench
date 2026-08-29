@@ -4,15 +4,15 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_runtime import extract_vcf_cohort_plan, local_workflow_plan
-from skill_runtime import SkillRegistry
-from vcf_cohort import (
+from molemo.agent_runtime import extract_vcf_cohort_plan, local_workflow_plan
+from molemo.skill_runtime import SkillRegistry
+from molemo.vcf_cohort import (
     VcfCohortError,
     _annotation_for_alt,
     preflight_vcf_cohort,
     review_vcf_cohort,
 )
-from workflow_runtime import WorkflowManager
+from molemo.workflow_runtime import WorkflowManager
 
 
 EXAMPLE_VCF = "examples/ctdna_variants.vcf"
@@ -49,8 +49,8 @@ class VcfCohortTests(unittest.TestCase):
 
     def test_multiallelic_ad_and_af_remain_aligned_to_each_alt(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "vcf_cohort.WORKSPACE_ROOT", Path(temporary)
-        ), patch("workspace_utils.WORKSPACE_ROOT", Path(temporary)):
+            "molemo.vcf_cohort.WORKSPACE_ROOT", Path(temporary)
+        ), patch("molemo.workspace_utils.WORKSPACE_ROOT", Path(temporary)):
             examples = Path(temporary) / "examples"
             examples.mkdir()
             source_root = Path(__file__).resolve().parents[1] / "workspace" / "examples"
@@ -87,8 +87,8 @@ class VcfCohortTests(unittest.TestCase):
 
     def test_approved_review_persists_tables_report_manifest_and_input_hashes(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "vcf_cohort.WORKSPACE_ROOT", Path(temporary)
-        ), patch("workspace_utils.WORKSPACE_ROOT", Path(temporary)):
+            "molemo.vcf_cohort.WORKSPACE_ROOT", Path(temporary)
+        ), patch("molemo.workspace_utils.WORKSPACE_ROOT", Path(temporary)):
             examples = Path(temporary) / "examples"
             examples.mkdir()
             source_root = Path(__file__).resolve().parents[1] / "workspace" / "examples"
@@ -111,8 +111,8 @@ class VcfCohortTests(unittest.TestCase):
 
     def test_metadata_must_exactly_match_vcf_samples(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "vcf_cohort.WORKSPACE_ROOT", Path(temporary)
-        ), patch("workspace_utils.WORKSPACE_ROOT", Path(temporary)):
+            "molemo.vcf_cohort.WORKSPACE_ROOT", Path(temporary)
+        ), patch("molemo.workspace_utils.WORKSPACE_ROOT", Path(temporary)):
             examples = Path(temporary) / "examples"
             examples.mkdir()
             source_root = Path(__file__).resolve().parents[1] / "workspace" / "examples"
@@ -152,7 +152,7 @@ class VcfCohortTests(unittest.TestCase):
         }
         registry = RecordingRegistry()
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "workflow_runtime.preflight_vcf_cohort", return_value=preflight
+            "molemo.workflow_runtime.preflight_vcf_cohort", return_value=preflight
         ):
             manager = WorkflowManager(Path(temporary))
             run = manager.create_plan(

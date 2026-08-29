@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from bio_clients import lookup_pubchem, lookup_uniprot
-from pipeline import parse_molecule, parse_protein
+from molemo.bio_clients import lookup_pubchem, lookup_uniprot
+from molemo.pipeline import parse_molecule, parse_protein
 
 
 def lookup_compound(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:

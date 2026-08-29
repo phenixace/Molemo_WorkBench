@@ -1,5 +1,7 @@
 # Architecture
 
+English | [简体中文](ARCHITECTURE.zh-CN.md)
+
 ## Main line
 
 ```text
@@ -14,9 +16,11 @@ research question
 
 ## Components
 
-`server.py` is the local boundary. It serves the workbench and exposes molecule, protein, chat, skills, tool-call, workspace, workflow-plan and run-approval endpoints.
+`molemo/` is the Python application package. The root `server.py` and `bench.py` files are compatibility launchers, keeping the repository root small while preserving existing commands.
 
-`agent_runtime.py` implements the OpenAI-compatible Chat Completions tool loop. Provider credentials are accepted only in the request body, forwarded once, and omitted from results and logs. Native mode lets the provider choose tools; grounded mode precomputes active scientific context for providers without tool support.
+`molemo/server.py` is the local boundary. It serves the workbench and exposes molecule, protein, chat, skills, tool-call, workspace, workflow-plan and run-approval endpoints.
+
+`molemo/agent_runtime.py` implements the OpenAI-compatible Chat Completions tool loop. Provider credentials are accepted only in the request body, forwarded once, and omitted from results and logs. Native mode lets the provider choose tools; grounded mode precomputes active scientific context for providers without tool support.
 
 `skill_runtime.py` discovers every `skills/*/skill.json`, loads its declared handler, exports compatible function schemas and normalizes execution metadata. A tool can declare `agent_callable: false`; it remains available to approved workflows but is absent from third-party model schemas and rejected by direct tool calls. Oversized GEO dataset and Series Matrix, alignment, experimental variant-structure, ChEMBL, literature and clinical-trial results are compacted for model context by removing display matrices, viewer coordinates, duplicate artifacts and long structure/description fields while retaining exact source evidence. `SKILL.md` keeps each workflow usable as a standalone Codex/ChatGPT skill.
 

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from clinical_trial_results import (
+from molemo.clinical_trial_results import (
     preflight_clinical_trial_results,
     review_clinical_trial_results,
 )
-from clinical_trials import collect_clinical_trial_landscape, search_clinical_trials_preview
+from molemo.clinical_trials import collect_clinical_trial_landscape, search_clinical_trials_preview
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:

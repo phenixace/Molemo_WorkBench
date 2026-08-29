@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode
 
-from bio_clients import ExternalDataError, get_json, get_json_array, post_json
-from workspace_utils import WORKSPACE_ROOT
+from .bio_clients import ExternalDataError, get_json, get_json_array, post_json
+from .workspace_utils import WORKSPACE_ROOT
 
 
 CLINVAR_SEARCH = "https://clinicaltables.nlm.nih.gov/api/variants/v4/search"

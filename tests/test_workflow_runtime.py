@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_runtime import local_workflow_plan
-from skill_runtime import SkillRegistry
-from workflow_runtime import WorkflowError, WorkflowManager
+from molemo.agent_runtime import local_workflow_plan
+from molemo.skill_runtime import SkillRegistry
+from molemo.workflow_runtime import WorkflowError, WorkflowManager
 
 
 class RecordingRegistry:
@@ -107,7 +107,7 @@ class WorkflowRuntimeTests(unittest.TestCase):
                 {"id": "ENSG00000145777", "symbol": "TSLP"},
             ],
         }
-        with patch("workflow_runtime.resolve_target_review_inputs", return_value=preflight):
+        with patch("molemo.workflow_runtime.resolve_target_review_inputs", return_value=preflight):
             run = self.manager.create_plan(
                 "target-evidence-review",
                 {"disease": "asthma", "candidates": "IL4R, TSLP", "include_indirect": "false"},
@@ -129,7 +129,7 @@ class WorkflowRuntimeTests(unittest.TestCase):
             "exact_query": "(IL4R AND asthma) AND HAS_ABSTRACT:Y AND NOT SRC:PPR",
             "hit_count": 28,
         }
-        with patch("workflow_runtime.preflight_literature_review", return_value=preflight):
+        with patch("molemo.workflow_runtime.preflight_literature_review", return_value=preflight):
             run = self.manager.create_plan(
                 "literature-evidence-review",
                 {
@@ -161,7 +161,7 @@ class WorkflowRuntimeTests(unittest.TestCase):
                 "gnomad_variant_id": "11-5227002-T-A",
             },
         }
-        with patch("workflow_runtime.preflight_variant_evidence", return_value=preflight):
+        with patch("molemo.workflow_runtime.preflight_variant_evidence", return_value=preflight):
             run = self.manager.create_plan(
                 "variant-evidence-review",
                 {"variant": "NM_000518.5:c.20A>T"},
@@ -192,7 +192,7 @@ class WorkflowRuntimeTests(unittest.TestCase):
                 "contact_cutoff_angstrom": 4.5,
             },
         }
-        with patch("workflow_runtime.preflight_variant_structure", return_value=preflight):
+        with patch("molemo.workflow_runtime.preflight_variant_structure", return_value=preflight):
             run = self.manager.create_plan(
                 "protein-variant-structure-review",
                 {"pdb_id": "6oim", "chain": "A", "variant": "G12C", "contact_cutoff": 4.5},

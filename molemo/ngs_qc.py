@@ -6,7 +6,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable, TextIO
 
-from workspace_utils import WorkspaceError, ensure_workspace, resolve_workspace_path
+from .workspace_utils import WorkspaceError, ensure_workspace, resolve_workspace_path
 
 
 MAX_FASTQ_READS = 100_000

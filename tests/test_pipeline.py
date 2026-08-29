@@ -1,6 +1,6 @@
 import unittest
 
-from pipeline import PipelineError, parse_molecule, parse_protein
+from molemo.pipeline import PipelineError, parse_molecule, parse_protein
 
 
 class MoleculePipelineTests(unittest.TestCase):

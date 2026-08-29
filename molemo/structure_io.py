@@ -7,7 +7,7 @@ import shlex
 from collections import defaultdict
 from typing import Any
 
-from pipeline import PipelineError, parse_protein
+from .pipeline import PipelineError, parse_protein
 
 
 AA3_TO1 = {

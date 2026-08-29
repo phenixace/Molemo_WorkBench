@@ -16,10 +16,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from workspace_utils import WORKSPACE_ROOT, WorkspaceError, resolve_workspace_path
+from .workspace_utils import WORKSPACE_ROOT, WorkspaceError, resolve_workspace_path
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 TOOL_ENV_BIN = ROOT / ".molemo-tools" / "bin"
 HMM_SUFFIXES = {".hmm"}
 FASTA_SUFFIXES = {".fa", ".fasta", ".faa"}

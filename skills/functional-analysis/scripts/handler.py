@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from functional_analysis import preflight_functional_analysis, run_functional_analysis
+from molemo.functional_analysis import preflight_functional_analysis, run_functional_analysis
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:

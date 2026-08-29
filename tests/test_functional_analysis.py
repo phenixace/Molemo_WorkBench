@@ -4,16 +4,16 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_runtime import local_workflow_plan
-from bio_clients import ExternalDataError
-from functional_analysis import (
+from molemo.agent_runtime import local_workflow_plan
+from molemo.bio_clients import ExternalDataError
+from molemo.functional_analysis import (
     FunctionalAnalysisError,
     parse_gene_terms,
     parse_reactome_payload,
     run_functional_analysis,
 )
-from skill_runtime import SkillError, SkillRegistry
-from workflow_runtime import WorkflowManager
+from molemo.skill_runtime import SkillError, SkillRegistry
+from molemo.workflow_runtime import WorkflowManager
 
 
 MAPPING = [
@@ -131,9 +131,9 @@ class FunctionalAnalysisTests(unittest.TestCase):
     def test_approved_analysis_persists_tables_and_provenance(self):
         with tempfile.TemporaryDirectory() as workspace:
             with (
-                patch("functional_analysis.WORKSPACE_ROOT", Path(workspace)),
-                patch("functional_analysis.post_text_json", return_value=REACTOME),
-                patch("functional_analysis.post_form_json_array", side_effect=string_response),
+                patch("molemo.functional_analysis.WORKSPACE_ROOT", Path(workspace)),
+                patch("molemo.functional_analysis.post_text_json", return_value=REACTOME),
+                patch("molemo.functional_analysis.post_form_json_array", side_effect=string_response),
             ):
                 result = run_functional_analysis("TP53, MDM2, ATM, CDKN1A", max_terms=10)
 
@@ -152,9 +152,9 @@ class FunctionalAnalysisTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as storage, tempfile.TemporaryDirectory() as workspace:
             manager = WorkflowManager(Path(storage))
             with (
-                patch("functional_analysis.WORKSPACE_ROOT", Path(workspace)),
-                patch("functional_analysis.post_text_json", return_value=REACTOME),
-                patch("functional_analysis.post_form_json_array", side_effect=string_response),
+                patch("molemo.functional_analysis.WORKSPACE_ROOT", Path(workspace)),
+                patch("molemo.functional_analysis.post_text_json", return_value=REACTOME),
+                patch("molemo.functional_analysis.post_form_json_array", side_effect=string_response),
             ):
                 plan = manager.create_plan(
                     "gene-set-functional-analysis",
@@ -183,9 +183,9 @@ class FunctionalAnalysisTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as workspace:
             with (
-                patch("functional_analysis.WORKSPACE_ROOT", Path(workspace)),
-                patch("functional_analysis.post_text_json", return_value=REACTOME),
-                patch("functional_analysis.post_form_json_array", side_effect=partial_response),
+                patch("molemo.functional_analysis.WORKSPACE_ROOT", Path(workspace)),
+                patch("molemo.functional_analysis.post_text_json", return_value=REACTOME),
+                patch("molemo.functional_analysis.post_form_json_array", side_effect=partial_response),
             ):
                 result = run_functional_analysis("TP53, MDM2, ATM, CDKN1A", max_terms=10)
 

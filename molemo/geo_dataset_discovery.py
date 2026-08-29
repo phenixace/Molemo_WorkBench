@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode, urlparse
 
-from bio_clients import ExternalDataError, get_json
-from workspace_utils import WORKSPACE_ROOT
+from .bio_clients import ExternalDataError, get_json
+from .workspace_utils import WORKSPACE_ROOT
 
 
 EUTILS_ROOT = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"

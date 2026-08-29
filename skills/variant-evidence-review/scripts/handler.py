@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from variant_evidence import preflight_variant_evidence, review_variant_evidence
+from molemo.variant_evidence import preflight_variant_evidence, review_variant_evidence
 
 
 def preflight(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:

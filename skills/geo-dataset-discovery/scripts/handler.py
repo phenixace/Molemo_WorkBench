@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from geo_dataset_discovery import collect_geo_datasets, search_geo_dataset_preview
+from molemo.geo_dataset_discovery import collect_geo_datasets, search_geo_dataset_preview
 
 
 def _arguments(arguments: dict[str, Any], *, default_max_results: int) -> dict[str, Any]:

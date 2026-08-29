@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hmmer_search import preflight_hmmer_profile_search, run_hmmer_profile_search
+from molemo.hmmer_search import preflight_hmmer_profile_search, run_hmmer_profile_search
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:

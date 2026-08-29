@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_runtime import extract_variant_identifier, local_workflow_plan
-from skill_runtime import SkillRegistry
-from variant_evidence import (
+from molemo.agent_runtime import extract_variant_identifier, local_workflow_plan
+from molemo.skill_runtime import SkillRegistry
+from molemo.variant_evidence import (
     VariantEvidenceError,
     normalize_variant_query,
     resolve_variant,
@@ -165,21 +165,21 @@ class VariantEvidenceTests(unittest.TestCase):
             {**CLINVAR_CANDIDATE, "variation_id": "15175", "hgvs_c": "NM_000518.5:c.20A>C"},
             CLINVAR_CANDIDATE,
         ]
-        with patch("variant_evidence._search_clinvar", return_value=candidates):
+        with patch("molemo.variant_evidence._search_clinvar", return_value=candidates):
             with self.assertRaisesRegex(VariantEvidenceError, "allele-ambiguous"):
                 resolve_variant("rs334")
 
     def test_review_preserves_source_lanes_and_persists_outputs(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "variant_evidence._search_clinvar", return_value=[CLINVAR_CANDIDATE]
+            "molemo.variant_evidence._search_clinvar", return_value=[CLINVAR_CANDIDATE]
         ), patch(
-            "variant_evidence._clinvar_summary", return_value=CLINVAR_SUMMARY
+            "molemo.variant_evidence._clinvar_summary", return_value=CLINVAR_SUMMARY
         ), patch(
-            "variant_evidence.get_json_array", return_value=VEP_RESPONSE
+            "molemo.variant_evidence.get_json_array", return_value=VEP_RESPONSE
         ), patch(
-            "variant_evidence.post_json", return_value=GNOMAD_RESPONSE
+            "molemo.variant_evidence.post_json", return_value=GNOMAD_RESPONSE
         ), patch(
-            "variant_evidence.WORKSPACE_ROOT", Path(temporary)
+            "molemo.variant_evidence.WORKSPACE_ROOT", Path(temporary)
         ):
             result = review_variant_evidence("NM_000518.5:c.20A>T")
             files_exist = all((Path(temporary) / path).is_file() for path in result["outputs"].values())

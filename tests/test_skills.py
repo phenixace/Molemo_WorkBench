@@ -1,7 +1,7 @@
 import unittest
 
-from agent_runtime import run_local_agent
-from skill_runtime import SkillError, SkillRegistry
+from molemo.agent_runtime import run_local_agent
+from molemo.skill_runtime import SkillError, SkillRegistry
 
 
 class SkillRegistryTests(unittest.TestCase):

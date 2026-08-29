@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from target_evidence import resolve_target_review_inputs, review_target_evidence
+from molemo.target_evidence import resolve_target_review_inputs, review_target_evidence
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:

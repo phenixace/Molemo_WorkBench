@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch
 
-from agent_runtime import extract_alphafold_accession, extract_pubchem_query, local_intent_tools
-from bio_clients import (
+from molemo.agent_runtime import extract_alphafold_accession, extract_pubchem_query, local_intent_tools
+from molemo.bio_clients import (
     ExternalDataError,
     fetch_alphafold_pae_payload,
     parse_alphafold_predictions,
@@ -10,9 +10,9 @@ from bio_clients import (
     parse_rcsb_payload,
     parse_uniprot_payload,
 )
-from ngs_qc import FastqError, analyze_fastq_text
-from skill_runtime import SkillRegistry, compact_tool_result
-from structure_io import (
+from molemo.ngs_qc import FastqError, analyze_fastq_text
+from molemo.skill_runtime import SkillRegistry, compact_tool_result
+from molemo.structure_io import (
     StructureError,
     build_structure_sample,
     parse_alphafold_pae,
@@ -162,7 +162,7 @@ class PublicDatabaseParsingTests(unittest.TestCase):
 
     def test_alphafold_pae_download_accepts_only_official_versioned_path(self):
         url = "https://alphafold.ebi.ac.uk/files/AF-P04637-F1-predicted_aligned_error_v6.json"
-        with patch("bio_clients.get_json_array", return_value=[{"predicted_aligned_error": [[0]]}]) as get:
+        with patch("molemo.bio_clients.get_json_array", return_value=[{"predicted_aligned_error": [[0]]}]) as get:
             payload = fetch_alphafold_pae_payload(url)
 
         self.assertEqual(payload[0]["predicted_aligned_error"], [[0]])

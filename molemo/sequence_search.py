@@ -11,10 +11,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from workspace_utils import MAX_UPLOAD_BYTES, WORKSPACE_ROOT, WorkspaceError, resolve_workspace_path
+from .workspace_utils import MAX_UPLOAD_BYTES, WORKSPACE_ROOT, WorkspaceError, resolve_workspace_path
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 TOOL_ENV_BIN = ROOT / ".molemo-tools" / "bin"
 FASTA_SUFFIXES = {".fa", ".fasta", ".faa", ".fna"}
 PROTEIN_ALPHABET = set("ABCDEFGHIKLMNPQRSTVWXYZUOJ*")

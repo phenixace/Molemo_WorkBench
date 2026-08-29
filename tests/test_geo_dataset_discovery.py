@@ -5,16 +5,16 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_runtime import extract_geo_dataset_plan, local_intent_tools, local_workflow_plan
-from geo_dataset_discovery import (
+from molemo.agent_runtime import extract_geo_dataset_plan, local_intent_tools, local_workflow_plan
+from molemo.geo_dataset_discovery import (
     GeoDatasetError,
     collect_geo_datasets,
     normalize_geo_dataset_inputs,
     preflight_geo_dataset_discovery,
     search_geo_dataset_preview,
 )
-from skill_runtime import SkillRegistry, compact_tool_result
-from workflow_runtime import WorkflowManager
+from molemo.skill_runtime import SkillRegistry, compact_tool_result
+from molemo.workflow_runtime import WorkflowManager
 
 
 SEARCH_PAYLOAD = {
@@ -128,7 +128,7 @@ class GeoDatasetDiscoveryTests(unittest.TestCase):
             normalize_geo_dataset_inputs("asthma sort:date")
 
     def test_preview_preserves_source_order_and_caps_sample_examples(self):
-        with patch("geo_dataset_discovery.get_json", side_effect=[SEARCH_PAYLOAD, SUMMARY_PAYLOAD]):
+        with patch("molemo.geo_dataset_discovery.get_json", side_effect=[SEARCH_PAYLOAD, SUMMARY_PAYLOAD]):
             result = search_geo_dataset_preview(
                 query="asthma",
                 organism="Homo sapiens",
@@ -146,7 +146,7 @@ class GeoDatasetDiscoveryTests(unittest.TestCase):
         self.assertNotIn("samples", result["datasets"][0])
 
     def test_preflight_uses_count_only_and_records_query_translation(self):
-        with patch("geo_dataset_discovery.get_json", return_value=SEARCH_PAYLOAD) as mocked:
+        with patch("molemo.geo_dataset_discovery.get_json", return_value=SEARCH_PAYLOAD) as mocked:
             result = preflight_geo_dataset_discovery(query="asthma", max_results=12)
 
         self.assertEqual(result["hit_count"], 221)
@@ -155,8 +155,8 @@ class GeoDatasetDiscoveryTests(unittest.TestCase):
 
     def test_approved_collection_persists_manifest_and_tables(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "geo_dataset_discovery.get_json", side_effect=[SEARCH_PAYLOAD, SUMMARY_PAYLOAD]
-        ), patch("geo_dataset_discovery.WORKSPACE_ROOT", Path(temporary)):
+            "molemo.geo_dataset_discovery.get_json", side_effect=[SEARCH_PAYLOAD, SUMMARY_PAYLOAD]
+        ), patch("molemo.geo_dataset_discovery.WORKSPACE_ROOT", Path(temporary)):
             result = collect_geo_datasets(query="asthma", assay_scope="rna_seq", max_results=12)
 
             root = Path(temporary) / result["output_root"]
@@ -191,7 +191,7 @@ class GeoDatasetDiscoveryTests(unittest.TestCase):
             "hit_count": 221,
         }
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "workflow_runtime.preflight_geo_dataset_discovery", return_value=preflight
+            "molemo.workflow_runtime.preflight_geo_dataset_discovery", return_value=preflight
         ):
             manager = WorkflowManager(Path(temporary))
             run = manager.create_plan(
@@ -212,7 +212,7 @@ class GeoDatasetDiscoveryTests(unittest.TestCase):
         self.assertEqual(registry.calls[0][0], "geo_dataset_collect")
 
     def test_model_compaction_keeps_dataset_identifiers_without_full_samples(self):
-        with patch("geo_dataset_discovery.get_json", side_effect=[SEARCH_PAYLOAD, SUMMARY_PAYLOAD]):
+        with patch("molemo.geo_dataset_discovery.get_json", side_effect=[SEARCH_PAYLOAD, SUMMARY_PAYLOAD]):
             data = search_geo_dataset_preview(query="asthma", max_results=8)
         result = {
             "ok": True,

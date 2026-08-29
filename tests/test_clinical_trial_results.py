@@ -4,16 +4,16 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_runtime import extract_clinical_results_plan, local_workflow_plan
-from clinical_trial_results import (
+from molemo.agent_runtime import extract_clinical_results_plan, local_workflow_plan
+from molemo.clinical_trial_results import (
     ClinicalTrialResultsError,
     normalize_nct_id,
     parse_clinical_trial_results,
     preflight_clinical_trial_results,
     review_clinical_trial_results,
 )
-from skill_runtime import SkillRegistry
-from workflow_runtime import WorkflowManager
+from molemo.skill_runtime import SkillRegistry
+from molemo.workflow_runtime import WorkflowManager
 
 
 GROUPS = [
@@ -248,7 +248,7 @@ class ClinicalTrialResultsTests(unittest.TestCase):
         self.assertEqual(normalize_nct_id("nct02414854"), "NCT02414854")
         with self.assertRaises(ClinicalTrialResultsError):
             normalize_nct_id("NCT123")
-        with patch("clinical_trial_results.get_json", return_value={"protocolSection": {}, "hasResults": False}):
+        with patch("molemo.clinical_trial_results.get_json", return_value={"protocolSection": {}, "hasResults": False}):
             with self.assertRaises(ClinicalTrialResultsError):
                 preflight_clinical_trial_results("NCT02414854")
 
@@ -270,8 +270,8 @@ class ClinicalTrialResultsTests(unittest.TestCase):
 
     def test_approved_review_atomically_persists_all_audit_files(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "clinical_trial_results.get_json", return_value=CLINICAL_RESULTS_PAYLOAD
-        ), patch("clinical_trial_results.WORKSPACE_ROOT", Path(temporary)):
+            "molemo.clinical_trial_results.get_json", return_value=CLINICAL_RESULTS_PAYLOAD
+        ), patch("molemo.clinical_trial_results.WORKSPACE_ROOT", Path(temporary)):
             result = review_clinical_trial_results("NCT02414854")
             outputs = [Path(temporary) / path for path in result["outputs"].values()]
             files_exist = all(path.is_file() for path in outputs)
@@ -304,7 +304,7 @@ class ClinicalTrialResultsTests(unittest.TestCase):
         }
         registry = RecordingRegistry()
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "workflow_runtime.preflight_clinical_trial_results", return_value=preflight
+            "molemo.workflow_runtime.preflight_clinical_trial_results", return_value=preflight
         ):
             manager = WorkflowManager(Path(temporary))
             run = manager.create_plan(

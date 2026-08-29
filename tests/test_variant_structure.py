@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from skill_runtime import SkillRegistry, compact_tool_result
-from structure_io import parse_structure_atoms, parse_structure_text
-from variant_structure import (
+from molemo.skill_runtime import SkillRegistry, compact_tool_result
+from molemo.structure_io import parse_structure_atoms, parse_structure_text
+from molemo.variant_structure import (
     VariantStructureError,
     analyze_variant_contacts,
     collect_variant_structure,
@@ -97,8 +97,8 @@ class VariantStructureTests(unittest.TestCase):
         with self.assertRaises(VariantStructureError):
             normalize_variant_structure_inputs("6OIM", "A", "G12G", 4.5)
 
-    @patch("variant_structure.fetch_rcsb_pdb_text", return_value=PDB_TEXT)
-    @patch("variant_structure.lookup_rcsb_entry", return_value=RCSB_METADATA)
+    @patch("molemo.variant_structure.fetch_rcsb_pdb_text", return_value=PDB_TEXT)
+    @patch("molemo.variant_structure.lookup_rcsb_entry", return_value=RCSB_METADATA)
     def test_preflight_returns_viewer_and_compact_model_context(self, _metadata, _coordinates):
         result = preflight_variant_structure(pdb_id="6OIM", chain="A", variant="G12C")
         self.assertTrue(result["ready"])
@@ -115,11 +115,11 @@ class VariantStructureTests(unittest.TestCase):
         self.assertNotIn("sample", payload["data"])
         self.assertEqual(payload["data"]["site"]["hetero_contacts"][0]["residue"], "MOV")
 
-    @patch("variant_structure.fetch_rcsb_pdb_text", return_value=PDB_TEXT)
-    @patch("variant_structure.lookup_rcsb_entry", return_value=RCSB_METADATA)
+    @patch("molemo.variant_structure.fetch_rcsb_pdb_text", return_value=PDB_TEXT)
+    @patch("molemo.variant_structure.lookup_rcsb_entry", return_value=RCSB_METADATA)
     def test_approved_review_persists_bounded_outputs(self, _metadata, _coordinates):
         with tempfile.TemporaryDirectory() as directory, patch(
-            "variant_structure.WORKSPACE_ROOT", Path(directory)
+            "molemo.variant_structure.WORKSPACE_ROOT", Path(directory)
         ):
             result = collect_variant_structure(pdb_id="6OIM", chain="A", variant="G12C")
             output_root = Path(directory) / result["output_root"]

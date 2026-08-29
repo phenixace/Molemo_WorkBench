@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bio_clients import (
+from molemo.bio_clients import (
     ExternalDataError,
     fetch_alphafold_pae_payload,
     fetch_alphafold_pdb_text,
@@ -13,14 +13,14 @@ from bio_clients import (
     lookup_rcsb_entry,
     normalize_pdb_id,
 )
-from structure_io import (
+from molemo.structure_io import (
     StructureError,
     build_structure_sample,
     parse_alphafold_pae,
     parse_structure_text,
     summarize_plddt,
 )
-from workspace_utils import resolve_workspace_path
+from molemo.workspace_utils import resolve_workspace_path
 
 
 MAX_LOCAL_STRUCTURE_BYTES = 24 * 1024 * 1024

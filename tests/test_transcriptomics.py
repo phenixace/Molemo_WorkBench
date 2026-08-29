@@ -3,15 +3,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agent_runtime import local_workflow_plan
-from skill_runtime import SkillError, SkillRegistry
-from transcriptomics import (
+from molemo.agent_runtime import local_workflow_plan
+from molemo.skill_runtime import SkillError, SkillRegistry
+from molemo.transcriptomics import (
     TranscriptomicsError,
     preflight_bulk_rnaseq,
     transcriptomics_toolchain_status,
 )
-from workflow_runtime import WorkflowManager
-from workspace_utils import WORKSPACE_ROOT, resolve_workspace_path
+from molemo.workflow_runtime import WorkflowManager
+from molemo.workspace_utils import WORKSPACE_ROOT, resolve_workspace_path
 
 
 COUNTS = "examples/rnaseq_counts.csv"

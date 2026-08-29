@@ -4,6 +4,7 @@ __pycache__/
 .env
 reports/
 .molemo-tools/
+.molemo-ngs-tools/
 workspace/*
 !workspace/.gitkeep
 !workspace/examples/

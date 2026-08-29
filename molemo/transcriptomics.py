@@ -17,10 +17,10 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from workspace_utils import MAX_UPLOAD_BYTES, WORKSPACE_ROOT, WorkspaceError, resolve_workspace_path
+from .workspace_utils import MAX_UPLOAD_BYTES, WORKSPACE_ROOT, WorkspaceError, resolve_workspace_path
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 RUNNER_PATH = ROOT / "tools" / "run_pydeseq2.py"
 PROJECT_RNASEQ_PYTHON = ROOT / ".molemo-tools" / "rnaseq" / "bin" / "python"
 PROJECT_TOOLS_PYTHON = ROOT / ".molemo-tools" / "bin" / "python"

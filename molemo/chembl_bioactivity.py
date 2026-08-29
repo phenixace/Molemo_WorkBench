@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
-from bio_clients import ExternalDataError, get_json, normalize_uniprot_accession
-from workspace_utils import WORKSPACE_ROOT
+from .bio_clients import ExternalDataError, get_json, normalize_uniprot_accession
+from .workspace_utils import WORKSPACE_ROOT
 
 
 CHEMBL_API = "https://www.ebi.ac.uk/chembl/api/data"

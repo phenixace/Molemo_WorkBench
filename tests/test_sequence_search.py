@@ -2,10 +2,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agent_runtime import local_workflow_plan
-from sequence_search import SequenceSearchError, find_executable, parse_blast_json, run_local_blast
-from skill_runtime import SkillError, SkillRegistry
-from workflow_runtime import WorkflowError, WorkflowManager
+from molemo.agent_runtime import local_workflow_plan
+from molemo.sequence_search import SequenceSearchError, find_executable, parse_blast_json, run_local_blast
+from molemo.skill_runtime import SkillError, SkillRegistry
+from molemo.workflow_runtime import WorkflowError, WorkflowManager
 
 
 BLAST_JSON = {

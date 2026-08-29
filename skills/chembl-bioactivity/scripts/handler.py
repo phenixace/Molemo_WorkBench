@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from chembl_bioactivity import collect_chembl_bioactivity, preflight_chembl_bioactivity
+from molemo.chembl_bioactivity import collect_chembl_bioactivity, preflight_chembl_bioactivity
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:

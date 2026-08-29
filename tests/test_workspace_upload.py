@@ -1,6 +1,6 @@
 import unittest
 
-from workspace_utils import WorkspaceError, WORKSPACE_ROOT, write_workspace_file
+from molemo.workspace_utils import WorkspaceError, WORKSPACE_ROOT, write_workspace_file
 
 
 class WorkspaceUploadTests(unittest.TestCase):

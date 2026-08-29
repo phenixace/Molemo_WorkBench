@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_runtime import extract_chembl_bioactivity_plan, local_workflow_plan
-from chembl_bioactivity import (
+from molemo.agent_runtime import extract_chembl_bioactivity_plan, local_workflow_plan
+from molemo.chembl_bioactivity import (
     ChemblBioactivityError,
     collect_chembl_bioactivity,
     normalize_chembl_inputs,
@@ -13,8 +13,8 @@ from chembl_bioactivity import (
     parse_chembl_target,
     summarize_chembl_compounds,
 )
-from skill_runtime import SkillRegistry, compact_tool_result
-from workflow_runtime import WorkflowManager
+from molemo.skill_runtime import SkillRegistry, compact_tool_result
+from molemo.workflow_runtime import WorkflowManager
 
 
 TARGET_PAYLOAD = {
@@ -205,8 +205,8 @@ class ChemblBioactivityTests(unittest.TestCase):
             }[resource]
 
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "chembl_bioactivity._request", side_effect=fake_request
-        ), patch("chembl_bioactivity.WORKSPACE_ROOT", Path(temporary)):
+            "molemo.chembl_bioactivity._request", side_effect=fake_request
+        ), patch("molemo.chembl_bioactivity.WORKSPACE_ROOT", Path(temporary)):
             result = collect_chembl_bioactivity(
                 accession="P00533",
                 assay_scope="binding_functional",
@@ -287,7 +287,7 @@ class ChemblBioactivityTests(unittest.TestCase):
         }
         registry = RecordingRegistry()
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "workflow_runtime.preflight_chembl_bioactivity", return_value=preflight
+            "molemo.workflow_runtime.preflight_chembl_bioactivity", return_value=preflight
         ):
             manager = WorkflowManager(Path(temporary))
             run = manager.create_plan(

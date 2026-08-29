@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from single_cell import preflight_single_cell, run_single_cell_analysis
+from molemo.single_cell import preflight_single_cell, run_single_cell_analysis
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:

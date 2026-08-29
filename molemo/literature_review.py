@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode
 
-from bio_clients import ExternalDataError, get_json
-from workspace_utils import WORKSPACE_ROOT
+from .bio_clients import ExternalDataError, get_json
+from .workspace_utils import WORKSPACE_ROOT
 
 
 EUROPE_PMC_API = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"

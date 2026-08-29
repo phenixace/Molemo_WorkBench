@@ -39,6 +39,249 @@ const VIEWER_PRESETS = {
   },
 };
 
+const LANGUAGE_STORAGE_KEY = "molemo-language";
+
+const UI_TEXT = {
+  "zh-CN": {
+    newAnalysis: "新建分析",
+    data: "数据",
+    resetWorkspace: "重置工作区",
+    import: "导入",
+    localFiles: "本地文件",
+    chooseFiles: "选择 FASTA、H5AD/10x、HMM、PDB、FASTQ、VCF 或表格",
+    importWorkspace: "导入本地工作区",
+    toolCalls: "工具调用",
+    candidateDesigns: "候选设计",
+    loadedSkills: "已加载 Skills",
+    currentMode: "当前模式",
+    viewMode: "视图模式",
+    structure: "结构",
+    design: "设计",
+    risk: "风险",
+    language: "语言",
+    model: "模型",
+    modelSettings: "模型设置",
+    export: "导出",
+    run: "运行",
+    site: "位点",
+    global: "全局",
+    structureScope: "结构范围",
+    predictionEvidence: "预测结构证据视图",
+    viewerStyle: "分子显示风格",
+    toggleMotion: "暂停或继续旋转",
+    toggleLabels: "显示或隐藏标签",
+    zoomIn: "放大",
+    zoomOut: "缩小",
+    structureCanvas: "分子与蛋白质结构可视化",
+    currentSelection: "当前选择",
+    source: "来源",
+    inspector: "检查器",
+    results: "结果",
+    tools: "工具",
+    structureNotes: "结构注释",
+    conversation: "对话",
+    agentConsole: "自然语言 Agent",
+    connecting: "连接中",
+    questionPlaceholder: "提出一个生命科学问题…",
+    send: "发送",
+    connectLlm: "连接第三方 LLM",
+    close: "关闭",
+    enableOwnApi: "启用自带 OpenAI-compatible API",
+    keyMemoryOnly: "仅保存在本页内存中",
+    groundedMode: "Grounded chat（兼容不支持 tools 的模型）",
+    apiNote: "Key 仅经本地服务转发给所选 provider，不写入文件。Native 模式允许模型选择 skills；Grounded 模式先在本地计算当前结构，再把必要结果发给模型。",
+    cancel: "取消",
+    save: "保存",
+    createAnalysisPlan: "制定分析计划",
+    workflow: "工作流",
+    approvalNote: "计划创建后不会自动执行；请在“运行”页审阅并批准。",
+    createPendingPlan: "创建待审批计划",
+    workspaceReady: "研究工作区已就绪。",
+    workspaceReset: "工作区已重置。",
+    sampleLoaded: "已加载 {name}。",
+    providerEnabledMessage: "第三方模型已启用；下一次命令将由本地 Agent 调度 skills，并把必要上下文转发给该 provider。",
+    localRuntimeMessage: "已切回本地 skill runtime。",
+    noToolCallsTitle: "运行记录",
+    noToolCalls: "尚无工具调用。",
+    noArtifactsTitle: "暂无结果",
+    noArtifacts: "结构、序列比对和性质图会作为可检查产物显示在这里。",
+    openStructureView: "在结构视图打开",
+    openSequenceView: "在序列视图打开",
+    officialRecord: "官方记录",
+    openOfficialRecord: "打开官方记录",
+    similarityCaution: "相似性命中是相关性证据，不单独证明共享功能或生物活性。",
+    localServiceDisconnected: "本地服务未连接。",
+    analysisPlans: "分析计划",
+    noRuns: "尚无运行。",
+    approveAndRun: "批准并运行",
+    preflightReady: "预检已就绪",
+    inputsValidated: "输入已验证。",
+    statusPendingApproval: "待审批",
+    statusPending: "等待",
+    statusRunning: "运行中",
+    statusCompleted: "已完成",
+    statusFailed: "失败",
+    statusSkipped: "跳过",
+    statusCancelled: "已取消",
+    files: "{count} 个文件",
+    readWorkspaceFile: "读取 workspace 文件 {path}，判断内容并建议下一步分析",
+    noCandidatesTitle: "候选设计",
+    noCandidates: "尚无候选。",
+    localScientificRuntime: "本地 scientific skill runtime",
+    providerEnabled: "Provider 已启用",
+    localOnly: "仅本地",
+    workflowCatalogUnavailable: "本地工作流目录尚未加载。",
+    localAgentReady: "{count} skills · 本地 Agent 就绪",
+    localServiceStopped: "本地服务未启动",
+    riskPrompt: "总结当前结构的主要风险和下一步验证",
+  },
+  en: {
+    newAnalysis: "New analysis",
+    data: "Data",
+    resetWorkspace: "Reset workspace",
+    import: "Import",
+    localFiles: "Local files",
+    chooseFiles: "Choose FASTA, H5AD/10x, HMM, PDB, FASTQ, VCF, or tabular data",
+    importWorkspace: "Import to workspace",
+    toolCalls: "Tool calls",
+    candidateDesigns: "Candidate designs",
+    loadedSkills: "Loaded skills",
+    currentMode: "Current mode",
+    viewMode: "View mode",
+    structure: "Structure",
+    design: "Design",
+    risk: "Risk",
+    language: "Language",
+    model: "Model",
+    modelSettings: "Model settings",
+    export: "Export",
+    run: "Run",
+    site: "Site",
+    global: "Global",
+    structureScope: "Structure scope",
+    predictionEvidence: "Predicted structure evidence",
+    viewerStyle: "Molecular display style",
+    toggleMotion: "Pause or resume rotation",
+    toggleLabels: "Show or hide labels",
+    zoomIn: "Zoom in",
+    zoomOut: "Zoom out",
+    structureCanvas: "Molecule and protein structure visualization",
+    currentSelection: "Current selection",
+    source: "Source",
+    inspector: "Inspector",
+    results: "Results",
+    tools: "Tools",
+    structureNotes: "Structure notes",
+    conversation: "Conversation",
+    agentConsole: "Natural-language Agent",
+    connecting: "Connecting",
+    questionPlaceholder: "Ask a life-science question...",
+    send: "Send",
+    connectLlm: "Connect a third-party LLM",
+    close: "Close",
+    enableOwnApi: "Use your own OpenAI-compatible API",
+    keyMemoryOnly: "Kept in this page's memory only",
+    groundedMode: "Grounded chat (for models without tool calling)",
+    apiNote: "The key is forwarded only by the local service to the selected provider and is never written to disk. Native mode lets the model select skills; Grounded mode computes locally before sending the required results to the model.",
+    cancel: "Cancel",
+    save: "Save",
+    createAnalysisPlan: "Create analysis plan",
+    workflow: "Workflow",
+    approvalNote: "Creating a plan does not run it. Review and approve it on the Run tab.",
+    createPendingPlan: "Create plan for approval",
+    workspaceReady: "Research workspace is ready.",
+    workspaceReset: "Workspace reset.",
+    sampleLoaded: "Loaded {name}.",
+    providerEnabledMessage: "The third-party model is enabled. The local Agent will orchestrate skills and forward only the required context on the next command.",
+    localRuntimeMessage: "Switched back to the local skill runtime.",
+    noToolCallsTitle: "Run history",
+    noToolCalls: "No tool calls yet.",
+    noArtifactsTitle: "No results yet",
+    noArtifacts: "Inspectable structure, alignment, and property artifacts will appear here.",
+    openStructureView: "Open in structure view",
+    openSequenceView: "Open in sequence view",
+    officialRecord: "Official record",
+    openOfficialRecord: "Open official record",
+    similarityCaution: "Similarity hits support relatedness, but do not by themselves prove shared function or activity.",
+    localServiceDisconnected: "Local service is not connected.",
+    analysisPlans: "Analysis plans",
+    noRuns: "No runs yet.",
+    approveAndRun: "Approve and run",
+    preflightReady: "Preflight ready",
+    inputsValidated: "Inputs validated.",
+    statusPendingApproval: "Pending approval",
+    statusPending: "Pending",
+    statusRunning: "Running",
+    statusCompleted: "Completed",
+    statusFailed: "Failed",
+    statusSkipped: "Skipped",
+    statusCancelled: "Cancelled",
+    files: "{count} files",
+    readWorkspaceFile: "Read workspace file {path}, identify its contents, and suggest the next analysis",
+    noCandidatesTitle: "Candidate designs",
+    noCandidates: "No candidates yet.",
+    localScientificRuntime: "Local scientific skill runtime",
+    providerEnabled: "Provider enabled",
+    localOnly: "Local only",
+    workflowCatalogUnavailable: "The local workflow catalog has not loaded.",
+    localAgentReady: "{count} skills · local Agent ready",
+    localServiceStopped: "Local service is not running",
+    riskPrompt: "Summarize the main structural risks and the next validation steps",
+  },
+};
+
+const WORKFLOW_TEXT_EN = {
+  "molecule-profile": ["Molecule property profile", "Parse SMILES, calculate molecular descriptors, and generate a property chart."],
+  "protein-sequence-review": ["Protein sequence review", "Calculate sequence properties and generate a residue-level hydropathy track."],
+  "protein-structure-review": ["Protein structure review", "Load an RCSB experimental structure, AlphaFold DB prediction, or local atomic coordinates."],
+  "protein-variant-structure-review": ["Protein variant structure site", "Locate a protein substitution in an experimental structure and review nearby residues and heteroatom groups."],
+  "fastq-qc-review": ["FASTQ quality review", "Stream reads to calculate quality, GC, N, and per-cycle metrics."],
+  "bulk-rnaseq-differential-expression": ["Bulk RNA-seq differential expression", "Preflight a raw count matrix and sample design, then run PyDESeq2 after approval."],
+  "single-cell-exploratory-analysis": ["Single-cell RNA-seq exploration", "Preflight CSV/TSV, AnnData, or 10x raw counts, then run Scanpy QC, optional Scrublet, UMAP, Leiden, and marker ranking."],
+  "gene-set-functional-analysis": ["Human gene-set functional analysis", "Confirm human gene mappings, then run Reactome enrichment and a STRING functional network after approval."],
+  "target-evidence-review": ["Target evidence comparison", "Resolve a disease and candidate targets, then compare Open Targets genetic, clinical, expression, and literature evidence."],
+  "target-ligand-bioactivity-review": ["Target-ligand bioactivity review", "Collect ChEMBL small-molecule activity for an exact UniProt target while retaining assay, endpoint, and publication context."],
+  "literature-evidence-review": ["Literature evidence review", "Collect Europe PMC metadata and abstracts with an explicit query to build a traceable evidence map."],
+  "public-omics-dataset-discovery": ["Public omics dataset discovery", "Find NCBI GEO Series with an explicit query and review design, sample size, assay type, and available data."],
+  "geo-series-matrix-import": ["GEO Series Matrix import", "Preflight an official Series Matrix for an exact GSE, then import expression values, sample annotations, and structural QC."],
+  "variant-evidence-review": ["Human variant evidence review", "Resolve one simple variant, then organize ClinVar, Ensembl VEP, and gnomAD v4 evidence after approval."],
+  "clinical-trial-landscape-review": ["Clinical trial landscape", "Search ClinicalTrials.gov with explicit condition, intervention, and status filters to build a traceable translational landscape."],
+  "clinical-trial-results-review": ["Clinical trial results review", "Preflight an exact NCT record, then organize posted participant flow, baseline, outcomes, and adverse events."],
+  "vcf-cohort-review": ["Multi-sample VCF review", "Preflight a workspace VCF and sample metadata, then summarize variants, low-frequency calls, sample QC, and longitudinal trajectories."],
+  "protein-family-conservation-review": ["Protein family site conservation", "Preflight a protein FASTA and exact reference site, then run MAFFT and review site conservation."],
+  "pairwise-alignment-review": ["Pairwise sequence alignment", "Run a global protein sequence alignment and return an inspectable result."],
+  "sequence-similarity-search": ["Local sequence similarity search", "Use NCBI BLAST+ to search a workspace FASTA database for related protein or nucleotide sequences."],
+  "hmmer-profile-search": ["HMMER protein family search", "Preflight a local amino-acid profile HMM and protein FASTA, then run hmmsearch and organize domain coordinates."],
+  "database-record-review": ["Public database record", "Retrieve a PubChem compound or UniProtKB protein record."],
+};
+
+const WORKFLOW_OPTION_EN = {
+  "本地 workspace": "Local workspace",
+  "不运行": "Do not run",
+  "运行并保留预测细胞": "Run and retain predicted cells",
+  "保留，仅标记": "Retain and flag",
+  "批准后排除": "Exclude after approval",
+  "排除": "Exclude",
+  "包含": "Include",
+  "仅当前疾病": "Current disease only",
+  "包含 ontology descendants": "Include ontology descendants",
+  "排除预印本": "Exclude preprints",
+  "包含预印本": "Include preprints",
+  "仅保留有摘要记录": "Require an abstract",
+  "允许无摘要记录": "Allow records without abstracts",
+  "单细胞 RNA-seq": "Single-cell RNA-seq",
+  "表达芯片": "Expression microarray",
+  "甲基化": "Methylation",
+  "全部 GEO Series": "All GEO Series",
+  "全部状态": "All statuses",
+  "活跃 / 招募相关": "Active / recruiting-related",
+  "已完成": "Completed",
+  "干预性研究": "Interventional studies",
+  "全部研究": "All studies",
+  "仅 PASS / 未过滤": "PASS / unfiltered only",
+  "包含非 PASS": "Include non-PASS records",
+};
+
 const SAMPLES = [
   {
     id: "aspirin",
@@ -50,6 +293,8 @@ const SAMPLES = [
     smiles: "CC(=O)OC1=CC=CC=C1C(=O)O",
     notes:
       "乙酰水杨酸包含芳香环、酯键与羧酸；Agent 可围绕这个抗炎 lead scaffold 组织性质分析、风险判断和类似物设计。",
+    notesEn:
+      "Acetylsalicylic acid combines an aromatic ring, ester, and carboxylic acid. The Agent can organize property review, risk assessment, and analogue design around this anti-inflammatory scaffold.",
     selection: "Aspirin · anti-inflammatory scaffold",
     confidence: "curated example",
     properties: {
@@ -98,6 +343,11 @@ const SAMPLES = [
       "优化这个分子的水溶性并解释风险",
       "给我 3 个可合成的类似物方向",
     ],
+    promptsEn: [
+      "Explain this molecule's drug-like properties",
+      "Improve its aqueous solubility and explain the risks",
+      "Propose three synthetically tractable analogue directions",
+    ],
   },
   {
     id: "caffeine",
@@ -109,6 +359,8 @@ const SAMPLES = [
     smiles: "CN1C=NC2=C1C(=O)N(C)C(=O)N2C",
     notes:
       "咖啡因展示含氮杂环和两个羰基，适合演示自然语言问答、官能团识别和性质解释。",
+    notesEn:
+      "Caffeine illustrates a nitrogen-rich fused heterocycle with two carbonyls, useful for natural-language interrogation, functional-group review, and property interpretation.",
     selection: "Caffeine · xanthine alkaloid",
     confidence: "curated example",
     properties: {
@@ -161,6 +413,11 @@ const SAMPLES = [
       "解释它为什么容易穿过血脑屏障",
       "设计一个降低 CNS 暴露的类似物",
     ],
+    promptsEn: [
+      "Identify caffeine's key functional groups",
+      "Explain why it readily crosses the blood-brain barrier",
+      "Design an analogue with lower CNS exposure",
+    ],
   },
   {
     id: "trpcage",
@@ -172,6 +429,8 @@ const SAMPLES = [
     sequence: "NLYIQWLKDGGPSSGRPPPS",
     notes:
       "Trp-cage 是小型折叠蛋白示例，可用于检查螺旋、转角、疏水核心和自然语言突变建议。",
+    notesEn:
+      "Trp-cage is a compact folding example for inspecting helices, turns, the hydrophobic core, and natural-language mutation proposals.",
     selection: "Trp-cage · compact folding motif",
     confidence: "sequence heuristic",
     properties: {
@@ -187,6 +446,11 @@ const SAMPLES = [
       "建议 3 个提高热稳定性的突变",
       "解释疏水核心和表面电荷分布",
     ],
+    promptsEn: [
+      "Find stability hotspots in this mini-protein",
+      "Suggest three mutations to improve thermal stability",
+      "Explain the hydrophobic core and surface charge distribution",
+    ],
   },
   {
     id: "binder",
@@ -198,6 +462,8 @@ const SAMPLES = [
     sequence: "EQLRAELAAKYEELARKGVPDAAQKAFDEAMKQLSEKGLDVLKQKNAEELKKQGIDAL",
     notes:
       "这个概念蛋白用于演示 LLM Agent 如何把自然语言目标转成界面设计、突变组合与实验验证计划。",
+    notesEn:
+      "This concept protein shows how an LLM Agent can turn a natural-language objective into interface designs, mutation sets, and an experimental validation plan.",
     selection: "De novo binder · alpha-rich interface",
     confidence: "generated scaffold heuristic",
     properties: {
@@ -213,10 +479,16 @@ const SAMPLES = [
       "生成一份实验验证计划",
       "降低聚集风险并保留结合界面",
     ],
+    promptsEn: [
+      "Design interface mutations for this binder",
+      "Generate an experimental validation plan",
+      "Reduce aggregation risk while retaining the binding interface",
+    ],
   },
 ];
 
 const state = {
+  language: initialLanguage(),
   activeId: "aspirin",
   activeMode: "structure",
   activeTab: "properties",
@@ -237,6 +509,11 @@ const state = {
   workflowRuns: [],
   workspaceFiles: [],
   chat: [],
+  localService: {
+    loaded: false,
+    connected: false,
+    skillCount: 0,
+  },
   runtime: {
     useApi: false,
     endpoint: "",
@@ -260,14 +537,102 @@ const paeCanvasCache = new WeakMap();
 
 document.addEventListener("DOMContentLoaded", () => {
   bindElements();
+  applyStaticTranslations();
   renderSampleList();
   selectSample("aspirin", { silent: true });
   bindEvents();
   resizeCanvas();
   requestAnimationFrame(drawLoop);
   loadWorkbenchMetadata();
-  addSystemMessage("研究工作区已就绪。");
+  addUiMessage("workspaceReady");
 });
+
+function initialLanguage() {
+  const saved = window.localStorage?.getItem(LANGUAGE_STORAGE_KEY);
+  if (saved === "en" || saved === "zh-CN") return saved;
+  return String(window.navigator?.language || "").toLowerCase().startsWith("zh") ? "zh-CN" : "en";
+}
+
+function ui(key, values = {}) {
+  const dictionary = UI_TEXT[state.language] || UI_TEXT.en;
+  const fallback = UI_TEXT.en[key] || key;
+  return String(dictionary[key] || fallback).replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? `{${name}}`));
+}
+
+function localized(zh, en) {
+  return state.language === "en" ? en : zh;
+}
+
+function localizedSampleValue(sample, key) {
+  if (state.language === "en" && sample[`${key}En`] !== undefined) return sample[`${key}En`];
+  return sample[key];
+}
+
+function localizedPrompts(sample) {
+  return state.language === "en" && sample.promptsEn?.length ? sample.promptsEn : sample.prompts || [];
+}
+
+function workflowText(template, index) {
+  if (state.language === "en") return WORKFLOW_TEXT_EN[template.id]?.[index] || template[index === 0 ? "title" : "description"] || "";
+  return template[index === 0 ? "title" : "description"] || "";
+}
+
+function workflowRunText(run, index) {
+  if (state.language === "en" && WORKFLOW_TEXT_EN[run.template_id]) return WORKFLOW_TEXT_EN[run.template_id][index];
+  return index === 0 ? run.title || "Guided workflow" : run.objective || run.description || "";
+}
+
+function containsHan(value) {
+  return /[\u3400-\u9fff]/.test(String(value || ""));
+}
+
+function humanize(value) {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function localizedWorkflowField(field) {
+  if (state.language !== "en" || !containsHan(field.label)) return field.label || humanize(field.name);
+  return humanize(field.name);
+}
+
+function localizedWorkflowOption(option) {
+  if (state.language !== "en" || !containsHan(option.label)) return option.label;
+  return WORKFLOW_OPTION_EN[option.label] || humanize(option.value);
+}
+
+function applyStaticTranslations() {
+  document.documentElement.lang = state.language;
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = ui(element.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+    element.title = ui(element.dataset.i18nTitle);
+  });
+  document.querySelectorAll("[data-i18n-aria]").forEach((element) => {
+    element.setAttribute("aria-label", ui(element.dataset.i18nAria));
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    element.placeholder = ui(element.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll("[data-language]").forEach((button) => {
+    const active = button.dataset.language === state.language;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function setLanguage(language) {
+  if (!UI_TEXT[language] || language === state.language) return;
+  state.language = language;
+  window.localStorage?.setItem(LANGUAGE_STORAGE_KEY, language);
+  applyStaticTranslations();
+  renderSampleList();
+  state.candidates = initialCandidates(getActiveSample());
+  renderAll();
+  if (els.workflowDialog?.open) openWorkflowDialog();
+}
 
 function bindElements() {
   [
@@ -350,7 +715,7 @@ function bindEvents() {
 
   els.runDefaultPrompt.addEventListener("click", () => {
     const sample = getActiveSample();
-    runAgent(sample.prompts[0]);
+    runAgent(localizedPrompts(sample)[0]);
   });
 
   els.resetWorkspace.addEventListener("click", () => {
@@ -359,7 +724,7 @@ function bindEvents() {
     state.artifacts = [];
     state.chat = [];
     selectSample("aspirin", { silent: true });
-    addSystemMessage("工作区已重置。");
+    addUiMessage("workspaceReset");
     renderAll();
   });
 
@@ -411,8 +776,12 @@ function bindEvents() {
       renderSegments();
       renderDesigns();
       if (button.dataset.mode === "design") switchTab("designs");
-      if (button.dataset.mode === "risk") runAgent("总结当前结构的主要风险和下一步验证");
+      if (button.dataset.mode === "risk") runAgent(ui("riskPrompt"));
     });
+  });
+
+  document.querySelectorAll("[data-language]").forEach((button) => {
+    button.addEventListener("click", () => setLanguage(button.dataset.language));
   });
 
   document.querySelectorAll(".viewer-style").forEach((button) => {
@@ -466,11 +835,7 @@ function bindEvents() {
     state.runtime.toolMode = els.toolMode.value;
     els.settingsDialog.close();
     renderRuntime();
-    addSystemMessage(
-      state.runtime.useApi
-        ? "第三方模型已启用；下一次命令将由本地 Agent 调度 skills，并把必要上下文转发给该 provider。"
-        : "已切回本地 skill runtime。",
-    );
+    addUiMessage(state.runtime.useApi ? "providerEnabledMessage" : "localRuntimeMessage");
   });
 
   els.planWorkflow.addEventListener("click", openWorkflowDialog);
@@ -536,7 +901,7 @@ function renderSampleList() {
       <span class="sample-icon">${sample.type === "protein" ? "P" : "M"}</span>
       <span class="sample-main">
         <strong>${escapeHtml(sample.shortName)}</strong>
-        <span>${escapeHtml(sample.subtitle)}</span>
+        <span>${escapeHtml(localizedSampleValue(sample, "subtitle"))}</span>
       </span>
     `;
     button.addEventListener("click", () => selectSample(sample.id));
@@ -555,7 +920,7 @@ function selectSample(id, options = {}) {
   state.angleX = sample.type === "protein" ? -0.38 : -0.24;
   state.angleY = sample.type === "protein" ? 0.18 : 0.42;
   if (!options.keepDesigns) state.candidates = initialCandidates(sample);
-  if (!options.silent) addSystemMessage(`已加载 ${sample.shortName}。`);
+  if (!options.silent) addSystemMessage(ui("sampleLoaded", { name: sample.shortName }));
   renderAll();
 }
 
@@ -573,6 +938,7 @@ function renderAll() {
   renderChat();
   renderMetrics();
   renderRuntime();
+  renderLocalStatus();
   renderSegments();
   renderViewerStyles();
   renderStructureEvidenceModes();
@@ -627,7 +993,7 @@ function renderProperties() {
     card.innerHTML = `<span>${escapeHtml(key)}</span><strong>${escapeHtml(value)}</strong>`;
     els.propertyGrid.appendChild(card);
   });
-  els.structureNotes.textContent = sample.notes;
+  els.structureNotes.textContent = localizedSampleValue(sample, "notes");
 
   if (sample.type === "protein") {
     const sequence = sample.sequence || "";
@@ -648,7 +1014,7 @@ function renderProperties() {
 function renderPromptChips() {
   const sample = getActiveSample();
   els.promptChips.innerHTML = "";
-  sample.prompts.forEach((prompt) => {
+  localizedPrompts(sample).forEach((prompt) => {
     const chip = document.createElement("button");
     chip.className = "chip";
     chip.type = "button";
@@ -728,8 +1094,7 @@ function renderToolTrace() {
   if (!state.toolCalls.length) {
     const empty = document.createElement("div");
     empty.className = "tool-call";
-    empty.innerHTML =
-      "<span>运行记录</span><p>尚无工具调用。</p>";
+    empty.innerHTML = `<span>${escapeHtml(ui("noToolCallsTitle"))}</span><p>${escapeHtml(ui("noToolCalls"))}</p>`;
     els.toolTrace.appendChild(empty);
     return;
   }
@@ -755,8 +1120,7 @@ function renderToolTrace() {
 function renderArtifacts() {
   els.artifactList.innerHTML = "";
   if (!state.artifacts.length) {
-    els.artifactList.innerHTML =
-      '<div class="artifact-card"><span>No artifacts yet</span><p>结构、序列比对和性质图会作为可检查产物显示在这里。</p></div>';
+    els.artifactList.innerHTML = `<div class="artifact-card"><span>${escapeHtml(ui("noArtifactsTitle"))}</span><p>${escapeHtml(ui("noArtifacts"))}</p></div>`;
     return;
   }
 
@@ -766,17 +1130,18 @@ function renderArtifacts() {
     .forEach((artifact) => {
       const card = document.createElement("article");
       card.className = "artifact-card";
-      const title = escapeHtml(artifact.title || artifact.type || "Artifact");
+      const rawTitle = artifact.title || artifact.type || "Artifact";
+      const title = escapeHtml(state.language === "en" && containsHan(rawTitle) ? humanize(artifact.type) : rawTitle);
       if (["molecule", "protein-sequence", "protein-structure"].includes(artifact.type)) {
         const sample = artifact.data || {};
         const sourceUrl = safeExternalUrl(sample.metadata?.source_url);
         const paeUrl = safeExternalUrl(sample.metadata?.pae_url);
         card.innerHTML = `
           <header><strong>${title}</strong><span>${escapeHtml(artifact.type)}</span></header>
-          <p>${escapeHtml(sample.selection || sample.notes || "Viewer-ready scientific artifact")}</p>
-          <button class="secondary-button artifact-open" type="button">在${artifact.type === "protein-sequence" ? "序列" : "结构"}视图打开</button>
+          <p>${escapeHtml(state.language === "en" && containsHan(sample.selection || sample.notes) ? "Viewer-ready scientific artifact" : sample.selection || sample.notes || "Viewer-ready scientific artifact")}</p>
+          <button class="secondary-button artifact-open" type="button">${escapeHtml(ui(artifact.type === "protein-sequence" ? "openSequenceView" : "openStructureView"))}</button>
           ${sourceUrl || paeUrl ? `<div class="artifact-source-links">
-            ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">官方记录</a>` : ""}
+            ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">${escapeHtml(ui("officialRecord"))}</a>` : ""}
             ${paeUrl ? `<a class="source-link" href="${escapeHtml(paeUrl)}" target="_blank" rel="noreferrer">PAE</a>` : ""}
           </div>` : ""}
         `;
@@ -794,7 +1159,7 @@ function renderArtifacts() {
           <div class="record-grid">
             ${fields.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
           </div>
-          ${safeExternalUrl(data.source_url) ? `<a class="source-link" href="${escapeHtml(data.source_url)}" target="_blank" rel="noreferrer">打开官方记录</a>` : ""}
+          ${safeExternalUrl(data.source_url) ? `<a class="source-link" href="${escapeHtml(data.source_url)}" target="_blank" rel="noreferrer">${escapeHtml(ui("openOfficialRecord"))}</a>` : ""}
         `;
       } else if (artifact.type === "fastq-qc") {
         const data = artifact.data || {};
@@ -866,7 +1231,7 @@ function renderArtifacts() {
               </details>
             `).join("") : '<p class="search-empty">No hits passed the selected E-value threshold.</p>'}
           </div>
-          <p>相似性命中是相关性证据，不单独证明共享功能或生物活性。</p>
+          <p>${escapeHtml(ui("similarityCaution"))}</p>
         `;
       } else if (artifact.type === "hmmer-profile-preflight") {
         card.innerHTML = renderHmmerProfilePreflight(title, artifact.data || {});
@@ -1287,7 +1652,7 @@ function renderChemblBioactivityReview(title, data) {
             <td><strong>${escapeHtml(compound.max_pchembl)}</strong></td>
             <td>${escapeHtml((compound.endpoint_types || []).join(", ") || "n/a")}</td>
             <td>${escapeHtml(compound.retrieved_activity_count || 0)}</td>
-            <td><button class="secondary-button chembl-open-structure" type="button" data-smiles="${escapeHtml(compound.canonical_smiles || "")}" title="在结构视图打开">打开</button></td>
+            <td><button class="secondary-button chembl-open-structure" type="button" data-smiles="${escapeHtml(compound.canonical_smiles || "")}" title="${escapeHtml(ui("openStructureView"))}">${escapeHtml(localized("打开", "Open"))}</button></td>
           </tr>`).join("") || '<tr><td colspan="6">No compounds passed the approved filters.</td></tr>'}</tbody>
         </table>
       </div>
@@ -1384,7 +1749,7 @@ function renderVariantStructureReview(title, data, preview = false) {
       <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "Geometric proximity in one deposited model is not a functional or energetic conclusion.")}</p>
       ${preview ? "" : `<div class="target-output-paths">${Object.entries(data.outputs || {}).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>`}
       <div class="variant-structure-actions">
-        ${data.sample ? '<button class="secondary-button variant-structure-open" type="button">在位点视图打开</button>' : ""}
+        ${data.sample ? `<button class="secondary-button variant-structure-open" type="button">${escapeHtml(localized("在位点视图打开", "Open in site view"))}</button>` : ""}
         ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open RCSB entry</a>` : ""}
       </div>
     </div>
@@ -1749,7 +2114,7 @@ function renderGeoSeriesMatrix(title, data, preflight) {
     </section>
     <p class="geo-handoff">${escapeHtml(data.analysis_handoff || "Confirm study design before analysis.")}</p>
     <div class="geo-actions">
-      <button class="secondary-button" type="button" data-geo-matrix-review="${escapeHtml(data.accession || "")}">审阅分组</button>
+      <button class="secondary-button" type="button" data-geo-matrix-review="${escapeHtml(data.accession || "")}">${escapeHtml(localized("审阅分组", "Review grouping"))}</button>
       ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Official source</a>` : ""}
     </div>
     <div class="target-output-paths">${Object.entries(data.outputs || {}).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>
@@ -1761,7 +2126,10 @@ function bindGeoSeriesMatrixActions(card) {
   card.querySelectorAll("[data-geo-matrix-review]").forEach((button) => {
     button.addEventListener("click", () => {
       const accession = button.dataset.geoMatrixReview || "GEO Series";
-      els.commandInput.value = `基于已导入的 ${accession} Series Matrix，审阅样本分组、独立重复、配对、批次、数值变换和适合的描述性分析`;
+      els.commandInput.value = localized(
+        `基于已导入的 ${accession} Series Matrix，审阅样本分组、独立重复、配对、批次、数值变换和适合的描述性分析`,
+        `Using the imported ${accession} Series Matrix, review sample groups, independent replicates, pairing, batches, value transformations, and suitable descriptive analyses`,
+      );
       els.commandInput.focus();
     });
   });
@@ -1795,8 +2163,8 @@ function renderGeoDataset(dataset, open) {
         ${(dataset.sample_examples || []).length ? `<div class="geo-sample-examples"><span>Sample examples</span>${dataset.sample_examples.map((sample) => `<code>${escapeHtml(sample.accession || "GSM")} · ${escapeHtml(sample.title || "")}</code>`).join("")}</div>` : ""}
         <p class="geo-handoff">${escapeHtml(dataset.analysis_handoff || "Inspect study design and data files before local analysis.")}</p>
         <div class="geo-actions">
-          <button class="secondary-button" type="button" data-geo-review="${escapeHtml(dataset.accession)}">审阅设计</button>
-          <button class="secondary-button" type="button" data-geo-import="${escapeHtml(dataset.accession)}">导入矩阵</button>
+          <button class="secondary-button" type="button" data-geo-review="${escapeHtml(dataset.accession)}">${escapeHtml(localized("审阅设计", "Review design"))}</button>
+          <button class="secondary-button" type="button" data-geo-import="${escapeHtml(dataset.accession)}">${escapeHtml(localized("导入矩阵", "Import matrix"))}</button>
           ${recordUrl ? `<a href="${escapeHtml(recordUrl)}" target="_blank" rel="noreferrer">GEO record</a>` : ""}
           ${downloadUrl ? `<a href="${escapeHtml(downloadUrl)}" target="_blank" rel="noreferrer">Download directory</a>` : ""}
           ${(dataset.pubmed_ids || []).slice(0, 4).map((pmid) => `<a href="https://pubmed.ncbi.nlm.nih.gov/${escapeHtml(pmid)}/" target="_blank" rel="noreferrer">PMID ${escapeHtml(pmid)}</a>`).join("")}
@@ -1811,14 +2179,20 @@ function bindGeoDatasetActions(card) {
   card.querySelectorAll("[data-geo-review]").forEach((button) => {
     button.addEventListener("click", () => {
       const accession = button.dataset.geoReview || "GEO Series";
-      els.commandInput.value = `审阅 ${accession} 的研究设计、样本分组、可用矩阵和适合的本地分析路径`;
+      els.commandInput.value = localized(
+        `审阅 ${accession} 的研究设计、样本分组、可用矩阵和适合的本地分析路径`,
+        `Review the study design, sample groups, available matrices, and suitable local analysis path for ${accession}`,
+      );
       els.commandInput.focus();
     });
   });
   card.querySelectorAll("[data-geo-import]").forEach((button) => {
     button.addEventListener("click", () => {
       const accession = button.dataset.geoImport || "GEO Series";
-      els.commandInput.value = `导入 ${accession} 的官方 GEO Series Matrix 到本地工作区`;
+      els.commandInput.value = localized(
+        `导入 ${accession} 的官方 GEO Series Matrix 到本地工作区`,
+        `Import the official GEO Series Matrix for ${accession} into the local workspace`,
+      );
       els.commandInput.focus();
     });
   });
@@ -2730,8 +3104,7 @@ function bindSingleCellControls(card, data) {
 function renderSkills() {
   els.skillList.innerHTML = "";
   if (!state.skills.length) {
-    els.skillList.innerHTML =
-      '<div class="skill-card"><span>Skills</span><p>本地服务未连接。</p></div>';
+    els.skillList.innerHTML = `<div class="skill-card"><span>Skills</span><p>${escapeHtml(ui("localServiceDisconnected"))}</p></div>`;
     return;
   }
   state.skills.forEach((skill) => {
@@ -2749,8 +3122,7 @@ function renderSkills() {
 function renderWorkflowRuns() {
   els.workflowList.innerHTML = "";
   if (!state.workflowRuns.length) {
-    els.workflowList.innerHTML =
-      '<div class="workflow-empty"><span>分析计划</span><p>尚无运行。</p></div>';
+    els.workflowList.innerHTML = `<div class="workflow-empty"><span>${escapeHtml(ui("analysisPlans"))}</span><p>${escapeHtml(ui("noRuns"))}</p></div>`;
     return;
   }
 
@@ -2766,14 +3138,14 @@ function renderWorkflowRuns() {
           (step, index) => `
             <li>
               <span>${index + 1}</span>
-              <div><strong>${escapeHtml(step.title || step.tool)}</strong><code>${escapeHtml(step.tool || "")}</code></div>
+              <div><strong>${escapeHtml(state.language === "en" && containsHan(step.title) ? humanize(step.tool) : step.title || step.tool)}</strong><code>${escapeHtml(step.tool || "")}</code></div>
               <small class="workflow-step-status ${escapeHtml(step.status || "pending")}">${escapeHtml(workflowStatusLabel(step.status))}</small>
             </li>`,
         )
         .join("");
       item.innerHTML = `
         <header>
-          <div><strong>${escapeHtml(run.title || "Guided workflow")}</strong><small>${escapeHtml(run.objective || run.description || "")}</small></div>
+          <div><strong>${escapeHtml(workflowRunText(run, 0))}</strong><small>${escapeHtml(workflowRunText(run, 1))}</small></div>
           <span class="workflow-status ${escapeHtml(run.status || "pending_approval")}">${escapeHtml(workflowStatusLabel(run.status))}</span>
         </header>
         ${preflight ? renderWorkflowPreflight(preflight) : ""}
@@ -2781,7 +3153,7 @@ function renderWorkflowRuns() {
         ${run.error ? `<p class="workflow-error">${escapeHtml(run.error)}</p>` : ""}
         ${
           run.status === "pending_approval"
-            ? '<div class="workflow-actions"><button class="secondary-button workflow-cancel" type="button">取消</button><button class="primary-button workflow-approve" type="button">批准并运行</button></div>'
+            ? `<div class="workflow-actions"><button class="secondary-button workflow-cancel" type="button">${escapeHtml(ui("cancel"))}</button><button class="primary-button workflow-approve" type="button">${escapeHtml(ui("approveAndRun"))}</button></div>`
             : ""
         }
       `;
@@ -2818,27 +3190,28 @@ function renderWorkflowPreflight(preflight) {
   } else if (preflight.entry?.pdb_id && preflight.site?.variant) {
     detail = `${preflight.entry.pdb_id} · ${preflight.site.chain}:${preflight.site.observed_residue}${preflight.site.author_residue_number} · ${preflight.site.structure_allele} allele · ${preflight.site.contact_count || 0} contacts`;
   }
-  return `<div class="workflow-preflight"><strong>Preflight ready</strong><span>${escapeHtml(preflight.summary || "Inputs validated.")}</span>${detail ? `<code>${escapeHtml(detail)}</code>` : ""}</div>`;
+  const summary = state.language === "en" && containsHan(preflight.summary) ? ui("inputsValidated") : preflight.summary || ui("inputsValidated");
+  return `<div class="workflow-preflight"><strong>${escapeHtml(ui("preflightReady"))}</strong><span>${escapeHtml(summary)}</span>${detail ? `<code>${escapeHtml(detail)}</code>` : ""}</div>`;
 }
 
 function workflowStatusLabel(status) {
   return (
     {
-      pending_approval: "待审批",
-      pending: "等待",
-      running: "运行中",
-      completed: "已完成",
-      failed: "失败",
-      error: "失败",
-      skipped: "跳过",
-      cancelled: "已取消",
-    }[status] || status || "等待"
+      pending_approval: ui("statusPendingApproval"),
+      pending: ui("statusPending"),
+      running: ui("statusRunning"),
+      completed: ui("statusCompleted"),
+      failed: ui("statusFailed"),
+      error: ui("statusFailed"),
+      skipped: ui("statusSkipped"),
+      cancelled: ui("statusCancelled"),
+    }[status] || status || ui("statusPending")
   );
 }
 
 function renderWorkspaceFiles() {
   els.workspaceFileList.innerHTML = "";
-  els.workspaceFileCount.textContent = `${state.workspaceFiles.length} files`;
+  els.workspaceFileCount.textContent = ui("files", { count: state.workspaceFiles.length });
   state.workspaceFiles.slice(0, 10).forEach((file) => {
     const row = document.createElement("button");
     row.type = "button";
@@ -2850,7 +3223,7 @@ function renderWorkspaceFiles() {
       } else if (/\.(fastq|fq)$/i.test(file.path)) {
         executeLocalTool("ngs_fastq_qc", { path: file.path }, { openArtifacts: true });
       } else {
-        runAgent(`读取 workspace 文件 ${file.path}，判断内容并建议下一步分析`);
+        runAgent(ui("readWorkspaceFile", { path: file.path }));
       }
     });
     els.workspaceFileList.appendChild(row);
@@ -2862,7 +3235,7 @@ function renderDesigns() {
   if (!state.candidates.length) {
     const empty = document.createElement("div");
     empty.className = "candidate-card";
-    empty.innerHTML = "<span>候选设计</span><p>尚无候选。</p>";
+    empty.innerHTML = `<span>${escapeHtml(ui("noCandidatesTitle"))}</span><p>${escapeHtml(ui("noCandidates"))}</p>`;
     els.designList.appendChild(empty);
     return;
   }
@@ -2893,9 +3266,10 @@ function renderChat() {
   state.chat.forEach((message) => {
     const item = document.createElement("article");
     item.className = `chat-message ${message.role}`;
+    const text = message.i18nKey ? ui(message.i18nKey, message.values) : message.text;
     item.innerHTML = `
       ${message.role === "system" ? "" : `<strong>${message.role === "user" ? "You" : "molemo Agent"}</strong>`}
-      <p>${escapeHtml(message.text)}</p>
+      <p>${escapeHtml(text)}</p>
     `;
     els.chatLog.appendChild(item);
   });
@@ -2913,39 +3287,49 @@ function renderRuntime() {
   els.runtimeModeLabel.textContent = useApi ? "API" : "Local";
   els.agentRuntimeState.textContent = useApi
     ? `${state.runtime.model} · ${state.runtime.toolMode}`
-    : "Local scientific skill runtime";
-  els.apiBadge.textContent = useApi ? "Provider enabled" : "Local only";
+    : ui("localScientificRuntime");
+  els.apiBadge.textContent = useApi ? ui("providerEnabled") : ui("localOnly");
   els.apiBadge.style.background = useApi ? "var(--green-soft)" : "var(--amber-soft)";
   els.apiBadge.style.color = useApi ? "var(--green)" : "var(--amber)";
 }
 
+function renderLocalStatus() {
+  if (!state.localService.loaded) {
+    els.localStatusText.textContent = ui("connecting");
+    return;
+  }
+  els.localStatusText.textContent = state.localService.connected
+    ? ui("localAgentReady", { count: state.localService.skillCount })
+    : ui("localServiceStopped");
+}
+
 function openWorkflowDialog() {
   if (!state.workflowTemplates.length) {
-    addSystemMessage("本地工作流目录尚未加载。");
+    addUiMessage("workflowCatalogUnavailable");
     return;
   }
   const preferred = defaultWorkflowTemplate(getActiveSample());
   els.workflowTemplate.innerHTML = state.workflowTemplates
     .map(
       (template) =>
-        `<option value="${escapeHtml(template.id)}" ${template.id === preferred ? "selected" : ""}>${escapeHtml(template.title)}</option>`,
+        `<option value="${escapeHtml(template.id)}" ${template.id === preferred ? "selected" : ""}>${escapeHtml(workflowText(template, 0))}</option>`,
     )
     .join("");
   renderWorkflowFields();
-  els.workflowDialog.showModal();
+  if (!els.workflowDialog.open) els.workflowDialog.showModal();
 }
 
 function renderWorkflowFields() {
   const template = state.workflowTemplates.find((item) => item.id === els.workflowTemplate.value);
   els.workflowFields.innerHTML = "";
   if (!template) return;
-  els.workflowDescription.textContent = template.description || "";
+  els.workflowDescription.textContent = workflowText(template, 1);
   (template.fields || []).forEach((field) => {
     const wrapper = document.createElement("label");
     wrapper.className = "workflow-field";
     wrapper.dataset.workflowFieldWrapper = field.name;
     const label = document.createElement("span");
-    label.textContent = field.label || field.name;
+    label.textContent = localizedWorkflowField(field);
     const control = createWorkflowControl(template.id, field);
     wrapper.append(label, control);
     els.workflowFields.appendChild(wrapper);
@@ -2976,7 +3360,7 @@ function createWorkflowControl(templateId, field) {
     (field.options || []).forEach((option) => {
       const item = document.createElement("option");
       item.value = option.value;
-      item.textContent = option.label;
+      item.textContent = localizedWorkflowOption(option);
       control.appendChild(item);
     });
   } else {
@@ -3060,7 +3444,7 @@ async function createWorkflowPlan() {
       body: JSON.stringify({
         template_id: template.id,
         inputs,
-        objective: `${getActiveSample().name}: ${template.description}`,
+        objective: `${getActiveSample().name}: ${workflowText(template, 1)}`,
       }),
     });
     const data = await response.json();
@@ -3069,10 +3453,13 @@ async function createWorkflowPlan() {
     mergeArtifacts(data.run.artifacts || []);
     els.workflowDialog.close();
     switchTab("agent");
-    addSystemMessage(`已创建“${data.run.title}”计划，等待研究者批准。`);
+    addSystemMessage(localized(
+      `已创建“${data.run.title}”计划，等待研究者批准。`,
+      `Created “${workflowRunText(data.run, 0)}” for researcher approval.`,
+    ));
     renderAll();
   } catch (error) {
-    addSystemMessage(`计划创建失败：${error.message}`);
+    addSystemMessage(localized(`计划创建失败：${error.message}`, `Could not create the plan: ${error.message}`));
   } finally {
     els.createWorkflowPlan.disabled = false;
   }
@@ -3097,12 +3484,18 @@ async function approveWorkflow(runId) {
     await refreshWorkspaceFiles();
     addSystemMessage(
       data.run.status === "completed"
-        ? `“${data.run.title}”已完成，结果已进入可检查 artifacts。`
-        : `“${data.run.title}”运行失败：${data.run.error || "未知错误"}`,
+        ? localized(
+          `“${data.run.title}”已完成，结果已进入可检查 artifacts。`,
+          `“${workflowRunText(data.run, 0)}” completed. Its results are available as inspectable artifacts.`,
+        )
+        : localized(
+          `“${data.run.title}”运行失败：${data.run.error || "未知错误"}`,
+          `“${workflowRunText(data.run, 0)}” failed: ${data.run.error || "unknown error"}`,
+        ),
     );
   } catch (error) {
     run.status = "pending_approval";
-    addSystemMessage(`工作流启动失败：${error.message}`);
+    addSystemMessage(localized(`工作流启动失败：${error.message}`, `Could not start the workflow: ${error.message}`));
   }
   renderAll();
 }
@@ -3117,10 +3510,10 @@ async function cancelWorkflow(runId) {
     const data = await response.json();
     if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
     upsertWorkflowRun(data.run);
-    addSystemMessage(`已取消“${data.run.title}”。`);
+    addSystemMessage(localized(`已取消“${data.run.title}”。`, `Cancelled “${workflowRunText(data.run, 0)}”.`));
     renderAll();
   } catch (error) {
-    addSystemMessage(`取消失败：${error.message}`);
+    addSystemMessage(localized(`取消失败：${error.message}`, `Could not cancel the workflow: ${error.message}`));
   }
 }
 
@@ -3148,7 +3541,7 @@ async function runAgent(command) {
   }
 
   if (result?.error) {
-    addSystemMessage(`本地 Agent 返回错误：${result.error}`);
+    addSystemMessage(localized(`本地 Agent 返回错误：${result.error}`, `The local Agent returned an error: ${result.error}`));
     if (state.runtime.useApi) {
       const localResult = await tryWorkbenchAgent(command, sample, { forceLocal: true });
       if (localResult?.message) {
@@ -3161,9 +3554,16 @@ async function runAgent(command) {
     }
   }
 
-  addSystemMessage("本地服务不可用，已降级为浏览器内置演示流程。");
+  addSystemMessage(localized(
+    "本地服务不可用，已降级为浏览器内置演示流程。",
+    "The local service is unavailable. Using the in-browser demonstration workflow.",
+  ));
   const intent = detectIntent(command, sample);
-  addToolCall("agent.plan", { intent, target: sample.shortName }, `将自然语言任务路由到 ${intent} 工作流。`);
+  addToolCall(
+    "agent.plan",
+    { intent, target: sample.shortName },
+    localized(`将自然语言任务路由到 ${intent} 工作流。`, `Routed the natural-language task to the ${intent} workflow.`),
+  );
   await runLocalWorkflow(command, sample, intent);
 }
 
@@ -3172,14 +3572,18 @@ async function runLocalWorkflow(command, sample, intent) {
   addToolCall(
     sample.type === "protein" ? "structure.parse_fasta" : "chem.parse_smiles",
     { input: sample.sequence || sample.smiles || sample.formula },
-    sample.type === "protein" ? "解析序列并估计二级结构倾向。" : "解析 SMILES 并识别官能团与环系统。",
+    sample.type === "protein"
+      ? localized("解析序列并估计二级结构倾向。", "Parsed the sequence and estimated secondary-structure propensity.")
+      : localized("解析 SMILES 并识别官能团与环系统。", "Parsed SMILES and identified functional groups and ring systems."),
   );
 
   await pause(180);
   addToolCall(
     sample.type === "protein" ? "protein.annotate_motifs" : "chem.estimate_properties",
     { properties: sample.properties },
-    sample.type === "protein" ? "标注螺旋、带电残基与潜在界面热点。" : "估算药物样性质、极性表面积和可优化位点。",
+    sample.type === "protein"
+      ? localized("标注螺旋、带电残基与潜在界面热点。", "Annotated helices, charged residues, and potential interface hotspots.")
+      : localized("估算药物样性质、极性表面积和可优化位点。", "Estimated drug-like properties, polar surface area, and modifiable sites."),
   );
 
   if (intent === "design" || intent === "risk") {
@@ -3189,7 +3593,9 @@ async function runLocalWorkflow(command, sample, intent) {
     addToolCall(
       sample.type === "protein" ? "design.propose_mutations" : "design.propose_analogs",
       { count: generated.length, constraints: inferConstraints(command) },
-      sample.type === "protein" ? "生成可验证突变组合并标记聚集风险。" : "生成类似物方向并保留核心 scaffold。",
+      sample.type === "protein"
+        ? localized("生成可验证突变组合并标记聚集风险。", "Generated testable mutation sets and flagged aggregation risk.")
+        : localized("生成类似物方向并保留核心 scaffold。", "Generated analogue directions while retaining the core scaffold."),
     );
     switchTab("designs");
   }
@@ -3216,7 +3622,7 @@ async function tryWorkbenchAgent(command, sample, options = {}) {
       pdb_id: sample.pdbId,
       path: sample.metadata?.sourcePath,
       properties: sample.properties,
-      notes: sample.notes,
+      notes: localizedSampleValue(sample, "notes"),
     },
     provider: useProvider
       ? {
@@ -3253,7 +3659,7 @@ function mergeAgentTrace(trace) {
       summary: call.summary || "Skill completed.",
       status: call.status || "completed",
       durationMs: call.duration_ms || 0,
-      time: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+      time: new Date().toLocaleTimeString(state.language, { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
     });
   });
 }
@@ -3284,7 +3690,7 @@ function addToolCall(name, args, summary) {
     name,
     args,
     summary,
-    time: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    time: new Date().toLocaleTimeString(state.language, { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
   });
   renderToolTrace();
   renderMetrics();
@@ -3292,6 +3698,11 @@ function addToolCall(name, args, summary) {
 
 function addSystemMessage(text) {
   state.chat.push({ role: "system", text });
+  renderChat();
+}
+
+function addUiMessage(key, values = {}) {
+  state.chat.push({ role: "system", i18nKey: key, values });
   renderChat();
 }
 
@@ -3321,21 +3732,39 @@ function inferConstraints(command) {
 function composeAgentResponse(command, sample, intent) {
   if (sample.type === "protein") {
     if (intent === "design") {
-      return `${sample.shortName} 的设计重点是保留疏水核心，同时把表面不稳定或易聚集位点换成更温和的带电/极性残基。我建议先做 3 组小批量突变，随后用表达量、SEC、DSF 和目标结合实验验证。`;
+      return localized(
+        `${sample.shortName} 的设计重点是保留疏水核心，同时把表面不稳定或易聚集位点换成更温和的带电/极性残基。我建议先做 3 组小批量突变，随后用表达量、SEC、DSF 和目标结合实验验证。`,
+        `The design priority for ${sample.shortName} is to preserve the hydrophobic core while replacing unstable or aggregation-prone surface sites with milder charged or polar residues. Start with three small mutation sets, then validate expression, SEC, DSF, and target binding.`,
+      );
     }
     if (intent === "risk") {
-      return `主要风险是局部疏水斑块、过强电荷偏置和螺旋束边缘的构象松动。下一步应把突变方案和实验读数绑定：表达量筛掉不可折叠设计，DSF 看稳定性，BLI/SPR 看结合是否保留。`;
+      return localized(
+        "主要风险是局部疏水斑块、过强电荷偏置和螺旋束边缘的构象松动。下一步应把突变方案和实验读数绑定：表达量筛掉不可折叠设计，DSF 看稳定性，BLI/SPR 看结合是否保留。",
+        "The main risks are local hydrophobic patches, excessive charge bias, and conformational loosening at helix-bundle edges. Link each mutation set to measurements: expression to reject non-folders, DSF for stability, and BLI/SPR to confirm retained binding.",
+      );
     }
-    return `${sample.shortName} 的序列特征提示其可能以 α 螺旋或紧凑折叠为主。Agent 已标注带电残基、疏水核心和候选界面位置；这些是序列层面的假设，可继续要求“设计突变”“降低聚集”或“生成实验计划”。`;
+    return localized(
+      `${sample.shortName} 的序列特征提示其可能以 α 螺旋或紧凑折叠为主。Agent 已标注带电残基、疏水核心和候选界面位置；这些是序列层面的假设，可继续要求“设计突变”“降低聚集”或“生成实验计划”。`,
+      `The sequence features of ${sample.shortName} suggest an alpha-helical or compact fold. The Agent marked charged residues, the hydrophobic core, and candidate interface positions. These are sequence-level hypotheses that can be followed by mutation design, aggregation reduction, or an experimental plan.`,
+    );
   }
 
   if (intent === "design") {
-    return `${sample.shortName} 的 scaffold 可以保留核心识别元素，同时在外围做小步改造。当前候选优先提高可溶性或降低暴露风险，并避免一次引入过多立体和电子变化。`;
+    return localized(
+      `${sample.shortName} 的 scaffold 可以保留核心识别元素，同时在外围做小步改造。当前候选优先提高可溶性或降低暴露风险，并避免一次引入过多立体和电子变化。`,
+      `The ${sample.shortName} scaffold can retain its core recognition elements while making small peripheral changes. The current candidates prioritize solubility or lower exposure risk without introducing too many steric and electronic changes at once.`,
+    );
   }
   if (intent === "risk") {
-    return `当前结构的风险应从酸碱性、极性表面积、潜在代谢软点和选择性开始看。建议先做 ADME 快筛，再用目标活性实验确认改造没有破坏核心作用。`;
+    return localized(
+      "当前结构的风险应从酸碱性、极性表面积、潜在代谢软点和选择性开始看。建议先做 ADME 快筛，再用目标活性实验确认改造没有破坏核心作用。",
+      "Start the risk review with ionization, polar surface area, potential metabolic soft spots, and selectivity. Run a focused ADME screen, then confirm with a target activity assay that the change did not disrupt the core interaction.",
+    );
   }
-  return `${sample.shortName} 的关键结构已经解析：Agent 识别了核心环系统、供受体模式和可修饰外围位点。你可以继续要求优化水溶性、设计类似物或生成验证计划。`;
+  return localized(
+    `${sample.shortName} 的关键结构已经解析：Agent 识别了核心环系统、供受体模式和可修饰外围位点。你可以继续要求优化水溶性、设计类似物或生成验证计划。`,
+    `The key structural features of ${sample.shortName} are parsed. The Agent identified the core ring system, donor-acceptor pattern, and modifiable peripheral sites. Next steps can include solubility optimization, analogue design, or a validation plan.`,
+  );
 }
 
 function initialCandidates(sample) {
@@ -3353,8 +3782,8 @@ function moleculeCandidates(sample, command) {
       riskLabel: "Low",
       score: solubility ? 82 : 76,
       summary: solubility
-        ? "在外围引入轻量极性取代，目标是提升溶解度，同时保留核心识别几何。"
-        : "用温和电子等排变化保留 scaffold，适合作为第一轮 SAR 对照。",
+        ? localized("在外围引入轻量极性取代，目标是提升溶解度，同时保留核心识别几何。", "Add a light polar substituent at the periphery to improve solubility while preserving core recognition geometry.")
+        : localized("用温和电子等排变化保留 scaffold，适合作为第一轮 SAR 对照。", "Use a conservative bioisosteric change that preserves the scaffold as a first-round SAR control."),
       tags: [sample.smiles || sample.formula, solubility ? "TPSA +12" : "core retained", "1-step SAR"],
     },
     {
@@ -3363,8 +3792,8 @@ function moleculeCandidates(sample, command) {
       riskLabel: "Medium",
       score: cns ? 73 : 69,
       summary: cns
-        ? "提高极性并降低被动扩散倾向，用于减少中枢暴露。"
-        : "在疑似代谢软点附近加入小型保护取代，但需要确认活性不受影响。",
+        ? localized("提高极性并降低被动扩散倾向，用于减少中枢暴露。", "Increase polarity and reduce passive diffusion to lower CNS exposure.")
+        : localized("在疑似代谢软点附近加入小型保护取代，但需要确认活性不受影响。", "Add a small shielding substituent near a suspected metabolic soft spot, then confirm retained activity."),
       tags: [cns ? "logD down" : "microsome follow-up", "ADME screen", "activity check"],
     },
     {
@@ -3372,7 +3801,7 @@ function moleculeCandidates(sample, command) {
       risk: "high",
       riskLabel: "High",
       score: 52,
-      summary: "沿可修饰向量扫描更大取代基，信息量高，但合成与选择性风险也更高。",
+      summary: localized("沿可修饰向量扫描更大取代基，信息量高，但合成与选择性风险也更高。", "Scan larger substituents along a modifiable vector. This is informative but carries higher synthesis and selectivity risk."),
       tags: ["vector scan", "selectivity risk", "make 3 only"],
     },
   ];
@@ -3389,8 +3818,8 @@ function proteinCandidates(sample, command) {
       riskLabel: "Low",
       score: stability ? 84 : 78,
       summary: stability
-        ? "在螺旋端加入更友好的 cap 残基，降低局部解折叠概率。"
-        : "微调界面附近电荷，提升结合方向性并保留整体折叠。",
+        ? localized("在螺旋端加入更友好的 cap 残基，降低局部解折叠概率。", "Add a favorable helix-cap residue to reduce local unfolding.")
+        : localized("微调界面附近电荷，提升结合方向性并保留整体折叠。", "Tune charge near the interface to improve binding orientation while preserving the fold."),
       tags: [suggestMutation(base, 4, stability ? "S" : "E"), suggestMutation(base, 11, "K"), "DSF + binding"],
     },
     {
@@ -3399,8 +3828,8 @@ function proteinCandidates(sample, command) {
       riskLabel: "Medium",
       score: aggregation ? 81 : 70,
       summary: aggregation
-        ? "把暴露疏水斑块改成带电或极性残基，优先降低 SEC 聚集峰。"
-        : "轻微加强核心 packing，但需要小心避免降低表达量。",
+        ? localized("把暴露疏水斑块改成带电或极性残基，优先降低 SEC 聚集峰。", "Replace an exposed hydrophobic patch with charged or polar residues to reduce the SEC aggregation peak.")
+        : localized("轻微加强核心 packing，但需要小心避免降低表达量。", "Tighten core packing conservatively while monitoring expression."),
       tags: [suggestMutation(base, 18, aggregation ? "D" : "L"), suggestMutation(base, 27, "A"), "SEC required"],
     },
     {
@@ -3408,7 +3837,7 @@ function proteinCandidates(sample, command) {
       risk: "high",
       riskLabel: "High",
       score: 58,
-      summary: "成对突变可能提高结合，但有破坏折叠或增加非特异相互作用的风险。",
+      summary: localized("成对突变可能提高结合，但有破坏折叠或增加非特异相互作用的风险。", "A mutation pair may improve binding but risks disrupting the fold or increasing nonspecific interactions."),
       tags: [suggestMutation(base, 33, "Y"), suggestMutation(base, 42, "R"), "BLI/SPR gate"],
     },
   ];
@@ -3421,7 +3850,7 @@ function suggestMutation(sequence, index, to) {
 }
 
 async function loadCustomMolecule(smiles) {
-  addToolCall("chem.pipeline_request", { smiles }, "请求本地 RDKit 数据管线解析 SMILES。");
+  addToolCall("chem.pipeline_request", { smiles }, localized("请求本地 RDKit 数据管线解析 SMILES。", "Requested SMILES parsing from the local RDKit pipeline."));
   const result = await fetchPipelineSample("molecule", { smiles });
   if (result.sample) {
     upsertCustomSample(result.sample);
@@ -3433,25 +3862,25 @@ async function loadCustomMolecule(smiles) {
         atoms: result.sample.atoms?.length || 0,
         bonds: result.sample.bonds?.length || 0,
       },
-      "RDKit 已返回真实分子 graph、键级、环系统和描述符。",
+      localized("RDKit 已返回真实分子 graph、键级、环系统和描述符。", "RDKit returned a molecular graph, bond orders, ring systems, and descriptors."),
     );
     return;
   }
 
   if (!result.unavailable) {
-    addSystemMessage(`SMILES 解析失败：${result.error || "未知错误"}`);
+    addSystemMessage(localized(`SMILES 解析失败：${result.error || "未知错误"}`, `SMILES parsing failed: ${result.error || "unknown error"}`));
     return;
   }
 
   const custom = buildCustomMolecule(smiles);
   upsertCustomSample(custom);
   selectSample(custom.id);
-  addToolCall("chem.import_smiles_fallback", { smiles }, "未连接本地管线，已降级为浏览器启发式结构视图。");
-  addSystemMessage("本地 RDKit 管线不可用。运行 server.py 后可启用真实 SMILES 解析。");
+  addToolCall("chem.import_smiles_fallback", { smiles }, localized("未连接本地管线，已降级为浏览器启发式结构视图。", "The local pipeline is disconnected. Using the browser heuristic structure view."));
+  addSystemMessage(localized("本地 RDKit 管线不可用。运行 server.py 后可启用真实 SMILES 解析。", "The local RDKit pipeline is unavailable. Run server.py to enable RDKit SMILES parsing."));
 }
 
 async function loadCustomProtein(sequence) {
-  addToolCall("protein.pipeline_request", { length: sequence.length }, "请求本地序列数据管线解析 FASTA。");
+  addToolCall("protein.pipeline_request", { length: sequence.length }, localized("请求本地序列数据管线解析 FASTA。", "Requested FASTA parsing from the local sequence pipeline."));
   const result = await fetchPipelineSample("protein", { sequence });
   if (result.sample) {
     upsertCustomSample(result.sample);
@@ -3462,26 +3891,26 @@ async function loadCustomProtein(sequence) {
         length: result.sample.sequence?.length || 0,
         source: result.sample.metadata?.source || "local_sequence_pipeline",
       },
-      "序列管线已返回清洗后的 FASTA、组成和蛋白性质统计。",
+      localized("序列管线已返回清洗后的 FASTA、组成和蛋白性质统计。", "The sequence pipeline returned cleaned FASTA, composition, and protein property statistics."),
     );
     return;
   }
 
   if (!result.unavailable) {
-    addSystemMessage(`FASTA 解析失败：${result.error || "未知错误"}`);
+    addSystemMessage(localized(`FASTA 解析失败：${result.error || "未知错误"}`, `FASTA parsing failed: ${result.error || "unknown error"}`));
     return;
   }
 
   const fallbackSequence = cleanProteinInput(sequence);
   if (!fallbackSequence) {
-    addSystemMessage("FASTA 解析失败：没有找到有效氨基酸序列。");
+    addSystemMessage(localized("FASTA 解析失败：没有找到有效氨基酸序列。", "FASTA parsing failed: no valid amino-acid sequence was found."));
     return;
   }
   const custom = buildCustomProtein(fallbackSequence);
   upsertCustomSample(custom);
   selectSample(custom.id);
-  addToolCall("protein.import_fasta_fallback", { length: fallbackSequence.length }, "未连接本地管线，已降级为浏览器序列草图。");
-  addSystemMessage("本地序列管线不可用。运行 server.py 后可启用真实 FASTA 统计。");
+  addToolCall("protein.import_fasta_fallback", { length: fallbackSequence.length }, localized("未连接本地管线，已降级为浏览器序列草图。", "The local pipeline is disconnected. Using the browser sequence sketch."));
+  addSystemMessage(localized("本地序列管线不可用。运行 server.py 后可启用真实 FASTA 统计。", "The local sequence pipeline is unavailable. Run server.py to enable FASTA statistics."));
 }
 
 async function loadProteinStructure(value) {
@@ -3494,20 +3923,20 @@ async function loadProteinStructure(value) {
     await executeLocalTool("structure_parse_workspace", { path: cleaned }, { openSample: true });
     return;
   }
-  addSystemMessage("请输入四位 PDB ID，或先导入 workspace 后填写 .pdb/.cif/.mmcif 文件名。");
+  addSystemMessage(localized("请输入四位 PDB ID，或先导入 workspace 后填写 .pdb/.cif/.mmcif 文件名。", "Enter a four-character PDB ID, or import a workspace and enter a .pdb/.cif/.mmcif path."));
 }
 
 async function loadAlphaFoldStructure(value) {
   const cleaned = String(value || "").trim().toUpperCase();
   if (!/^[A-Z0-9]{6,10}(?:-\d+)?$/.test(cleaned)) {
-    addSystemMessage("请输入 UniProt accession，例如 P04637。");
+    addSystemMessage(localized("请输入 UniProt accession，例如 P04637。", "Enter a UniProt accession, for example P04637."));
     return;
   }
   await executeLocalTool("structure_fetch_alphafold", { accession: cleaned }, { openSample: true });
 }
 
 async function executeLocalTool(name, arguments, options = {}) {
-  addToolCall(name, arguments, "正在执行本地 scientific skill…");
+  addToolCall(name, arguments, localized("正在执行本地 scientific skill…", "Running the local scientific skill..."));
   try {
     const response = await fetch(pipelineEndpoint("/api/tools/call"), {
       method: "POST",
@@ -3529,14 +3958,14 @@ async function executeLocalTool(name, arguments, options = {}) {
     } else if (options.openArtifacts || result.artifacts?.length) {
       switchTab("artifacts");
     }
-    addSystemMessage(result.summary || `${name} 已完成。`);
+    addSystemMessage(result.summary || localized(`${name} 已完成。`, `${name} completed.`));
     renderAll();
     return result;
   } catch (error) {
     const latest = state.toolCalls[state.toolCalls.length - 1];
     latest.status = "error";
     latest.summary = error.message;
-    addSystemMessage(`${name} 失败：${error.message}`);
+    addSystemMessage(localized(`${name} 失败：${error.message}`, `${name} failed: ${error.message}`));
     renderAll();
     return null;
   }
@@ -3586,18 +4015,24 @@ async function loadWorkbenchMetadata() {
     state.workspaceFiles = workspace.files || [];
     state.workflowTemplates = workflows.workflows || [];
     state.workflowRuns = runs.runs || [];
+    state.localService = {
+      loaded: true,
+      connected: true,
+      skillCount: health.skills || state.skills.length,
+    };
     state.workflowRuns
       .slice(0, 5)
       .reverse()
       .forEach((run) => mergeArtifacts(run.artifacts || []));
-    els.localStatusText.textContent = `${health.skills || state.skills.length} skills · local agent ready`;
+    renderLocalStatus();
     renderSkills();
     renderWorkspaceFiles();
     renderWorkflowRuns();
     renderArtifacts();
     renderMetrics();
   } catch (error) {
-    els.localStatusText.textContent = "本地服务未启动";
+    state.localService = { loaded: true, connected: false, skillCount: 0 };
+    renderLocalStatus();
     renderSkills();
   }
 }
@@ -3605,13 +4040,13 @@ async function loadWorkbenchMetadata() {
 async function saveSelectedWorkspaceFiles() {
   const files = Array.from(els.workspaceFiles.files || []);
   if (!files.length) {
-    addSystemMessage("请先选择要导入的本地科学文件。");
+    addSystemMessage(localized("请先选择要导入的本地科学文件。", "Choose local scientific files to import first."));
     return;
   }
   let saved = 0;
   for (const file of files) {
     if (file.size > 20 * 1024 * 1024) {
-      addSystemMessage(`${file.name} 超过 20 MB workspace 上传限制，未导入。`);
+      addSystemMessage(localized(`${file.name} 超过 20 MB workspace 上传限制，未导入。`, `${file.name} exceeds the 20 MB workspace upload limit and was not imported.`));
       continue;
     }
     try {
@@ -3627,12 +4062,12 @@ async function saveSelectedWorkspaceFiles() {
       if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
       saved += 1;
     } catch (error) {
-      addSystemMessage(`${file.name} 导入失败：${error.message}`);
+      addSystemMessage(localized(`${file.name} 导入失败：${error.message}`, `Could not import ${file.name}: ${error.message}`));
     }
   }
   els.workspaceFiles.value = "";
   await refreshWorkspaceFiles();
-  if (saved) addSystemMessage(`已将 ${saved} 个文件导入受控 workspace；Agent 现在可以按需读取。`);
+  if (saved) addSystemMessage(localized(`已将 ${saved} 个文件导入受控 workspace；Agent 现在可以按需读取。`, `Imported ${saved} file(s) into the controlled workspace. The Agent can now read them as needed.`));
 }
 
 async function refreshWorkspaceFiles() {
@@ -3643,7 +4078,7 @@ async function refreshWorkspaceFiles() {
     state.workspaceFiles = data.files || [];
     renderWorkspaceFiles();
   } catch (error) {
-    addSystemMessage(`无法刷新 workspace：${error.message}`);
+    addSystemMessage(localized(`无法刷新 workspace：${error.message}`, `Could not refresh the workspace: ${error.message}`));
   }
 }
 
@@ -3689,6 +4124,7 @@ function buildCustomMolecule(smiles) {
     formula: estimateFormula(tokens),
     smiles,
     notes: "这是浏览器降级模式生成的快速结构草图；启动本地 server.py 后会优先使用 RDKit 真实解析。",
+    notesEn: "This quick structure sketch comes from the browser fallback. Start the local server.py to use RDKit parsing instead.",
     selection: "Custom molecule · imported workspace",
     confidence: "browser fallback",
     properties: estimateMoleculeProperties(tokens, smiles),
@@ -3699,6 +4135,11 @@ function buildCustomMolecule(smiles) {
       "解释这个分子的关键官能团",
       "优化这个分子的水溶性并解释风险",
       "生成 3 个下一轮设计方向",
+    ],
+    promptsEn: [
+      "Explain this molecule's key functional groups",
+      "Improve its aqueous solubility and explain the risks",
+      "Generate three directions for the next design round",
     ],
   };
 }
@@ -3715,6 +4156,7 @@ function buildCustomProtein(sequence) {
     formula: sequence,
     sequence,
     notes: "这是浏览器降级模式生成的序列结构草图；启动本地 server.py 后会优先使用真实 FASTA 统计管线。",
+    notesEn: "This sequence sketch comes from the browser fallback. Start the local server.py to use the FASTA statistics pipeline instead.",
     selection: "Custom protein · imported workspace",
     confidence: "browser fallback",
     properties: estimateProteinProperties(sequence),
@@ -3722,6 +4164,11 @@ function buildCustomProtein(sequence) {
       "找出这个蛋白的稳定性热点",
       "建议 3 个突变并说明实验验证",
       "降低聚集风险并保留功能界面",
+    ],
+    promptsEn: [
+      "Find stability hotspots in this protein",
+      "Suggest three mutations and their experimental validation",
+      "Reduce aggregation risk while retaining the functional interface",
     ],
   };
 }

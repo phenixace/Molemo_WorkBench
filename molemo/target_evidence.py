@@ -13,8 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from bio_clients import ExternalDataError, post_json
-from workspace_utils import WORKSPACE_ROOT
+from .bio_clients import ExternalDataError, post_json
+from .workspace_utils import WORKSPACE_ROOT
 
 
 GRAPHQL_URL = "https://api.platform.opentargets.org/api/v4/graphql"

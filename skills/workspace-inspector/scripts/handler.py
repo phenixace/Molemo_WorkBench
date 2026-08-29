@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from workspace_utils import list_workspace_files, read_workspace_text
+from molemo.workspace_utils import list_workspace_files, read_workspace_text
 
 
 def list_files(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:

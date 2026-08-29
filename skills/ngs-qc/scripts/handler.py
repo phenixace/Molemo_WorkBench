@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ngs_qc import analyze_fastq_path
+from molemo.ngs_qc import analyze_fastq_path
 
 
 def fastq_qc(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:

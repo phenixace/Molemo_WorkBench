@@ -20,20 +20,20 @@
 
         <button class="sidebar-primary" id="planWorkflow" type="button">
           <span aria-hidden="true">＋</span>
-          新建分析
+          <span data-i18n="newAnalysis">新建分析</span>
         </button>
 
         <section class="sidebar-section">
           <div class="section-heading">
-            <span>数据</span>
-            <button class="icon-button" id="resetWorkspace" title="重置工作区" aria-label="重置工作区">↻</button>
+            <span data-i18n="data">数据</span>
+            <button class="icon-button" id="resetWorkspace" data-i18n-title="resetWorkspace" data-i18n-aria="resetWorkspace" title="重置工作区" aria-label="重置工作区">↻</button>
           </div>
           <div class="sample-list" id="sampleList"></div>
         </section>
 
         <details class="sidebar-section sidebar-disclosure">
           <summary class="section-heading">
-            <span>导入</span>
+            <span data-i18n="import">导入</span>
           </summary>
           <div class="sidebar-disclosure-body">
             <label class="input-label" for="structureInput">SMILES / FASTA / PDB / UniProt</label>
@@ -49,34 +49,34 @@
 
         <details class="sidebar-section sidebar-disclosure">
           <summary class="section-heading">
-            <span>本地文件</span>
+            <span data-i18n="localFiles">本地文件</span>
             <span class="section-count" id="workspaceFileCount">0 files</span>
           </summary>
           <div class="sidebar-disclosure-body">
             <label class="file-drop" for="workspaceFiles">
               <input id="workspaceFiles" type="file" multiple accept=".txt,.md,.csv,.tsv,.json,.jsonl,.yaml,.yml,.fa,.fasta,.faa,.fna,.afa,.aln,.hmm,.smi,.smiles,.pdb,.cif,.mmcif,.fastq,.fq,.vcf,.mtx,.mtx.gz,.h5ad,.h5,.hdf5,.gz" />
-              <span>选择 FASTA、H5AD/10x、HMM、PDB、FASTQ、VCF 或表格</span>
+              <span data-i18n="chooseFiles">选择 FASTA、H5AD/10x、HMM、PDB、FASTQ、VCF 或表格</span>
             </label>
-            <button class="secondary-button" id="saveWorkspaceFiles">导入本地工作区</button>
+            <button class="secondary-button" id="saveWorkspaceFiles" data-i18n="importWorkspace">导入本地工作区</button>
             <div class="workspace-file-list" id="workspaceFileList"></div>
           </div>
         </details>
 
         <section class="sidebar-section compact">
           <div class="metric-row">
-            <span>工具调用</span>
+            <span data-i18n="toolCalls">工具调用</span>
             <strong id="toolCallCount">0</strong>
           </div>
           <div class="metric-row">
-            <span>候选设计</span>
+            <span data-i18n="candidateDesigns">候选设计</span>
             <strong id="candidateCount">0</strong>
           </div>
           <div class="metric-row">
-            <span>已加载 Skills</span>
+            <span data-i18n="loadedSkills">已加载 Skills</span>
             <strong id="skillCount">0</strong>
           </div>
           <div class="metric-row">
-            <span>当前模式</span>
+            <span data-i18n="currentMode">当前模式</span>
             <strong id="runtimeModeLabel">Local</strong>
           </div>
         </section>
@@ -89,14 +89,18 @@
             <span class="mode-pill" id="activeType">Molecule</span>
           </div>
           <div class="topbar-actions">
-            <div class="segmented-control" role="tablist" aria-label="视图模式">
-              <button class="segment is-active" data-mode="structure">结构</button>
-              <button class="segment" data-mode="design">设计</button>
-              <button class="segment" data-mode="risk">风险</button>
+            <div class="segmented-control" role="tablist" data-i18n-aria="viewMode" aria-label="视图模式">
+              <button class="segment is-active" data-mode="structure" data-i18n="structure">结构</button>
+              <button class="segment" data-mode="design" data-i18n="design">设计</button>
+              <button class="segment" data-mode="risk" data-i18n="risk">风险</button>
             </div>
-            <button class="secondary-button" id="apiSettings" title="模型设置" aria-label="模型设置">模型</button>
-            <button class="secondary-button" id="exportReport">导出</button>
-            <button class="primary-button" id="runDefaultPrompt">运行</button>
+            <div class="language-control" role="group" data-i18n-aria="language" aria-label="语言">
+              <button class="language-segment is-active" data-language="zh-CN" type="button">中</button>
+              <button class="language-segment" data-language="en" type="button">EN</button>
+            </div>
+            <button class="secondary-button" id="apiSettings" data-i18n="model" data-i18n-title="modelSettings" data-i18n-aria="modelSettings" title="模型设置" aria-label="模型设置">模型</button>
+            <button class="secondary-button" id="exportReport" data-i18n="export">导出</button>
+            <button class="primary-button" id="runDefaultPrompt" data-i18n="run">运行</button>
           </div>
         </header>
 
@@ -107,51 +111,51 @@
                 <strong id="viewerLabel">结构查看器</strong>
               </div>
               <div class="tool-group">
-                <div class="viewer-scope-control" id="structureScopeModes" role="tablist" aria-label="结构范围" hidden>
-                  <button class="viewer-scope is-active" data-structure-scope="site" type="button">位点</button>
-                  <button class="viewer-scope" data-structure-scope="global" type="button">全局</button>
+                <div class="viewer-scope-control" id="structureScopeModes" role="tablist" data-i18n-aria="structureScope" aria-label="结构范围" hidden>
+                  <button class="viewer-scope is-active" data-structure-scope="site" type="button" data-i18n="site">位点</button>
+                  <button class="viewer-scope" data-structure-scope="global" type="button" data-i18n="global">全局</button>
                 </div>
-                <div class="viewer-evidence-control" id="structureEvidenceModes" role="tablist" aria-label="预测结构证据视图" hidden>
+                <div class="viewer-evidence-control" id="structureEvidenceModes" role="tablist" data-i18n-aria="predictionEvidence" aria-label="预测结构证据视图" hidden>
                   <button class="viewer-evidence is-active" data-evidence-mode="structure" type="button">3D</button>
                   <button class="viewer-evidence" data-evidence-mode="pae" type="button">PAE</button>
                 </div>
-                <div class="viewer-style-control" id="viewerStyleControls" role="tablist" aria-label="分子显示风格">
+                <div class="viewer-style-control" id="viewerStyleControls" role="tablist" data-i18n-aria="viewerStyle" aria-label="分子显示风格">
                   <button class="viewer-style is-active" data-style="ballstick" title="Ball-and-stick" aria-label="Ball-and-stick">●—●</button>
                   <button class="viewer-style" data-style="spacefill" title="Space fill" aria-label="Space fill">●</button>
                   <button class="viewer-style" data-style="wire" title="Wire" aria-label="Wire">—</button>
                 </div>
-                <button class="icon-button" id="toggleMotion" title="暂停/继续旋转" aria-label="暂停或继续旋转">⏯</button>
-                <button class="icon-button" id="toggleLabels" title="显示/隐藏标签" aria-label="显示或隐藏标签">Aa</button>
-                <button class="icon-button" id="zoomIn" title="放大" aria-label="放大">＋</button>
-                <button class="icon-button" id="zoomOut" title="缩小" aria-label="缩小">−</button>
+                <button class="icon-button" id="toggleMotion" data-i18n-title="toggleMotion" data-i18n-aria="toggleMotion" title="暂停/继续旋转" aria-label="暂停或继续旋转">⏯</button>
+                <button class="icon-button" id="toggleLabels" data-i18n-title="toggleLabels" data-i18n-aria="toggleLabels" title="显示/隐藏标签" aria-label="显示或隐藏标签">Aa</button>
+                <button class="icon-button" id="zoomIn" data-i18n-title="zoomIn" data-i18n-aria="zoomIn" title="放大" aria-label="放大">＋</button>
+                <button class="icon-button" id="zoomOut" data-i18n-title="zoomOut" data-i18n-aria="zoomOut" title="缩小" aria-label="缩小">−</button>
               </div>
             </div>
-            <canvas id="structureCanvas" width="960" height="620" aria-label="分子与蛋白质结构可视化"></canvas>
+            <canvas id="structureCanvas" width="960" height="620" data-i18n-aria="structureCanvas" aria-label="分子与蛋白质结构可视化"></canvas>
             <div class="canvas-readout">
               <div>
-                <span class="readout-label">当前选择</span>
+                <span class="readout-label" data-i18n="currentSelection">当前选择</span>
                 <strong id="selectionReadout">Aspirin · anti-inflammatory scaffold</strong>
               </div>
               <div>
-                <span class="readout-label">来源</span>
+                <span class="readout-label" data-i18n="source">来源</span>
                 <strong id="confidenceReadout">local evidence</strong>
               </div>
             </div>
           </div>
 
           <div class="inspector-panel">
-            <div class="tabs" role="tablist" aria-label="检查器">
-              <button class="tab is-active" data-tab="properties">数据</button>
-              <button class="tab" data-tab="agent">运行</button>
-              <button class="tab" data-tab="artifacts">结果</button>
-              <button class="tab" data-tab="designs">设计</button>
-              <button class="tab" data-tab="skills">工具</button>
+            <div class="tabs" role="tablist" data-i18n-aria="inspector" aria-label="检查器">
+              <button class="tab is-active" data-tab="properties" data-i18n="data">数据</button>
+              <button class="tab" data-tab="agent" data-i18n="run">运行</button>
+              <button class="tab" data-tab="artifacts" data-i18n="results">结果</button>
+              <button class="tab" data-tab="designs" data-i18n="design">设计</button>
+              <button class="tab" data-tab="skills" data-i18n="tools">工具</button>
             </div>
 
             <div class="tab-panel is-active" id="propertiesPanel">
               <div class="property-grid" id="propertyGrid"></div>
               <div class="note-block">
-                <span>结构注释</span>
+                <span data-i18n="structureNotes">结构注释</span>
                 <p id="structureNotes"></p>
               </div>
               <div class="sequence-block" id="sequenceBlock"></div>
@@ -183,12 +187,12 @@
           </div>
         </section>
 
-        <section class="console-panel" aria-label="自然语言 Agent">
+        <section class="console-panel" data-i18n-aria="agentConsole" aria-label="自然语言 Agent">
           <div class="console-header">
-            <strong>对话</strong>
+            <strong data-i18n="conversation">对话</strong>
             <span class="runtime-status">
               <span class="status-dot"></span>
-              <span id="localStatusText">连接中</span>
+              <span id="localStatusText" data-i18n="connecting">连接中</span>
             </span>
           </div>
           <div class="prompt-chips" id="promptChips"></div>
@@ -198,9 +202,10 @@
               id="commandInput"
               type="text"
               autocomplete="off"
+              data-i18n-placeholder="questionPlaceholder"
               placeholder="提出一个生命科学问题…"
             />
-            <button class="primary-button command-submit" type="submit" title="发送" aria-label="发送">↑</button>
+            <button class="primary-button command-submit" type="submit" data-i18n-title="send" data-i18n-aria="send" title="发送" aria-label="发送">↑</button>
           </form>
         </section>
       </main>
@@ -211,31 +216,31 @@
         <header>
           <div>
             <p class="eyebrow">API RUNTIME</p>
-            <h3>连接第三方 LLM</h3>
+            <h3 data-i18n="connectLlm">连接第三方 LLM</h3>
           </div>
-          <button class="icon-button" value="close" aria-label="关闭">×</button>
+          <button class="icon-button" value="close" data-i18n-aria="close" aria-label="关闭">×</button>
         </header>
         <label class="check-row">
           <input type="checkbox" id="useApiRuntime" />
-          <span>启用自带 OpenAI-compatible API</span>
+          <span data-i18n="enableOwnApi">启用自带 OpenAI-compatible API</span>
         </label>
         <label class="input-label" for="apiEndpoint">Endpoint</label>
         <input id="apiEndpoint" type="url" placeholder="https://provider.example/v1/chat/completions" />
         <label class="input-label" for="apiModel">Model</label>
         <input id="apiModel" type="text" value="your-model-name" />
         <label class="input-label" for="apiKey">API Key</label>
-        <input id="apiKey" type="password" placeholder="仅保存在本页内存中" />
+        <input id="apiKey" type="password" data-i18n-placeholder="keyMemoryOnly" placeholder="仅保存在本页内存中" />
         <label class="input-label" for="toolMode">Tool mode</label>
         <select id="toolMode">
           <option value="native">Native tool calling</option>
-          <option value="grounded">Grounded chat（兼容不支持 tools 的模型）</option>
+          <option value="grounded" data-i18n="groundedMode">Grounded chat（兼容不支持 tools 的模型）</option>
         </select>
-        <p class="settings-note">
+        <p class="settings-note" data-i18n="apiNote">
           Key 仅经本地服务转发给所选 provider，不写入文件。Native 模式允许模型选择 skills；Grounded 模式先在本地计算当前结构，再把必要结果发给模型。
         </p>
         <menu>
-          <button class="secondary-button" value="cancel">取消</button>
-          <button class="primary-button" id="saveSettings" value="default">保存</button>
+          <button class="secondary-button" value="cancel" data-i18n="cancel">取消</button>
+          <button class="primary-button" id="saveSettings" value="default" data-i18n="save">保存</button>
         </menu>
       </form>
     </dialog>
@@ -245,18 +250,18 @@
         <header>
           <div>
             <p class="eyebrow">GUIDED WORKFLOW</p>
-            <h3>制定分析计划</h3>
+            <h3 data-i18n="createAnalysisPlan">制定分析计划</h3>
           </div>
-          <button class="icon-button" value="close" aria-label="关闭">×</button>
+          <button class="icon-button" value="close" data-i18n-aria="close" aria-label="关闭">×</button>
         </header>
-        <label class="input-label" for="workflowTemplate">工作流</label>
+        <label class="input-label" for="workflowTemplate" data-i18n="workflow">工作流</label>
         <select id="workflowTemplate"></select>
         <p class="settings-note" id="workflowDescription"></p>
         <div class="workflow-fields" id="workflowFields"></div>
-        <p class="settings-note">计划创建后不会自动执行；请在“运行”页审阅并批准。</p>
+        <p class="settings-note" data-i18n="approvalNote">计划创建后不会自动执行；请在“运行”页审阅并批准。</p>
         <menu>
-          <button class="secondary-button" value="cancel">取消</button>
-          <button class="primary-button" id="createWorkflowPlan" type="button">创建待审批计划</button>
+          <button class="secondary-button" value="cancel" data-i18n="cancel">取消</button>
+          <button class="primary-button" id="createWorkflowPlan" type="button" data-i18n="createPendingPlan">创建待审批计划</button>
         </menu>
       </form>
     </dialog>

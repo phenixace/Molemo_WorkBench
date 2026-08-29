@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from vcf_cohort import preflight_vcf_cohort, review_vcf_cohort
+from molemo.vcf_cohort import preflight_vcf_cohort, review_vcf_cohort
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:

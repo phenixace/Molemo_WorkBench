@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from transcriptomics import preflight_bulk_rnaseq, run_bulk_rnaseq_de
+from molemo.transcriptomics import preflight_bulk_rnaseq, run_bulk_rnaseq_de
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:

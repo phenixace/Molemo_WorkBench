@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pipeline import parse_molecule
+from molemo.pipeline import parse_molecule
 
 
 def analyze_molecule(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:

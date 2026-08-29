@@ -526,6 +526,42 @@ select:focus {
   display: none;
 }
 
+.language-control {
+  height: 30px;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.language-segment {
+  width: 31px;
+  min-width: 31px;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.language-segment:last-child {
+  border-right: 0;
+}
+
+.language-segment:hover {
+  background: var(--surface-subtle);
+  color: var(--ink);
+}
+
+.language-segment.is-active {
+  background: var(--ink);
+  color: #ffffff;
+}
+
 .workbench {
   grid-column: 2;
   grid-row: 2;
@@ -5629,6 +5665,19 @@ button:disabled {
 
   #runDefaultPrompt {
     display: none;
+  }
+
+  .topbar-actions {
+    flex: 0 0 auto;
+  }
+
+  #exportReport {
+    display: none;
+  }
+
+  .language-segment {
+    width: 29px;
+    min-width: 29px;
   }
 
   .workbench {

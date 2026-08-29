@@ -4,8 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agent_runtime import extract_protein_conservation_plan, local_workflow_plan
-from multiple_alignment import (
+from molemo.agent_runtime import extract_protein_conservation_plan, local_workflow_plan
+from molemo.multiple_alignment import (
     MultipleAlignmentError,
     calculate_conservation,
     find_mafft_executable,
@@ -13,9 +13,9 @@ from multiple_alignment import (
     preflight_multiple_alignment,
     read_protein_fasta,
 )
-from skill_runtime import SkillRegistry, compact_tool_result
-from workflow_runtime import WorkflowManager
-from workspace_utils import WORKSPACE_ROOT
+from molemo.skill_runtime import SkillRegistry, compact_tool_result
+from molemo.workflow_runtime import WorkflowManager
+from molemo.workspace_utils import WORKSPACE_ROOT
 
 
 EXAMPLE_FASTA = "examples/ras_family.faa"

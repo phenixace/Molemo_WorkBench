@@ -1,6 +1,8 @@
 # Capability matrix
 
-Molemo WorkBench 的目标不是复制某个专用模型，而是实现同一类可审计研究闭环：从问题出发，连接本地数据和科学工具，在同一工作区检查结果，并保留下一步决策所需的上下文。
+English | [简体中文](CAPABILITY_MATRIX.zh-CN.md)
+
+Molemo WorkBench does not aim to reproduce a specialized model. It implements an auditable research loop that starts from a question, connects local data and scientific tools, keeps results inspectable in one workspace, and preserves the context needed for the next decision.
 
 | Research workflow | Molemo WorkBench v0.22 | Current boundary |
 | --- | --- | --- |

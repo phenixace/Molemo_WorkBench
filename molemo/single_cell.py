@@ -18,10 +18,10 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from workspace_utils import MAX_UPLOAD_BYTES, WORKSPACE_ROOT, resolve_workspace_path
+from .workspace_utils import MAX_UPLOAD_BYTES, WORKSPACE_ROOT, resolve_workspace_path
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 RUNNER_PATH = ROOT / "tools" / "run_scanpy.py"
 INSPECTOR_PATH = ROOT / "tools" / "inspect_single_cell.py"
 PROJECT_SCANPY_PYTHON = ROOT / ".molemo-tools" / "bin" / "python"

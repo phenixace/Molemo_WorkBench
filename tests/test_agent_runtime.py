@@ -2,8 +2,8 @@ import json
 import unittest
 from unittest.mock import patch
 
-from agent_runtime import extract_variant_structure_plan, local_workflow_plan, run_agent
-from skill_runtime import SkillRegistry
+from molemo.agent_runtime import extract_variant_structure_plan, local_workflow_plan, run_agent
+from molemo.skill_runtime import SkillRegistry
 
 
 class AgentRuntimeTests(unittest.TestCase):
@@ -52,7 +52,7 @@ class AgentRuntimeTests(unittest.TestCase):
             },
         }
 
-        with patch("agent_runtime.provider_chat", side_effect=provider_responses):
+        with patch("molemo.agent_runtime.provider_chat", side_effect=provider_responses):
             result = run_agent(payload, SkillRegistry())
 
         self.assertEqual(result["trace"][0]["name"], "chem_analyze_molecule")

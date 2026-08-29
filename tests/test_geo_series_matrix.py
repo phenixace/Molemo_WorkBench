@@ -9,14 +9,14 @@ import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
-from bio_clients import ExternalDataError, _AllowlistedRedirectHandler
+from molemo.bio_clients import ExternalDataError, _AllowlistedRedirectHandler
 
-from agent_runtime import (
+from molemo.agent_runtime import (
     extract_geo_series_matrix_plan,
     local_intent_tools,
     local_workflow_plan,
 )
-from geo_series_matrix import (
+from molemo.geo_series_matrix import (
     GeoSeriesMatrixError,
     import_geo_series_matrix,
     normalize_geo_series_matrix_inputs,
@@ -24,8 +24,8 @@ from geo_series_matrix import (
     parse_matrix_directory_listing,
     preflight_geo_series_matrix,
 )
-from skill_runtime import SkillRegistry, compact_tool_result
-from workflow_runtime import WorkflowManager
+from molemo.skill_runtime import SkillRegistry, compact_tool_result
+from molemo.workflow_runtime import WorkflowManager
 
 
 LISTING = """<html><body><pre>
@@ -136,7 +136,7 @@ class GeoSeriesMatrixTests(unittest.TestCase):
             parse_matrix_directory_listing(LISTING, "GSE1000"),
             ["GSE1000_series_matrix.txt.gz"],
         )
-        with patch("geo_series_matrix.get_text", return_value=MULTI_LISTING):
+        with patch("molemo.geo_series_matrix.get_text", return_value=MULTI_LISTING):
             result = preflight_geo_series_matrix("GSE2000")
         self.assertFalse(result["ready"])
         self.assertEqual(len(result["available_files"]), 2)
@@ -150,8 +150,8 @@ class GeoSeriesMatrixTests(unittest.TestCase):
             "content_type": "application/x-gzip",
             "last_modified": "Mon, 06 Jul 2026 19:53:39 GMT",
         }
-        with patch("geo_series_matrix.get_text", return_value=LISTING), patch(
-            "geo_series_matrix.get_head_metadata", return_value=head
+        with patch("molemo.geo_series_matrix.get_text", return_value=LISTING), patch(
+            "molemo.geo_series_matrix.get_head_metadata", return_value=head
         ):
             result = preflight_geo_series_matrix("GSE1000")
         self.assertTrue(result["ready"])
@@ -180,9 +180,9 @@ class GeoSeriesMatrixTests(unittest.TestCase):
     def test_import_persists_original_tables_hash_and_manifest(self):
         payload = synthetic_matrix()
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "geo_series_matrix.preflight_geo_series_matrix", return_value=ready_preflight()
-        ), patch("geo_series_matrix.get_binary", return_value=payload), patch(
-            "geo_series_matrix.WORKSPACE_ROOT", Path(temporary)
+            "molemo.geo_series_matrix.preflight_geo_series_matrix", return_value=ready_preflight()
+        ), patch("molemo.geo_series_matrix.get_binary", return_value=payload), patch(
+            "molemo.geo_series_matrix.WORKSPACE_ROOT", Path(temporary)
         ):
             result = import_geo_series_matrix("GSE1000")
             root = Path(temporary) / result["output_root"]
@@ -200,7 +200,7 @@ class GeoSeriesMatrixTests(unittest.TestCase):
             output = Path(temporary) / "bad.tsv"
             with self.assertRaisesRegex(GeoSeriesMatrixError, "non-numeric"):
                 parse_geo_series_matrix(synthetic_matrix(bad_value=True), output)
-            with patch("geo_series_matrix.MAX_UNCOMPRESSED_BYTES", 80), self.assertRaisesRegex(
+            with patch("molemo.geo_series_matrix.MAX_UNCOMPRESSED_BYTES", 80), self.assertRaisesRegex(
                 GeoSeriesMatrixError, "uncompressed size"
             ):
                 parse_geo_series_matrix(synthetic_matrix(), output)
@@ -221,7 +221,7 @@ class GeoSeriesMatrixTests(unittest.TestCase):
     def test_workflow_preflights_then_imports_only_after_approval(self):
         registry = RecordingRegistry()
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "workflow_runtime.preflight_geo_series_matrix", return_value=ready_preflight()
+            "molemo.workflow_runtime.preflight_geo_series_matrix", return_value=ready_preflight()
         ):
             manager = WorkflowManager(Path(temporary))
             run = manager.create_plan(
@@ -238,9 +238,9 @@ class GeoSeriesMatrixTests(unittest.TestCase):
     def test_model_compaction_omits_full_matrix_metadata(self):
         payload = synthetic_matrix()
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "geo_series_matrix.preflight_geo_series_matrix", return_value=ready_preflight()
-        ), patch("geo_series_matrix.get_binary", return_value=payload), patch(
-            "geo_series_matrix.WORKSPACE_ROOT", Path(temporary)
+            "molemo.geo_series_matrix.preflight_geo_series_matrix", return_value=ready_preflight()
+        ), patch("molemo.geo_series_matrix.get_binary", return_value=payload), patch(
+            "molemo.geo_series_matrix.WORKSPACE_ROOT", Path(temporary)
         ):
             data = import_geo_series_matrix("GSE1000")
         encoded = compact_tool_result(

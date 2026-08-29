@@ -5,15 +5,15 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
-from agent_runtime import extract_clinical_trial_plan, local_workflow_plan
-from clinical_trials import (
+from molemo.agent_runtime import extract_clinical_trial_plan, local_workflow_plan
+from molemo.clinical_trials import (
     ClinicalTrialsError,
     collect_clinical_trial_landscape,
     normalize_clinical_trial_inputs,
     search_clinical_trials_preview,
 )
-from skill_runtime import SkillRegistry, compact_tool_result
-from workflow_runtime import WorkflowManager
+from molemo.skill_runtime import SkillRegistry, compact_tool_result
+from molemo.workflow_runtime import WorkflowManager
 
 
 CLINICAL_TRIALS_PAYLOAD = {
@@ -147,7 +147,7 @@ class ClinicalTrialsTests(unittest.TestCase):
             normalize_clinical_trial_inputs("asthma", status_scope="unknown")
 
     def test_preview_preserves_source_order_and_registry_evidence_lanes(self):
-        with patch("clinical_trials.get_json", return_value=CLINICAL_TRIALS_PAYLOAD) as request:
+        with patch("molemo.clinical_trials.get_json", return_value=CLINICAL_TRIALS_PAYLOAD) as request:
             result = search_clinical_trials_preview(
                 condition="asthma", intervention="dupilumab", max_results=2
             )
@@ -165,8 +165,8 @@ class ClinicalTrialsTests(unittest.TestCase):
 
     def test_approved_collection_persists_manifest_report_summary_and_table(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "clinical_trials.get_json", return_value=CLINICAL_TRIALS_PAYLOAD
-        ), patch("clinical_trials.WORKSPACE_ROOT", Path(temporary)):
+            "molemo.clinical_trials.get_json", return_value=CLINICAL_TRIALS_PAYLOAD
+        ), patch("molemo.clinical_trials.WORKSPACE_ROOT", Path(temporary)):
             result = collect_clinical_trial_landscape(
                 condition="asthma", intervention="dupilumab", max_results=2
             )
@@ -205,7 +205,7 @@ class ClinicalTrialsTests(unittest.TestCase):
         }
         registry = RecordingRegistry()
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "workflow_runtime.preflight_clinical_trial_landscape", return_value=preflight
+            "molemo.workflow_runtime.preflight_clinical_trial_landscape", return_value=preflight
         ):
             manager = WorkflowManager(Path(temporary))
             run = manager.create_plan(

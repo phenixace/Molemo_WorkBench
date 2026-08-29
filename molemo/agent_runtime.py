@@ -10,7 +10,7 @@ import urllib.request
 from typing import Any
 from urllib.parse import urlparse
 
-from skill_runtime import SkillError, SkillRegistry, compact_tool_result
+from .skill_runtime import SkillError, SkillRegistry, compact_tool_result
 
 
 MAX_AGENT_STEPS = 6

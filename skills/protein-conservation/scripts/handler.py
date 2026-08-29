@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from multiple_alignment import preflight_multiple_alignment, run_multiple_alignment
+from molemo.multiple_alignment import preflight_multiple_alignment, run_multiple_alignment
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:

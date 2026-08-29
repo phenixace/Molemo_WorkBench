@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from geo_series_matrix import import_geo_series_matrix, preflight_geo_series_matrix
+from molemo.geo_series_matrix import import_geo_series_matrix, preflight_geo_series_matrix
 
 
 def _arguments(arguments: dict[str, Any]) -> dict[str, str]:

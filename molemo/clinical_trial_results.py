@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from bio_clients import ExternalDataError, get_json
-from workspace_utils import WORKSPACE_ROOT
+from .bio_clients import ExternalDataError, get_json
+from .workspace_utils import WORKSPACE_ROOT
 
 
 CLINICAL_TRIALS_API = "https://clinicaltrials.gov/api/v2/studies"

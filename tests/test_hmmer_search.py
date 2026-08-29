@@ -4,15 +4,15 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_runtime import extract_hmmer_profile_plan, local_workflow_plan
-from hmmer_search import (
+from molemo.agent_runtime import extract_hmmer_profile_plan, local_workflow_plan
+from molemo.hmmer_search import (
     HmmerSearchError,
     parse_hmmer_domtblout,
     preflight_hmmer_profile_search,
     run_hmmer_profile_search,
 )
-from skill_runtime import SkillRegistry
-from workflow_runtime import WorkflowManager
+from molemo.skill_runtime import SkillRegistry
+from molemo.workflow_runtime import WorkflowManager
 
 
 EXAMPLE_HMM = "examples/ubiquitin_demo.hmm"
@@ -46,8 +46,8 @@ class HmmerSearchTests(unittest.TestCase):
 
     def test_real_hmmsearch_preserves_repeat_domains_and_outputs(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "hmmer_search.WORKSPACE_ROOT", Path(temporary)
-        ), patch("workspace_utils.WORKSPACE_ROOT", Path(temporary)):
+            "molemo.hmmer_search.WORKSPACE_ROOT", Path(temporary)
+        ), patch("molemo.workspace_utils.WORKSPACE_ROOT", Path(temporary)):
             examples = Path(temporary) / "examples"
             examples.mkdir()
             source_root = Path(__file__).resolve().parents[1] / "workspace" / "examples"
@@ -121,7 +121,7 @@ class HmmerSearchTests(unittest.TestCase):
         }
         registry = RecordingRegistry()
         with tempfile.TemporaryDirectory() as temporary, patch(
-            "workflow_runtime.preflight_hmmer_profile_search", return_value=preflight
+            "molemo.workflow_runtime.preflight_hmmer_profile_search", return_value=preflight
         ):
             manager = WorkflowManager(Path(temporary))
             run = manager.create_plan(

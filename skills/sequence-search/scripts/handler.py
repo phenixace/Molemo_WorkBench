@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sequence_search import run_local_blast
+from molemo.sequence_search import run_local_blast
 
 
 def search_sequence(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:

@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urljoin
 
-from bio_clients import ExternalDataError, get_binary, get_head_metadata, get_text
-from workspace_utils import WORKSPACE_ROOT
+from .bio_clients import ExternalDataError, get_binary, get_head_metadata, get_text
+from .workspace_utils import WORKSPACE_ROOT
 
 
 GEO_FTP_ROOT = "https://ftp.ncbi.nlm.nih.gov/geo/series"

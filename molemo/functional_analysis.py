@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from bio_clients import ExternalDataError, post_form_json_array, post_text_json
-from workspace_utils import WORKSPACE_ROOT
+from .bio_clients import ExternalDataError, post_form_json_array, post_text_json
+from .workspace_utils import WORKSPACE_ROOT
 
 
 REACTOME_ANALYSIS_URL = "https://reactome.org/AnalysisService/identifiers/projection"
