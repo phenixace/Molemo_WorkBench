@@ -12,7 +12,11 @@ LANES = (
     ("public biological databases", r"pubchem|uniprot|rcsb|database|accession|数据库|条目"),
     ("target evidence and prioritization", r"target evidence|target priorit|disease association|靶点证据|靶点优先|疾病关联"),
     ("human genetics and variant evidence", r"clinvar|gnomad|hgvs|\brs\d+\b|variant interpret|pathogenic|人类遗传|变异解释|致病|人群频率"),
-    ("clinical and translational evidence", r"clinical trial|trial landscape|clinical development|临床试验|临床开发|试验版图"),
+    (
+        "clinical and translational evidence",
+        r"clinical trial|trial landscape|clinical development|posted results|trial results|"
+        r"\bNCT\d{8}\b|临床试验|临床开发|试验版图|试验结果|结果审阅|不良事件",
+    ),
     ("literature and study discovery", r"paper|publication|literature|pubmed|europe pmc|文献|论文|研究综述|证据地图"),
     ("experimental protein structure", r"pdb|rcsb|mmcif|coordinate|atom-level|原子|坐标|三维结构"),
     ("sequencing quality control", r"fastq|phred|q20|q30|read quality|测序|质控|读长"),
@@ -44,7 +48,9 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
     if "human genetics and variant evidence" in lanes:
         suggested.extend(["variant_evidence_preflight", "workflow_create_plan"])
     if "clinical and translational evidence" in lanes:
-        suggested.extend(["clinical_trials_preview", "workflow_create_plan"])
+        suggested.extend(
+            ["clinical_trials_preview", "clinical_trial_results_preflight", "workflow_create_plan"]
+        )
     if "literature and study discovery" in lanes:
         suggested.extend(["literature_search_preview", "workflow_create_plan"])
     if "experimental protein structure" in lanes:

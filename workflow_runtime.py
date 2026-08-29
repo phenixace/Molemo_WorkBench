@@ -17,6 +17,7 @@ from target_evidence import TargetEvidenceError, resolve_target_review_inputs
 from literature_review import LiteratureReviewError, preflight_literature_review
 from variant_evidence import VariantEvidenceError, preflight_variant_evidence
 from clinical_trials import ClinicalTrialsError, preflight_clinical_trial_landscape
+from clinical_trial_results import ClinicalTrialResultsError, preflight_clinical_trial_results
 
 
 ROOT = Path(__file__).resolve().parent
@@ -241,6 +242,18 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "ClinicalTrials.gov 登记信息描述研究计划和状态，不直接证明疗效或安全性。",
             "总体状态不等于每个研究中心的实时招募状态；采取行动前应检查最新官方记录。",
             "登记终点不是结果值；posted results、方案、统计分析和关联论文需要分别审阅。",
+        ],
+    },
+    "clinical-trial-results-review": {
+        "title": "临床试验结果审阅",
+        "description": "预检一个精确 NCT 记录，批准后整理已发布的受试者流程、基线、结局统计与不良事件。",
+        "fields": [
+            _field("nct_id", "NCT ID", "text", required=True, placeholder="NCT02414854"),
+        ],
+        "assumptions": [
+            "ClinicalTrials.gov posted results 是申办方或研究者提交的汇总表，不是独立疗效、安全性或偏倚风险结论。",
+            "每个数值都必须结合分组、单位、分母、时间窗、分析人群和统计方法解释。",
+            "不良事件是描述性登记数据；关键评价仍需结合方案、SAP、全文论文与监管资料。",
         ],
     },
     "pairwise-alignment-review": {
@@ -524,6 +537,25 @@ def _clinical_trials_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
         raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
 
 
+def _clinical_trial_results_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    nct_id = _require_text(inputs, "nct_id", "NCT ID").upper()
+    inputs["nct_id"] = nct_id
+    return [
+        _step(
+            "整理已发布的试验结果与可追溯文件",
+            "clinical_trial_results_review",
+            {"nct_id": nct_id},
+        )
+    ]
+
+
+def _clinical_trial_results_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_clinical_trial_results(inputs["nct_id"])
+    except ClinicalTrialResultsError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _workflow_boolean(value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -615,6 +647,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "literature-evidence-review": _literature_steps,
     "variant-evidence-review": _variant_evidence_steps,
     "clinical-trial-landscape-review": _clinical_trials_steps,
+    "clinical-trial-results-review": _clinical_trial_results_steps,
     "pairwise-alignment-review": _alignment_steps,
     "sequence-similarity-search": _sequence_search_steps,
     "database-record-review": _database_steps,
@@ -626,6 +659,7 @@ PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "literature-evidence-review": _literature_preflight,
     "variant-evidence-review": _variant_evidence_preflight,
     "clinical-trial-landscape-review": _clinical_trials_preflight,
+    "clinical-trial-results-review": _clinical_trial_results_preflight,
 }
 
 

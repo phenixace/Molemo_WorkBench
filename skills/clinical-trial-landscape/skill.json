@@ -38,6 +38,33 @@
         "required": ["condition"],
         "additionalProperties": false
       }
+    },
+    {
+      "name": "clinical_trial_results_preflight",
+      "description": "Resolve one exact NCT ID and verify that ClinicalTrials.gov has posted tabular results. Return study identity and bounded counts for outcomes, adverse-event terms, publications, and protocol documents without generating an effect conclusion.",
+      "handler": "scripts/handler.py:results_preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "nct_id": { "type": "string", "pattern": "^NCT[0-9]{8}$", "description": "Exact ClinicalTrials.gov identifier, for example NCT02414854." }
+        },
+        "required": ["nct_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "clinical_trial_results_review",
+      "description": "Capture the posted participant flow, baseline, outcome values and submitted statistics, adverse events, protocol documents, and linked publications for one approved NCT record. Persist source-ordered TSV, JSON, manifest, and Markdown outputs without calculating an efficacy or safety score.",
+      "handler": "scripts/handler.py:results_review",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "nct_id": { "type": "string", "pattern": "^NCT[0-9]{8}$" }
+        },
+        "required": ["nct_id"],
+        "additionalProperties": false
+      }
     }
   ]
 }

@@ -1,3 +1,3 @@
 interface:
-  display_name: "Clinical Trial Landscape"
-  short_description: "Map source-linked ClinicalTrials.gov records"
+  display_name: "Clinical Trial Evidence"
+  short_description: "Map trials and review exact posted results"

@@ -1,9 +1,13 @@
-"""ClinicalTrials.gov preview and approved landscape handlers."""
+"""ClinicalTrials.gov landscape and exact posted-results handlers."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from clinical_trial_results import (
+    preflight_clinical_trial_results,
+    review_clinical_trial_results,
+)
 from clinical_trials import collect_clinical_trial_landscape, search_clinical_trials_preview
 
 
@@ -25,6 +29,56 @@ def preview(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, An
 
 def collect(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:
     return _result(collect_clinical_trial_landscape(**_arguments(arguments)), "Clinical trial landscape")
+
+
+def results_preflight(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:
+    result = preflight_clinical_trial_results(str(arguments.get("nct_id") or ""))
+    return {
+        "summary": result["summary"],
+        "data": result,
+        "evidence": [
+            {
+                "source": result["source"],
+                "url": result["source_url"],
+                "nct_id": result["nct_id"],
+            }
+        ],
+        "caveats": result["warnings"],
+        "artifacts": [
+            {
+                "id": "latest-clinical-results-preflight",
+                "type": "clinical-trial-results-preflight",
+                "title": f"Posted results preflight · {result['nct_id']}",
+                "data": result,
+            }
+        ],
+    }
+
+
+def results_review(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:
+    result = review_clinical_trial_results(str(arguments.get("nct_id") or ""))
+    evidence = [
+        {
+            "source": result["source"],
+            "url": result["source_url"],
+            "nct_id": result["nct_id"],
+            "retrieved_at": result["retrieved_at"],
+        }
+    ]
+    return {
+        "summary": result["summary"],
+        "data": result,
+        "evidence": evidence,
+        "caveats": result["caveats"],
+        "artifacts": [
+            {
+                "id": result["analysis_id"],
+                "type": "clinical-trial-results",
+                "title": f"Posted results · {result['nct_id']}",
+                "data": result,
+            }
+        ],
+    }
 
 
 def _result(result: dict[str, Any], title: str) -> dict[str, Any]:

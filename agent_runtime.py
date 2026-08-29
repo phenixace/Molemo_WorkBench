@@ -242,6 +242,14 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
 def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
     """Select explicit retrieval/QC tools when no external LLM is configured."""
     selected: list[tuple[str, dict[str, Any]]] = []
+    nct_id = extract_nct_id(message)
+    if nct_id and re.search(
+        r"clinical\s+trial|trial\s+result|posted\s+result|outcome|adverse\s+event|"
+        r"临床试验|试验结果|结果审阅|结局|不良事件|安全性结果",
+        message,
+        re.I,
+    ):
+        selected.append(("clinical_trial_results_preflight", {"nct_id": nct_id}))
     pdb = re.search(r"(?:pdb|rcsb|structure|结构)\s*(?:id|编号|条目)?\s*[:：#-]?\s*([0-9][a-z0-9]{3})\b", message, re.I)
     if pdb:
         selected.append(("structure_fetch_pdb", {"pdb_id": pdb.group(1).upper()}))
@@ -287,6 +295,9 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a guided plan request without granting execution authority."""
+    clinical_results = extract_clinical_results_plan(message)
+    if clinical_results:
+        return "clinical-trial-results-review", clinical_results
     clinical_trials = extract_clinical_trial_plan(message)
     if clinical_trials:
         return "clinical-trial-landscape-review", clinical_trials
@@ -379,6 +390,23 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     if sample_type == "protein" and context.get("sequence"):
         return "protein-sequence-review", {"sequence": context["sequence"]}
     return None
+
+
+def extract_nct_id(message: str) -> str:
+    match = re.search(r"\bNCT\d{8}\b", str(message or ""), re.I)
+    return match.group(0).upper() if match else ""
+
+
+def extract_clinical_results_plan(message: str) -> dict[str, Any] | None:
+    nct_id = extract_nct_id(message)
+    if not nct_id or not re.search(
+        r"posted\s+results?|trial\s+results?|result\s+tables?|outcomes?|adverse\s+events?|"
+        r"results?\s+review|试验结果|结果审阅|结果表|结局|不良事件|安全性结果",
+        message,
+        re.I,
+    ):
+        return None
+    return {"nct_id": nct_id}
 
 
 def extract_clinical_trial_plan(message: str) -> dict[str, Any] | None:

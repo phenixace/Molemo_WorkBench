@@ -762,6 +762,11 @@ function renderArtifacts() {
       } else if (artifact.type === "clinical-trial-landscape") {
         card.classList.add("clinical-trials-artifact");
         card.innerHTML = renderClinicalTrialLandscape(title, artifact.data || {});
+      } else if (artifact.type === "clinical-trial-results-preflight") {
+        card.innerHTML = renderClinicalTrialResultsPreflight(title, artifact.data || {});
+      } else if (artifact.type === "clinical-trial-results") {
+        card.classList.add("clinical-results-artifact");
+        card.innerHTML = renderClinicalTrialResults(title, artifact.data || {});
       } else if (artifact.type === "variant-evidence-preflight") {
         card.innerHTML = renderVariantEvidencePreflight(title, artifact.data || {});
       } else if (artifact.type === "variant-evidence-review") {
@@ -1086,6 +1091,171 @@ function renderClinicalTrialRecord(study, open) {
           ${publications.filter((item) => item.pmid).slice(0, 6).map((item) => `<a href="https://pubmed.ncbi.nlm.nih.gov/${escapeHtml(item.pmid)}/" target="_blank" rel="noreferrer">PMID ${escapeHtml(item.pmid)}</a>`).join("")}
         </div>
       </div>
+    </details>
+  `;
+}
+
+function renderClinicalTrialResultsPreflight(title, data) {
+  const study = data.study || {};
+  const sourceUrl = safeExternalUrl(data.source_url) ? data.source_url : "";
+  return `
+    <header><strong>${title}</strong><span>posted results preflight</span></header>
+    <div class="clinical-results-identity">
+      <div><span>NCT ID</span><strong>${escapeHtml(data.nct_id || study.nct_id || "n/a")}</strong></div>
+      <div><span>Status</span><strong>${escapeHtml(formatTrialLabel(study.status || "unknown"))}</strong></div>
+      <div><span>Phase</span><strong>${escapeHtml((study.phases || []).map(formatTrialLabel).join(", ") || "n/a")}</strong></div>
+      <div><span>Sponsor</span><strong>${escapeHtml(study.sponsor || "Not returned")}</strong></div>
+    </div>
+    <p class="clinical-results-title">${escapeHtml(study.title || data.nct_id || "Clinical trial")}</p>
+    <div class="clinical-results-counts">
+      ${[
+        ["Primary", data.primary_outcome_count || 0],
+        ["Secondary", data.secondary_outcome_count || 0],
+        ["Serious AE terms", data.serious_event_term_count || 0],
+        ["Publications", data.publication_count || 0],
+        ["Documents", data.document_count || 0],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || "Posted registry tables are not an independent efficacy or safety conclusion.")}</p>
+    ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open ${escapeHtml(data.nct_id || "record")} in ClinicalTrials.gov</a>` : ""}
+  `;
+}
+
+function renderClinicalTrialResults(title, data) {
+  const study = data.study || {};
+  const flow = data.participant_flow || {};
+  const baseline = data.baseline || {};
+  const outcomes = (data.outcomes || []).slice(0, 40);
+  const adverse = data.adverse_events || {};
+  const documents = data.documents || [];
+  const publications = data.publications || [];
+  const sourceUrl = safeExternalUrl(data.source_url) ? data.source_url : "";
+  const firstPeriod = (flow.periods || [])[0] || {};
+  const started = (firstPeriod.milestones || []).find((item) => /STARTED|ENROLLED/.test(String(item.type || "").toUpperCase()));
+  const completed = (firstPeriod.milestones || []).find((item) => /COMPLETED/.test(String(item.type || "").toUpperCase()));
+  return `
+    <header>
+      <strong>${title}</strong>
+      <span>${escapeHtml(formatTimestamp(data.retrieved_at))}</span>
+    </header>
+    <div class="clinical-results-heading">
+      <div><span>Exact record</span><strong>${escapeHtml(data.nct_id || study.nct_id || "n/a")}</strong></div>
+      <p>${escapeHtml(study.title || "Clinical trial")}</p>
+      <span>${escapeHtml(formatTrialLabel(study.status || "unknown"))}</span>
+    </div>
+    <div class="clinical-results-counts">
+      ${[
+        ["Enrollment", study.enrollment || 0],
+        ["Primary", data.primary_outcome_count || 0],
+        ["Secondary", data.secondary_outcome_count || 0],
+        ["Analyses", data.analysis_count || 0],
+        ["Serious AE terms", adverse.serious_event_term_count || 0],
+        ["Publications", publications.length],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="clinical-results-meta">
+      <span>${escapeHtml((study.phases || []).map(formatTrialLabel).join(", ") || formatTrialLabel(study.study_type || "Study"))}</span>
+      <span>${escapeHtml(study.sponsor || "Sponsor not returned")}</span>
+      <span>${escapeHtml([study.design?.allocation, study.design?.intervention_model, study.design?.masking].filter(Boolean).map(formatTrialLabel).join(" · ") || "Design not returned")}</span>
+      <span>${escapeHtml(study.dates?.results_first_posted ? `Results posted ${study.dates.results_first_posted}` : "Results date not returned")}</span>
+    </div>
+    <section class="clinical-results-section">
+      <header><strong>Participant flow</strong><span>${escapeHtml(firstPeriod.title || "First reported period")}</span></header>
+      <div class="clinical-flow-list">
+        ${(flow.groups || []).map((group) => `
+          <div>
+            <strong>${escapeHtml(group.title || group.id)}</strong>
+            <span>Started <b>${escapeHtml(flowSubjects(started, group.id))}</b></span>
+            <span>Completed <b>${escapeHtml(flowSubjects(completed, group.id))}</b></span>
+          </div>
+        `).join("") || "<p>No participant-flow groups returned.</p>"}
+      </div>
+    </section>
+    <details class="clinical-results-section clinical-baseline">
+      <summary><strong>Baseline characteristics</strong><span>${escapeHtml(`${baseline.measure_count || (baseline.measures || []).length} measures`)}</span></summary>
+      <div class="clinical-measure-list">
+        ${(baseline.measures || []).slice(0, 12).map((measure, index) => renderClinicalResultMeasure(measure, index === 0, "baseline")).join("") || "<p>No baseline measures returned.</p>"}
+      </div>
+    </details>
+    <section class="clinical-results-section">
+      <header><strong>Outcome measures</strong><span>source order · submitted statistics</span></header>
+      <div class="clinical-measure-list">
+        ${outcomes.map((measure, index) => renderClinicalResultMeasure(measure, measure.type === "PRIMARY" && index < 2, "outcome")).join("") || "<p>No outcome measures returned.</p>"}
+      </div>
+      ${Number(data.outcome_count || outcomes.length) > outcomes.length ? `<p class="clinical-results-note">Showing ${outcomes.length} of ${escapeHtml(data.outcome_count)} measures. Complete rows are in the persisted outputs.</p>` : ""}
+    </section>
+    <section class="clinical-results-section">
+      <header><strong>Adverse events</strong><span>${escapeHtml(adverse.time_frame || "Time frame not returned")}</span></header>
+      <div class="clinical-ae-groups">
+        ${(adverse.groups || []).map((group) => `
+          <div><strong>${escapeHtml(group.title || group.id)}</strong><span>Deaths ${escapeHtml(group.deaths_affected)}/${escapeHtml(group.deaths_at_risk)}</span><span>Serious ${escapeHtml(group.serious_affected)}/${escapeHtml(group.serious_at_risk)}</span><span>Other ${escapeHtml(group.other_affected)}/${escapeHtml(group.other_at_risk)}</span></div>
+        `).join("") || "<p>No adverse-event group totals returned.</p>"}
+      </div>
+      ${renderAdverseEventTerms("Serious event terms", adverse.serious_events || [], adverse.serious_event_term_count || 0)}
+      ${renderAdverseEventTerms("Other event terms", adverse.other_events || [], adverse.other_event_term_count || 0)}
+    </section>
+    <section class="clinical-results-section clinical-source-files">
+      <header><strong>Source files and publications</strong><span>critical appraisal inputs</span></header>
+      <div class="clinical-source-links">
+        ${documents.filter((item) => safeExternalUrl(item.url)).map((item) => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.label || item.filename)}</a>`).join("")}
+        ${publications.filter((item) => item.pmid && safeExternalUrl(item.url)).slice(0, 20).map((item) => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">PMID ${escapeHtml(item.pmid)}</a>`).join("")}
+      </div>
+    </section>
+    <div class="trial-review-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "No independent efficacy or safety conclusion was generated.")}</p>
+      ${Object.keys(data.outputs || {}).length ? `<div class="target-output-paths">${Object.entries(data.outputs).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>` : ""}
+      ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open exact record in ClinicalTrials.gov</a>` : ""}
+    </div>
+  `;
+}
+
+function flowSubjects(milestone, groupId) {
+  const value = (milestone?.values || []).find((item) => item.group_id === groupId);
+  return value ? value.subjects : "n/a";
+}
+
+function renderClinicalResultMeasure(measure, open, context) {
+  const rows = measure.rows || [];
+  const analyses = measure.analyses || [];
+  return `
+    <details class="clinical-measure" ${open ? "open" : ""}>
+      <summary>
+        <span>${escapeHtml(formatTrialLabel(measure.type || context))}</span>
+        <strong>${escapeHtml(measure.title || "Measure")}</strong>
+        <small>${escapeHtml(measure.time_frame || measure.unit || "")}</small>
+      </summary>
+      <div class="clinical-measure-body">
+        <div class="clinical-measure-meta">${escapeHtml([measure.param_type, measure.dispersion_type, measure.unit].filter(Boolean).map(formatTrialLabel).join(" · ") || "Submitted values")}</div>
+        ${measure.description ? `<p>${escapeHtml(measure.description)}</p>` : ""}
+        ${rows.map((row) => `
+          <div class="clinical-result-row">
+            <strong>${escapeHtml(row.label || "Result")}</strong>
+            <div>${(row.values || []).map((value) => `
+              <span><small>${escapeHtml(value.group || value.group_id)}</small><b>${escapeHtml(value.value || "n/a")}${value.spread ? ` · ${escapeHtml(value.spread)}` : ""}</b>${value.lower_limit || value.upper_limit ? `<em>${escapeHtml(`${value.lower_limit || "?"} to ${value.upper_limit || "?"}`)}</em>` : ""}</span>
+            `).join("")}</div>
+          </div>
+        `).join("") || "<p>No result rows returned.</p>"}
+        ${analyses.map((analysis) => `
+          <div class="clinical-analysis">
+            <strong>${escapeHtml(analysis.groups.join(" vs ") || "Submitted analysis")}</strong>
+            <span>${escapeHtml([analysis.parameter && `${formatTrialLabel(analysis.parameter)} ${analysis.parameter_value}`, analysis.p_value && `p ${analysis.p_value}`, analysis.ci_lower || analysis.ci_upper ? `${analysis.ci_percent || ""}% CI ${analysis.ci_lower || "?"} to ${analysis.ci_upper || "?"}` : ""].filter(Boolean).join(" · "))}</span>
+            <small>${escapeHtml(analysis.method || "Method not returned")}</small>
+          </div>
+        `).join("")}
+      </div>
+    </details>
+  `;
+}
+
+function renderAdverseEventTerms(title, events, total) {
+  const shown = events.slice(0, 30);
+  return `
+    <details class="clinical-ae-terms">
+      <summary><strong>${escapeHtml(title)}</strong><span>${escapeHtml(total)} terms</span></summary>
+      <div>
+        ${shown.map((event) => `<p><strong>${escapeHtml(event.term || "Event")}</strong><span>${escapeHtml(event.organ_system || "")}</span><small>${(event.stats || []).map((item) => `${escapeHtml(item.group)} ${escapeHtml(item.affected)}/${escapeHtml(item.at_risk)}`).join(" · ")}</small></p>`).join("") || "<p>No terms returned.</p>"}
+      </div>
+      ${Number(total) > shown.length ? `<small class="clinical-results-note">Showing ${shown.length} terms in source order; complete rows are in the persisted outputs.</small>` : ""}
     </details>
   `;
 }
@@ -1416,6 +1586,8 @@ function renderWorkflowPreflight(preflight) {
     detail = `${preflight.variant.accession} · ${preflight.variant.hgvs_c || preflight.variant.canonical_spdi || preflight.query}`;
   } else if (preflight.condition && preflight.hit_count !== undefined) {
     detail = `${preflight.condition}${preflight.intervention ? ` · ${preflight.intervention}` : ""} · ${Number(preflight.hit_count || 0).toLocaleString("en-US")} studies`;
+  } else if (preflight.study?.nct_id || preflight.nct_id) {
+    detail = `${preflight.study?.nct_id || preflight.nct_id} · ${preflight.primary_outcome_count || 0} primary outcomes · ${preflight.serious_event_term_count || 0} serious AE terms`;
   } else if (preflight.design_formula || preflight.contrast) {
     detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
   }
@@ -1587,6 +1759,7 @@ function workflowFieldDefault(templateId, field) {
   if (templateId === "variant-evidence-review" && field.name === "variant") return "NM_000518.5:c.20A>T";
   if (templateId === "clinical-trial-landscape-review" && field.name === "condition") return "asthma";
   if (templateId === "clinical-trial-landscape-review" && field.name === "intervention") return "dupilumab";
+  if (templateId === "clinical-trial-results-review" && field.name === "nct_id") return "NCT02414854";
   if (field.name === "smiles") return sample.smiles || "";
   if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
   if (field.name === "pdb_id") return sample.pdbId || "";
@@ -2962,6 +3135,7 @@ function safeExternalUrl(value) {
       "rest.ensembl.org",
       "gnomad.broadinstitute.org",
       "clinicaltrials.gov",
+      "cdn.clinicaltrials.gov",
     ].includes(url.hostname);
   } catch {
     return false;

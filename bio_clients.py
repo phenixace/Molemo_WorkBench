@@ -26,7 +26,7 @@ ALLOWED_HOSTS = {
 MAX_JSON_BYTES = 6 * 1024 * 1024
 MAX_JSON_REQUEST_BYTES = 256 * 1024
 MAX_STRUCTURE_BYTES = 24 * 1024 * 1024
-USER_AGENT = "Molemo-WorkBench/0.9 (public scientific database client)"
+USER_AGENT = "Molemo-WorkBench/0.10 (public scientific database client)"
 
 
 class ExternalDataError(RuntimeError):
