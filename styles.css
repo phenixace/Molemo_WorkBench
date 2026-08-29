@@ -1465,6 +1465,331 @@ select:focus {
   gap: 6px;
 }
 
+.variant-evidence-artifact {
+  gap: 9px;
+}
+
+.variant-identity {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.variant-identity > div {
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.variant-identity span,
+.variant-query-line span,
+.variant-evidence-lanes header span,
+.variant-transcripts > header span,
+.variant-populations > header span {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.variant-identity strong,
+.variant-identity code {
+  display: block;
+  min-width: 0;
+  margin-top: 3px;
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.variant-identity code,
+.variant-query-line code {
+  font-family: var(--mono);
+}
+
+.variant-preflight-classification {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 150px minmax(100px, 0.8fr) minmax(180px, 1.2fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  border-bottom: 1px solid var(--line);
+  font-size: 9px;
+}
+
+.variant-preflight-classification span,
+.variant-preflight-classification small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.variant-query-line {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.variant-query-line code {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.variant-query-line small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.variant-evidence-lanes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.variant-evidence-lanes > section {
+  min-width: 0;
+  padding: 8px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.variant-evidence-lanes header,
+.variant-transcripts > header,
+.variant-populations > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.variant-evidence-lanes header strong,
+.variant-transcripts > header strong,
+.variant-populations > header strong {
+  font-size: 9px;
+}
+
+.variant-primary-value {
+  min-height: 31px;
+  margin-top: 6px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.variant-evidence-lanes dl {
+  margin: 5px 0 0;
+}
+
+.variant-evidence-lanes dl > div {
+  min-height: 23px;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  font-size: 8px;
+}
+
+.variant-evidence-lanes dt {
+  color: var(--muted);
+}
+
+.variant-evidence-lanes dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.variant-traits {
+  margin-top: 6px;
+  display: grid;
+  gap: 3px;
+}
+
+.variant-traits span,
+.variant-prediction-note,
+.variant-filter-note {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.variant-traits span + span {
+  padding-top: 3px;
+  border-top: 1px solid var(--line);
+}
+
+.variant-prediction-note,
+.variant-filter-note {
+  margin-top: 6px;
+}
+
+.variant-filter-note {
+  color: var(--rose);
+}
+
+.variant-transcripts,
+.variant-populations {
+  padding-top: 2px;
+}
+
+.variant-table-scroll {
+  max-width: 100%;
+  margin-top: 5px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+}
+
+.variant-transcripts table {
+  width: 100%;
+  min-width: 650px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 8px;
+}
+
+.variant-transcripts th,
+.variant-transcripts td {
+  min-width: 0;
+  height: auto;
+  padding: 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-align: left;
+  vertical-align: top;
+}
+
+.variant-transcripts th:last-child,
+.variant-transcripts td:last-child {
+  border-right: 0;
+}
+
+.variant-transcripts tbody tr:last-child th,
+.variant-transcripts tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.variant-transcripts thead th {
+  height: 27px;
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.variant-transcripts th:first-child {
+  width: 132px;
+}
+
+.variant-transcripts th:nth-child(2) {
+  width: 58px;
+}
+
+.variant-transcripts th:nth-child(4) {
+  width: 148px;
+}
+
+.variant-transcripts th code,
+.variant-transcripts td code {
+  font-family: var(--mono);
+  font-size: 8px;
+  overflow-wrap: anywhere;
+}
+
+.variant-transcripts th small,
+.variant-transcripts td small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 400;
+}
+
+.variant-populations > div {
+  margin-top: 5px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.variant-populations > div > span {
+  min-width: 0;
+  min-height: 27px;
+  padding: 4px 6px;
+  display: grid;
+  grid-template-columns: minmax(82px, 1fr) minmax(24px, 0.8fr) 52px;
+  align-items: center;
+  gap: 5px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.variant-populations b {
+  min-width: 0;
+  font-size: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.variant-populations i {
+  position: relative;
+  height: 4px;
+  background: #ecece8;
+}
+
+.variant-populations i::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--frequency);
+  background: var(--teal);
+}
+
+.variant-populations code {
+  font-family: var(--mono);
+  font-size: 8px;
+  text-align: right;
+}
+
+.variant-review-footer {
+  display: grid;
+  gap: 6px;
+}
+
+.variant-source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.variant-source-links a {
+  color: var(--teal);
+  font-size: 9px;
+  text-decoration: none;
+}
+
+.variant-source-links a:hover {
+  text-decoration: underline;
+}
+
 .artifact-card header span,
 .skill-card header span,
 .artifact-card > span,
@@ -2410,9 +2735,30 @@ button:disabled {
   .target-review-heading,
   .target-detail-grid,
   .target-output-paths,
+  .variant-identity,
+  .variant-populations > div,
   .literature-metrics,
   .literature-map {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .variant-evidence-lanes,
+  .variant-preflight-classification {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .variant-preflight-classification {
+    align-items: start;
+    padding: 6px 0;
+    gap: 3px;
+  }
+
+  .variant-query-line {
+    grid-template-columns: 74px minmax(0, 1fr);
+  }
+
+  .variant-query-line small {
+    grid-column: 2;
   }
 
   .literature-papers summary {

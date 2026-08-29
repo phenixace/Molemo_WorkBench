@@ -24,7 +24,7 @@ STATIC_FILES = {"index.html", "styles.css", "app.js"}
 
 
 class MolemoHandler(BaseHTTPRequestHandler):
-    server_version = "molemo-bench/0.7"
+    server_version = "molemo-bench/0.8"
 
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.NO_CONTENT)

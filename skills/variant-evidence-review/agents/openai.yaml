@@ -1,0 +1,3 @@
+interface:
+  display_name: "Human Variant Evidence Review"
+  short_description: "Review ClinVar, VEP, and gnomAD evidence"

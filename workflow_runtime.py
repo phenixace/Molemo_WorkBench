@@ -15,6 +15,7 @@ from typing import Any, Callable
 from transcriptomics import TranscriptomicsError, preflight_bulk_rnaseq
 from target_evidence import TargetEvidenceError, resolve_target_review_inputs
 from literature_review import LiteratureReviewError, preflight_literature_review
+from variant_evidence import VariantEvidenceError, preflight_variant_evidence
 
 
 ROOT = Path(__file__).resolve().parent
@@ -186,6 +187,24 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "Europe PMC relevance 仅表示检索排序，不代表研究质量或证据确定性。",
             "当前 evidence map 基于元数据与摘要，不等同于全文系统综述或风险偏倚评价。",
             "引用次数仅作书目信息展示，不参与排序或证据评级。",
+        ],
+    },
+    "variant-evidence-review": {
+        "title": "人类变异证据审阅",
+        "description": "解析单个简单变异，批准后整理 ClinVar、Ensembl VEP 与 gnomAD v4 证据。",
+        "fields": [
+            _field(
+                "variant",
+                "RefSeq HGVS / rsID / ClinVar ID",
+                "text",
+                required=True,
+                placeholder="NM_000518.5:c.20A>T",
+            ),
+        ],
+        "assumptions": [
+            "审批前必须确认具体等位基因、转录本与基因组版本；rsID 可能对应多个等位基因。",
+            "ClinVar 分类是提交者断言，VEP 是计算注释，gnomAD 是人群观察，三者不合成为自定义致病性分数。",
+            "结果不是诊断、治疗建议或新的 ACMG/AMP 临床分类。",
         ],
     },
     "pairwise-alignment-review": {
@@ -423,6 +442,25 @@ def _literature_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
         raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
 
 
+def _variant_evidence_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    variant = _require_text(inputs, "variant", "Variant identifier")
+    inputs["variant"] = variant
+    return [
+        _step(
+            "整理 ClinVar、VEP 与 gnomAD 变异证据",
+            "variant_evidence_review",
+            {"variant": variant},
+        )
+    ]
+
+
+def _variant_evidence_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_variant_evidence(inputs["variant"])
+    except VariantEvidenceError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _workflow_boolean(value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -512,6 +550,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "bulk-rnaseq-differential-expression": _rnaseq_steps,
     "target-evidence-review": _target_evidence_steps,
     "literature-evidence-review": _literature_steps,
+    "variant-evidence-review": _variant_evidence_steps,
     "pairwise-alignment-review": _alignment_steps,
     "sequence-similarity-search": _sequence_search_steps,
     "database-record-review": _database_steps,
@@ -521,6 +560,7 @@ PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "bulk-rnaseq-differential-expression": _rnaseq_preflight,
     "target-evidence-review": _target_evidence_preflight,
     "literature-evidence-review": _literature_preflight,
+    "variant-evidence-review": _variant_evidence_preflight,
 }
 
 

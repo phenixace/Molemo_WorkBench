@@ -1,0 +1,38 @@
+{
+  "id": "variant-evidence-review",
+  "title": "Human Variant Evidence Review",
+  "kind": "retrieval",
+  "description": "Resolve one simple human variant and organize ClinVar, Ensembl VEP, and gnomAD evidence through a researcher-approved workflow.",
+  "tools": [
+    {
+      "name": "variant_evidence_preflight",
+      "description": "Resolve one exact RefSeq HGVS expression, rsID, ClinVar Variation ID, or VCV accession. Return the normalized allele, transcript, assembly, and ClinVar aggregate assertion for review before execution.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "variant": {
+            "type": "string",
+            "description": "Exact human variant identifier, preferably a versioned RefSeq coding HGVS expression such as NM_000518.5:c.20A>T."
+          }
+        },
+        "required": ["variant"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "variant_evidence_review",
+      "description": "Retrieve and persist an approved single-variant evidence review from ClinVar, Ensembl VEP, and gnomAD v4 without creating a custom pathogenicity score.",
+      "handler": "scripts/handler.py:review",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "variant": { "type": "string" }
+        },
+        "required": ["variant"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -759,6 +759,11 @@ function renderArtifacts() {
       } else if (artifact.type === "literature-evidence-map") {
         card.classList.add("literature-evidence-artifact");
         card.innerHTML = renderLiteratureEvidenceMap(title, artifact.data || {});
+      } else if (artifact.type === "variant-evidence-preflight") {
+        card.innerHTML = renderVariantEvidencePreflight(title, artifact.data || {});
+      } else if (artifact.type === "variant-evidence-review") {
+        card.classList.add("variant-evidence-artifact");
+        card.innerHTML = renderVariantEvidenceReview(title, artifact.data || {});
       } else if (artifact.type === "bar-chart") {
         const data = artifact.data || {};
         const values = data.values || [];
@@ -988,6 +993,129 @@ function renderLiteraturePaper(paper, open) {
   `;
 }
 
+function renderVariantEvidencePreflight(title, data) {
+  const variant = data.variant || {};
+  const classification = variant.germline_classification || {};
+  const location = (variant.locations || []).find((item) => item.assembly === "GRCh38") || {};
+  return `
+    <header><strong>${title}</strong><span>allele resolution</span></header>
+    <div class="variant-identity">
+      <div><span>ClinVar</span><strong>${escapeHtml(variant.accession || variant.variation_id || "n/a")}</strong></div>
+      <div><span>Allele</span><code>${escapeHtml(variant.hgvs_c || variant.canonical_spdi || "n/a")}</code></div>
+      <div><span>Gene</span><strong>${escapeHtml((variant.gene_symbols || []).join(", ") || "n/a")}</strong></div>
+      <div><span>GRCh38</span><code>${escapeHtml(location.chromosome ? `${location.chromosome}:${location.start}` : "n/a")}</code></div>
+    </div>
+    <div class="variant-preflight-classification">
+      <span>ClinVar aggregate germline assertion</span>
+      <strong>${escapeHtml(classification.description || "Not provided")}</strong>
+      <small>${escapeHtml(classification.review_status || "Review status not provided")}</small>
+    </div>
+    <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || "Confirm the allele, transcript, and assembly before approval.")}</p>
+  `;
+}
+
+function renderVariantEvidenceReview(title, data) {
+  const variant = data.variant || {};
+  const classification = variant.germline_classification || {};
+  const vep = data.vep || {};
+  const gnomad = data.gnomad || {};
+  const transcripts = vep.transcripts || [];
+  const populations = gnomad.populations || [];
+  const maxPopulationAf = Math.max(...populations.map((item) => Number(item.allele_frequency) || 0), 0.000001);
+  const sourceLinks = (data.sources || [])
+    .filter((source) => safeExternalUrl(source.url))
+    .map((source) => `<a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.name)}</a>`)
+    .join("");
+  return `
+    <header>
+      <strong>${title}</strong>
+      <span>${escapeHtml(formatTimestamp(data.retrieved_at))}</span>
+    </header>
+    <div class="variant-query-line">
+      <span>Resolved allele</span>
+      <code>${escapeHtml(variant.hgvs_c || variant.canonical_spdi || data.query || "")}</code>
+      <small>${escapeHtml([variant.accession, (variant.dbsnp_ids || []).join(", ")].filter(Boolean).join(" · "))}</small>
+    </div>
+    <div class="variant-evidence-lanes">
+      <section>
+        <header><strong>ClinVar</strong><span>submitted interpretation</span></header>
+        <div class="variant-primary-value">${escapeHtml(classification.description || "Not provided")}</div>
+        <dl>
+          <div><dt>Review status</dt><dd>${escapeHtml(classification.review_status || "Not provided")}</dd></div>
+          <div><dt>Last evaluated</dt><dd>${escapeHtml(classification.last_evaluated || "Not provided")}</dd></div>
+          <div><dt>Submissions</dt><dd>${escapeHtml(`${variant.supporting_submission_counts?.scv || 0} SCV · ${variant.supporting_submission_counts?.rcv || 0} RCV`)}</dd></div>
+        </dl>
+        <div class="variant-traits">
+          ${(classification.traits || []).slice(0, 6).map((trait) => `<span>${escapeHtml(trait.name)}</span>`).join("") || "<span>No condition scope returned.</span>"}
+        </div>
+      </section>
+      <section>
+        <header><strong>Ensembl VEP</strong><span>computed annotation</span></header>
+        <div class="variant-primary-value">${escapeHtml((vep.most_severe_consequence || "Not returned").replaceAll("_", " "))}</div>
+        <dl>
+          <div><dt>Assembly</dt><dd>${escapeHtml(vep.assembly || "n/a")}</dd></div>
+          <div><dt>Class</dt><dd>${escapeHtml(vep.variant_class || "n/a")}</dd></div>
+          <div><dt>Transcripts</dt><dd>${escapeHtml(vep.transcript_count || transcripts.length)}</dd></div>
+        </dl>
+        <div class="variant-prediction-note">SIFT and PolyPhen remain computational context.</div>
+      </section>
+      <section>
+        <header><strong>gnomAD v4</strong><span>population observation</span></header>
+        <div class="variant-primary-value">${gnomad.available ? escapeHtml(formatVariantFrequency(gnomad.allele_frequency)) : "Not returned"}</div>
+        ${gnomad.available ? `<dl>
+          <div><dt>Allele count</dt><dd>${escapeHtml(Number(gnomad.ac || 0).toLocaleString("en-US"))}</dd></div>
+          <div><dt>Allele number</dt><dd>${escapeHtml(Number(gnomad.an || 0).toLocaleString("en-US"))}</dd></div>
+          <div><dt>Homozygotes</dt><dd>${escapeHtml(gnomad.homozygote_count || 0)}</dd></div>
+        </dl>` : `<p>${escapeHtml(gnomad.reason || "No population record was available.")}</p>`}
+        ${(gnomad.filters || []).length ? `<div class="variant-filter-note">Filter: ${escapeHtml(gnomad.filters.join(", "))}</div>` : ""}
+      </section>
+    </div>
+    <section class="variant-transcripts">
+      <header><strong>Transcript consequences</strong><span>MANE and canonical first</span></header>
+      <div class="variant-table-scroll">
+        <table>
+          <thead><tr><th>Transcript</th><th>Gene</th><th>Consequence</th><th>Protein</th><th>Prediction</th></tr></thead>
+          <tbody>${transcripts.map((item) => `<tr>
+            <th><code>${escapeHtml(item.transcript_id)}</code><small>${item.mane_select ? `MANE ${escapeHtml(item.mane_select)}` : item.canonical ? "Canonical" : ""}</small></th>
+            <td>${escapeHtml(item.gene_symbol || item.gene_id || "")}</td>
+            <td>${escapeHtml((item.consequences || []).join(", ").replaceAll("_", " "))}<small>${escapeHtml(item.impact || "")}</small></td>
+            <td><code>${escapeHtml(item.hgvsp || item.amino_acids || "n/a")}</code></td>
+            <td>${escapeHtml(variantPredictionLabel(item))}</td>
+          </tr>`).join("") || '<tr><td colspan="5">No transcript consequences returned.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+    ${gnomad.available ? `<section class="variant-populations">
+      <header><strong>Population frequency context</strong><span>not a cross-population ranking</span></header>
+      <div>${populations.map((item) => `<span>
+        <b>${escapeHtml(item.label)}</b>
+        <i style="--frequency:${Math.max(1, (Number(item.allele_frequency || 0) / maxPopulationAf) * 100)}%"></i>
+        <code>${escapeHtml(formatVariantFrequency(item.allele_frequency))}</code>
+      </span>`).join("")}</div>
+    </section>` : ""}
+    <div class="variant-review-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "This evidence review is not a diagnosis or clinical classification.")}</p>
+      <div class="target-output-paths">${Object.entries(data.outputs || {}).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>
+      <div class="variant-source-links">${sourceLinks}</div>
+    </div>
+  `;
+}
+
+function formatVariantFrequency(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "n/a";
+  if (number === 0) return "0";
+  if (number < 0.0001) return number.toExponential(2);
+  return number.toPrecision(4);
+}
+
+function variantPredictionLabel(item) {
+  const parts = [];
+  if (item.sift?.prediction) parts.push(`SIFT ${item.sift.prediction}`);
+  if (item.polyphen?.prediction) parts.push(`PolyPhen ${item.polyphen.prediction}`);
+  return parts.join(" · ") || "Not returned";
+}
+
 function renderRnaseqPreflight(title, data) {
   const contrast = data.contrast || {};
   return `
@@ -1180,6 +1308,8 @@ function renderWorkflowPreflight(preflight) {
     detail = `${preflight.disease.name} · ${(preflight.targets || []).map((target) => target.symbol).join(", ")}`;
   } else if (preflight.exact_query && preflight.hit_count !== undefined) {
     detail = `${preflight.exact_query} · ${Number(preflight.hit_count || 0).toLocaleString("en-US")} matches`;
+  } else if (preflight.variant?.accession) {
+    detail = `${preflight.variant.accession} · ${preflight.variant.hgvs_c || preflight.variant.canonical_spdi || preflight.query}`;
   } else if (preflight.design_formula || preflight.contrast) {
     detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
   }
@@ -1348,6 +1478,7 @@ function workflowFieldDefault(templateId, field) {
   if (templateId === "target-evidence-review" && field.name === "disease") return "asthma";
   if (templateId === "target-evidence-review" && field.name === "candidates") return "IL4R, TSLP, IL6R, JAK1";
   if (templateId === "literature-evidence-review" && field.name === "query") return "(IL4R OR TSLP) AND asthma";
+  if (templateId === "variant-evidence-review" && field.name === "variant") return "NM_000518.5:c.20A>T";
   if (field.name === "smiles") return sample.smiles || "";
   if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
   if (field.name === "pdb_id") return sample.pdbId || "";
@@ -2719,6 +2850,9 @@ function safeExternalUrl(value) {
       "pubmed.ncbi.nlm.nih.gov",
       "europepmc.org",
       "doi.org",
+      "www.ncbi.nlm.nih.gov",
+      "rest.ensembl.org",
+      "gnomad.broadinstitute.org",
     ].includes(url.hostname);
   } catch {
     return false;

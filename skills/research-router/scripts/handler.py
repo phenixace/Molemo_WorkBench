@@ -11,6 +11,7 @@ LANES = (
     ("protein structure and sequence", r"protein|peptide|fasta|sequence|mutation|蛋白|多肽|序列|突变"),
     ("public biological databases", r"pubchem|uniprot|rcsb|database|accession|数据库|条目"),
     ("target evidence and prioritization", r"target evidence|target priorit|disease association|靶点证据|靶点优先|疾病关联"),
+    ("human genetics and variant evidence", r"clinvar|gnomad|hgvs|\brs\d+\b|variant interpret|pathogenic|人类遗传|变异解释|致病|人群频率"),
     ("literature and study discovery", r"paper|publication|literature|pubmed|europe pmc|文献|论文|研究综述|证据地图"),
     ("experimental protein structure", r"pdb|rcsb|mmcif|coordinate|atom-level|原子|坐标|三维结构"),
     ("sequencing quality control", r"fastq|phred|q20|q30|read quality|测序|质控|读长"),
@@ -39,6 +40,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
         suggested.extend(["database_lookup_pubchem", "database_lookup_uniprot"])
     if "target evidence and prioritization" in lanes:
         suggested.extend(["target_evidence_preflight", "workflow_create_plan"])
+    if "human genetics and variant evidence" in lanes:
+        suggested.extend(["variant_evidence_preflight", "workflow_create_plan"])
     if "literature and study discovery" in lanes:
         suggested.extend(["literature_search_preview", "workflow_create_plan"])
     if "experimental protein structure" in lanes:

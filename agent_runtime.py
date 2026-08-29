@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -199,6 +199,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         "protein structure and sequence": "蛋白结构与序列",
         "molecular chemistry": "分子化学",
         "literature and study discovery": "文献与研究发现",
+        "human genetics and variant evidence": "人类遗传与变异证据",
     }
     lane = ", ".join(lane_labels.get(item, item) for item in raw_lanes)
     evidence_text = " ".join(evidence) if evidence else "No structured molecule or protein is active yet."
@@ -211,6 +212,11 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         reply = (
             f"当前问题被路由到 {lane}。{evidence_text} "
             "结果按 Europe PMC relevance 保留，并附 PMID、DOI 或来源链接；该顺序不代表研究质量，形成结论前仍需检查摘要、全文与研究设计。"
+        )
+    elif "human genetics and variant evidence" in raw_lanes:
+        reply = (
+            f"当前问题被路由到 {lane}。{evidence_text} "
+            "请先确认等位基因、转录本与组装版本；ClinVar、VEP 与 gnomAD 分属提交分类、计算注释和人群观察，不能直接合成为诊断结论。"
         )
     else:
         reply = (
@@ -246,6 +252,10 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
     if fastq and re.search(r"fastq|qc|quality|phred|q20|q30|质控|质量", message, re.I):
         selected.append(("ngs_fastq_qc", {"path": fastq.group(1)}))
 
+    variant = extract_variant_identifier(message)
+    if variant and re.search(r"variant|mutation|clinvar|hgvs|变异|突变|位点", message, re.I):
+        selected.append(("variant_evidence_preflight", {"variant": variant}))
+
     literature_query = extract_literature_query(message)
     if literature_query and re.search(r"paper|publication|literature|study|文献|论文|研究", message, re.I):
         start_year, end_year = extract_year_window(message)
@@ -271,6 +281,15 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a guided plan request without granting execution authority."""
+    variant = extract_variant_identifier(message)
+    if variant and re.search(
+        r"variant\s+(?:interpretation|review|evidence)|interpret\s+(?:the\s+)?variant|"
+        r"pathogenic|population\s+frequency|clinvar|gnomad|vep|"
+        r"变异(?:解释|审阅|证据)|解释.{0,12}(?:变异|突变)|致病|人群频率|临床意义",
+        message,
+        re.I,
+    ):
+        return "variant-evidence-review", {"variant": variant}
     target_review = extract_target_evidence_plan(message)
     if target_review:
         return "target-evidence-review", target_review
@@ -351,6 +370,28 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     if sample_type == "protein" and context.get("sequence"):
         return "protein-sequence-review", {"sequence": context["sequence"]}
     return None
+
+
+def extract_variant_identifier(message: str) -> str:
+    hgvs = re.search(
+        r"\bN[CMPRG]_[0-9]+(?:\.[0-9]+)?(?:\([A-Za-z0-9_.-]+\))?:[cgmnpr]\.[A-Za-z0-9_*+?=><.-]+",
+        message,
+        re.I,
+    )
+    if hgvs:
+        return hgvs.group(0)
+    accession = re.search(r"\bVCV\d{1,12}(?:\.\d+)?\b", message, re.I)
+    if accession:
+        return accession.group(0).upper()
+    rsid = re.search(r"\brs\d{1,12}\b", message, re.I)
+    if rsid:
+        return rsid.group(0).lower()
+    variation_id = re.search(
+        r"(?:ClinVar\s+)?(?:Variation\s+ID|变异编号)\s*[:：#]?\s*(\d{1,12})\b",
+        message,
+        re.I,
+    )
+    return variation_id.group(1) if variation_id else ""
 
 
 def extract_target_evidence_plan(message: str) -> dict[str, Any] | None:

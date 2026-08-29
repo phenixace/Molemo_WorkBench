@@ -150,6 +150,31 @@ class WorkflowRuntimeTests(unittest.TestCase):
         self.assertEqual(completed["status"], "completed")
         self.assertEqual(registry.calls[0][0], "literature_review_collect")
 
+    def test_variant_plan_resolves_allele_but_reviews_only_after_approval(self):
+        registry = RecordingRegistry()
+        preflight = {
+            "ready": True,
+            "summary": "Resolved one simple allele.",
+            "variant": {
+                "accession": "VCV000015333.180",
+                "hgvs_c": "NM_000518.5:c.20A>T",
+                "gnomad_variant_id": "11-5227002-T-A",
+            },
+        }
+        with patch("workflow_runtime.preflight_variant_evidence", return_value=preflight):
+            run = self.manager.create_plan(
+                "variant-evidence-review",
+                {"variant": "NM_000518.5:c.20A>T"},
+            )
+
+        self.assertEqual(run["status"], "pending_approval")
+        self.assertEqual(run["preflight"]["variant"]["accession"], "VCV000015333.180")
+        self.assertEqual(registry.calls, [])
+
+        completed = self.manager.approve(run["id"], registry)
+        self.assertEqual(completed["status"], "completed")
+        self.assertEqual(registry.calls[0][0], "variant_evidence_review")
+
 
 if __name__ == "__main__":
     unittest.main()
