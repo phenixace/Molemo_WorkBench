@@ -3,6 +3,7 @@ __pycache__/
 .DS_Store
 .env
 reports/
+.molemo-tools/
 workspace/*
 !workspace/.gitkeep
 !workspace/examples/

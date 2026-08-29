@@ -1,0 +1,3 @@
+interface:
+  display_name: "Local Sequence Search"
+  short_description: "Search a workspace FASTA database with BLAST+"

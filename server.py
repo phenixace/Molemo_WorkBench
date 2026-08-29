@@ -24,7 +24,7 @@ STATIC_FILES = {"index.html", "styles.css", "app.js"}
 
 
 class MolemoHandler(BaseHTTPRequestHandler):
-    server_version = "molemo-bench/0.3"
+    server_version = "molemo-bench/0.4"
 
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.NO_CONTENT)
@@ -82,7 +82,7 @@ class MolemoHandler(BaseHTTPRequestHandler):
                 self._send_json(result)
                 return
             if parsed.path == "/api/tools/call":
-                result = REGISTRY.execute(str(payload.get("name") or ""), payload.get("arguments") or {})
+                result = REGISTRY.execute_agent(str(payload.get("name") or ""), payload.get("arguments") or {})
                 self._send_json(result)
                 return
             if parsed.path == "/api/workspace/write":

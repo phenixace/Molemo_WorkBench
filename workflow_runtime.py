@@ -87,6 +87,36 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         ],
         "assumptions": ["当前使用确定性的 Needleman-Wunsch 全局比对。"],
     },
+    "sequence-similarity-search": {
+        "title": "本地序列相似性搜索",
+        "description": "用 NCBI BLAST+ 在 workspace FASTA 数据库中检索相似蛋白或核酸序列。",
+        "fields": [
+            _field("query", "Query FASTA / sequence", "textarea", required=True, rows=6),
+            _field(
+                "database_path",
+                "Workspace FASTA 数据库",
+                "text",
+                required=True,
+                placeholder="examples/homologs.faa",
+            ),
+            _field(
+                "program",
+                "搜索程序",
+                "select",
+                required=True,
+                options=[
+                    {"value": "blastp", "label": "BLASTP · protein"},
+                    {"value": "blastn", "label": "BLASTN · nucleotide"},
+                ],
+            ),
+            _field("evalue", "E-value 阈值", "text", value="1e-5"),
+            _field("max_hits", "最多命中", "number", value=10, min=1, max=100),
+        ],
+        "assumptions": [
+            "输入数据库是与所选程序匹配的 workspace FASTA 文件。",
+            "序列相似性支持相关性判断，但不单独证明功能或活性。",
+        ],
+    },
     "database-record-review": {
         "title": "公共数据库记录",
         "description": "检索 PubChem 化合物或 UniProtKB 蛋白记录。",
@@ -183,6 +213,55 @@ def _alignment_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _sequence_search_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    query = _require_text(inputs, "query", "Query sequence")
+    database_path = _require_text(inputs, "database_path", "Workspace FASTA database")
+    program = str(inputs.get("program") or "blastp").strip().lower()
+    if program not in {"blastp", "blastn"}:
+        raise WorkflowError("program must be blastp or blastn.", "invalid_workflow_inputs")
+    raw_evalue = inputs.get("evalue", 1e-5)
+    if raw_evalue is None or raw_evalue == "":
+        raw_evalue = 1e-5
+    try:
+        evalue = float(raw_evalue)
+    except (TypeError, ValueError) as exc:
+        raise WorkflowError("evalue must be numeric.", "invalid_workflow_inputs") from exc
+    if not 1e-200 <= evalue <= 1e6:
+        raise WorkflowError("evalue must be between 1e-200 and 1e6.", "invalid_workflow_inputs")
+    raw_max_hits = inputs.get("max_hits", 10)
+    if raw_max_hits is None or raw_max_hits == "":
+        raw_max_hits = 10
+    try:
+        max_hits = int(raw_max_hits)
+    except (TypeError, ValueError) as exc:
+        raise WorkflowError("max_hits must be an integer.", "invalid_workflow_inputs") from exc
+    if not 1 <= max_hits <= 100:
+        raise WorkflowError("max_hits must be between 1 and 100.", "invalid_workflow_inputs")
+    inputs.update(
+        {
+            "query": query,
+            "database_path": database_path,
+            "program": program,
+            "evalue": evalue,
+            "max_hits": max_hits,
+        }
+    )
+    return [
+        _step(
+            f"运行本地 {program.upper()} 并解析命中",
+            "sequence_search_local",
+            {
+                "query": query,
+                "database_path": database_path,
+                "program": program,
+                "evalue": evalue,
+                "max_hits": max_hits,
+                "threads": 1,
+            },
+        )
+    ]
+
+
 def _database_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     source = str(inputs.get("source") or "pubchem").strip().lower()
     query = _require_text(inputs, "query", "Database query")
@@ -200,6 +279,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "protein-structure-review": _structure_steps,
     "fastq-qc-review": _fastq_steps,
     "pairwise-alignment-review": _alignment_steps,
+    "sequence-similarity-search": _sequence_search_steps,
     "database-record-review": _database_steps,
 }
 

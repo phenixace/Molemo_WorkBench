@@ -7,17 +7,17 @@ Molemo WorkBench 的目标不是复制某个专用模型，而是实现同一类
 | Chat-centered workspace | Implemented | Chinese and English chat with local traces |
 | Bring-your-own model API | Implemented | OpenAI-compatible Chat Completions; native tools or grounded mode |
 | Local skill orchestration | Implemented | Auto-discovered, schema-constrained Python handlers |
-| Guided plans and researcher approval | Implemented | Six concrete templates; Agent may propose and inspect, while only the local UI can approve execution |
+| Guided plans and researcher approval | Implemented | Seven concrete templates; Agent may propose and inspect, while only the local UI can approve execution |
 | Small-molecule structure | Implemented | RDKit SMILES graph, rings, bond order and core descriptors |
 | Protein sequence analysis | Implemented | FASTA cleaning and sequence-derived properties |
 | Sequence alignment viewer | Implemented | Deterministic pairwise global alignment |
-| Scientific artifacts | Implemented | Molecule, protein sequence/structure, alignment, database record, FASTQ QC, bar chart and hydropathy track |
+| Scientific artifacts | Implemented | Molecule, protein sequence/structure, pairwise alignment, BLAST hits, database record, FASTQ QC, bar chart and hydropathy track |
 | Local file workspace | Implemented | Explicit uploads up to 20 MB; read-only access for Agent; path constrained |
 | Reviewable execution record | Implemented | Plan inputs, per-step state, tool arguments, timing, summary, chat and artifacts |
-| Process benchmark | Implemented | Deterministic v0.3 suite for tool correctness, approval boundary and artifacts |
+| Process benchmark | Implemented | Deterministic v0.4 suite including a real local BLAST+ task, approval boundary and artifacts |
 | Atom-level protein structures | Implemented | RCSB PDB retrieval and local PDB/mmCIF first-model parsing; rendering is sampled above 12,000 atoms |
 | Public biological databases | Implemented | Source-linked PubChem, UniProtKB and RCSB retrieval through fixed official hosts |
-| BLAST/HMMER workflows | Planned | Pairwise local alignment only |
+| BLAST/HMMER workflows | Partial | Bounded BLASTP/BLASTN against workspace FASTA is implemented behind approval; no HMMER or remote/large database orchestration |
 | NGS analysis workbench | Partial | Local FASTQ QC implemented; no sample sheet, alignment, bulk RNA-seq or single-cell pipeline yet |
 | Pathology slide viewer | Planned | No WSI/DICOM viewer |
 | Experimental validation and procurement | Planned | Can discuss validation, but does not call vendors or lab systems |

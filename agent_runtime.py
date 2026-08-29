@@ -120,7 +120,7 @@ def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any
                 "status": "completed",
             }
             try:
-                result = registry.execute(name, arguments)
+                result = registry.execute_agent(name, arguments)
                 artifacts.extend(result.get("artifacts") or [])
                 trace_item["summary"] = str(result.get("summary") or "Skill completed.")
                 tool_content = compact_tool_result(result)
@@ -240,6 +240,22 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a guided plan request without granting execution authority."""
+    sequence_database = re.search(r"([\w./-]+\.(?:fa|fasta|faa|fna))\b", message, re.I)
+    if sequence_database and re.search(r"\bblast[ pn]?\b|homolog|sequence search|同源|相似序列|序列搜索", message, re.I):
+        query = str(context.get("sequence") or "").strip()
+        if query:
+            compact_query = re.sub(r"[^A-Za-z]", "", query).upper()
+            nucleotide_only = bool(compact_query) and not (set(compact_query) - set("ACGTURYKMSWBDHVN"))
+            program = "blastn" if re.search(r"\bblastn\b|nucleotide|dna|rna|核酸|核苷酸", message, re.I) else "blastp"
+            if nucleotide_only and str(context.get("type") or "") != "protein":
+                program = "blastn"
+            return "sequence-similarity-search", {
+                "query": query,
+                "database_path": sequence_database.group(1),
+                "program": program,
+                "evalue": 1e-5,
+                "max_hits": 10,
+            }
     if not re.search(r"(?:制定|生成|创建|准备|给我)?.{0,4}(?:分析计划|执行计划|研究计划|分析流程|管线)|\bworkflow\b|\bpipeline\b|\bplan\b", message, re.I):
         return None
 

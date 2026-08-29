@@ -872,6 +872,119 @@ select:focus {
   color: var(--teal);
 }
 
+.search-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.search-overview > div {
+  min-width: 0;
+  padding: 6px 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.search-overview span,
+.search-hit small {
+  display: block;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.search-overview span {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.search-overview strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.artifact-card .search-database {
+  margin-top: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.search-hits {
+  border-top: 1px solid var(--line);
+}
+
+.search-hit {
+  border-bottom: 1px solid var(--line);
+}
+
+.search-hit summary {
+  min-width: 0;
+  padding: 7px 2px;
+  cursor: pointer;
+  list-style-position: outside;
+}
+
+.search-hit summary::marker {
+  color: var(--muted);
+}
+
+.search-hit-name {
+  display: block;
+  min-width: 0;
+  margin-bottom: 5px;
+}
+
+.search-hit-name strong,
+.search-hit-name small {
+  overflow-wrap: anywhere;
+}
+
+.search-hit-name strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.search-hit-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px 8px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.search-hit-stats b {
+  color: var(--carbon);
+  font-weight: 700;
+}
+
+.search-alignment {
+  min-width: 0;
+  margin: 0 0 7px;
+  padding: 7px;
+  overflow-x: auto;
+  border-left: 2px solid var(--teal);
+  background: var(--surface-subtle);
+  display: grid;
+}
+
+.search-alignment code {
+  white-space: pre;
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.artifact-card .search-empty {
+  padding: 7px 2px;
+  color: var(--muted);
+}
+
 .bar-chart {
   display: grid;
   gap: 5px;

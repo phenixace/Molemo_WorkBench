@@ -1,0 +1,27 @@
+{
+  "id": "sequence-search",
+  "title": "Local Sequence Search",
+  "kind": "pipeline",
+  "description": "Search a protein or nucleotide query against a workspace FASTA database with local NCBI BLAST+.",
+  "tools": [
+    {
+      "name": "sequence_search_local",
+      "description": "Run bounded local BLASTP or BLASTN against a workspace FASTA database and return ranked hits with inspectable alignments.",
+      "handler": "scripts/handler.py:search_sequence",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "FASTA or raw protein/nucleotide query sequence." },
+          "database_path": { "type": "string", "description": "Workspace-relative FASTA database path." },
+          "program": { "type": "string", "enum": ["blastp", "blastn"], "default": "blastp" },
+          "evalue": { "type": "number", "minimum": 1e-200, "maximum": 1000000, "default": 1e-5 },
+          "max_hits": { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 },
+          "threads": { "type": "integer", "minimum": 1, "maximum": 4, "default": 1 }
+        },
+        "required": ["query", "database_path"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

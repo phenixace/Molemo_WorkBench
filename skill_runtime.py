@@ -26,6 +26,7 @@ class ToolDefinition:
     name: str
     description: str
     input_schema: dict[str, Any]
+    agent_callable: bool
     handler: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]
 
 
@@ -63,10 +64,17 @@ class SkillRegistry:
                 name=name,
                 description=str(raw_tool.get("description") or description),
                 input_schema=dict(raw_tool.get("input_schema") or {"type": "object", "properties": {}}),
+                agent_callable=bool(raw_tool.get("agent_callable", True)),
                 handler=handler,
             )
             self.tools[name] = definition
-            tool_summaries.append({"name": name, "description": definition.description})
+            tool_summaries.append(
+                {
+                    "name": name,
+                    "description": definition.description,
+                    "agent_callable": definition.agent_callable,
+                }
+            )
         self.skills.append(
             {
                 "id": skill_id,
@@ -110,7 +118,16 @@ class SkillRegistry:
                 },
             }
             for definition in self.tools.values()
+            if definition.agent_callable
         ]
+
+    def execute_agent(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+        definition = self.tools.get(name)
+        if definition is None:
+            raise SkillError(f"Unknown skill tool: {name}")
+        if not definition.agent_callable:
+            raise SkillError(f"{name} requires a researcher-approved workflow.")
+        return self.execute(name, arguments)
 
     def execute(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         definition = self.tools.get(name)

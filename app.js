@@ -708,6 +708,42 @@ function renderArtifacts() {
             <code>${escapeHtml(data.labelB || "B")} ${escapeHtml(data.sequenceB || "")}</code>
           </div>
         `;
+      } else if (artifact.type === "sequence-search") {
+        const data = artifact.data || {};
+        const hits = data.hits || [];
+        card.innerHTML = `
+          <header><strong>${title}</strong><span>${escapeHtml(`${data.program || "blast"} · ${data.task || "default"}`)}</span></header>
+          <div class="search-overview">
+            ${[
+              ["Query", `${data.query_length || 0} ${data.program === "blastn" ? "nt" : "aa"}`],
+              ["Database", `${data.database_sequences || 0} sequences`],
+              ["Hits", data.hit_count || 0],
+              ["Engine", `${data.engine || "NCBI BLAST+"} ${data.version || ""}`.trim()],
+            ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+          </div>
+          <p class="search-database">${escapeHtml(data.database_path || "Workspace FASTA")}</p>
+          <div class="search-hits">
+            ${hits.length ? hits.map((hit, index) => `
+              <details class="search-hit" ${index === 0 ? "open" : ""}>
+                <summary>
+                  <span class="search-hit-name"><strong>${escapeHtml(hit.title || hit.id || `Hit ${index + 1}`)}</strong><small>${escapeHtml(hit.accession || hit.id || "")}</small></span>
+                  <span class="search-hit-stats">
+                    <span><b>${escapeHtml(hit.identity_percent || 0)}%</b> identity</span>
+                    <span><b>${escapeHtml(hit.query_coverage_percent || 0)}%</b> coverage</span>
+                    <span><b>${escapeHtml(formatScientific(hit.evalue))}</b> E-value</span>
+                    <span><b>${escapeHtml(hit.bit_score || 0)}</b> bit score</span>
+                  </span>
+                </summary>
+                <div class="search-alignment">
+                  <code>Query ${escapeHtml(hit.query_from || 0)}  ${escapeHtml(hit.query_alignment || "")}  ${escapeHtml(hit.query_to || 0)}</code>
+                  <code class="alignment-markers">${escapeHtml(" ".repeat(9) + (hit.midline || ""))}</code>
+                  <code>Hit  ${escapeHtml(hit.hit_from || 0)}  ${escapeHtml(hit.hit_alignment || "")}  ${escapeHtml(hit.hit_to || 0)}</code>
+                </div>
+              </details>
+            `).join("") : '<p class="search-empty">No hits passed the selected E-value threshold.</p>'}
+          </div>
+          <p>相似性命中是相关性证据，不单独证明共享功能或生物活性。</p>
+        `;
       } else if (artifact.type === "bar-chart") {
         const data = artifact.data || {};
         const values = data.values || [];
@@ -2332,6 +2368,13 @@ function formatBytes(bytes) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatScientific(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "n/a";
+  if (number === 0) return "0";
+  return number.toExponential(2).replace("e+", "e");
 }
 
 function escapeHtml(value) {
