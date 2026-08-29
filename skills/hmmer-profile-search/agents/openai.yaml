@@ -1,0 +1,3 @@
+interface:
+  display_name: "HMMER Profile Search"
+  short_description: "Search local proteins with profile HMMs"

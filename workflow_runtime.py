@@ -19,6 +19,11 @@ from variant_evidence import VariantEvidenceError, preflight_variant_evidence
 from clinical_trials import ClinicalTrialsError, preflight_clinical_trial_landscape
 from clinical_trial_results import ClinicalTrialResultsError, preflight_clinical_trial_results
 from vcf_cohort import VcfCohortError, preflight_vcf_cohort
+from hmmer_search import (
+    HmmerSearchError,
+    normalize_hmmer_inputs,
+    preflight_hmmer_profile_search,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -325,6 +330,35 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         "assumptions": [
             "输入数据库是与所选程序匹配的 workspace FASTA 文件。",
             "序列相似性支持相关性判断，但不单独证明功能或活性。",
+        ],
+    },
+    "hmmer-profile-search": {
+        "title": "HMMER 蛋白家族搜索",
+        "description": "预检本地 amino-acid profile HMM 与蛋白 FASTA，批准后运行 HMMER hmmsearch 并整理结构域坐标。",
+        "fields": [
+            _field(
+                "hmm_path",
+                "Workspace profile HMM",
+                "text",
+                required=True,
+                placeholder="examples/ubiquitin_demo.hmm",
+            ),
+            _field(
+                "database_path",
+                "Workspace protein FASTA",
+                "text",
+                required=True,
+                placeholder="examples/hmmer_targets.faa",
+            ),
+            _field("evalue", "序列 E-value 阈值", "text", value="1e-5"),
+            _field("domain_evalue", "结构域 conditional E-value 阈值", "text", value="1e-5"),
+            _field("max_hits", "最多 profile-target 命中", "number", value=25, min=1, max=100),
+            _field("threads", "线程", "number", value=1, min=1, max=4),
+        ],
+        "assumptions": [
+            "hmmsearch 是 profile HMM 查询蛋白序列数据库；profile 和目标数据库身份必须在审批前确认。",
+            "序列 E-value 依赖目标数据库大小；结构域 conditional E-value 还依赖通过序列报告阈值的目标数。",
+            "profile 命中支持家族或结构域相关性，不单独证明功能、机制、活性或表型。",
         ],
     },
     "database-record-review": {
@@ -695,6 +729,35 @@ def _sequence_search_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _hmmer_search_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    try:
+        normalized = normalize_hmmer_inputs(
+            hmm_path=_require_text(inputs, "hmm_path", "Workspace profile HMM"),
+            database_path=_require_text(inputs, "database_path", "Workspace protein FASTA"),
+            evalue=inputs.get("evalue", 1e-5),
+            domain_evalue=inputs.get("domain_evalue", 1e-5),
+            max_hits=inputs.get("max_hits", 25),
+            threads=inputs.get("threads", 1),
+        )
+    except HmmerSearchError as exc:
+        raise WorkflowError(str(exc), "invalid_workflow_inputs") from exc
+    inputs.update(normalized)
+    return [
+        _step(
+            "运行 HMMER profile 搜索并整理结构域坐标",
+            "hmmer_profile_search",
+            normalized,
+        )
+    ]
+
+
+def _hmmer_search_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_hmmer_profile_search(**inputs)
+    except HmmerSearchError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _database_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     source = str(inputs.get("source") or "pubchem").strip().lower()
     query = _require_text(inputs, "query", "Database query")
@@ -720,6 +783,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "vcf-cohort-review": _vcf_cohort_steps,
     "pairwise-alignment-review": _alignment_steps,
     "sequence-similarity-search": _sequence_search_steps,
+    "hmmer-profile-search": _hmmer_search_steps,
     "database-record-review": _database_steps,
 }
 
@@ -731,6 +795,7 @@ PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "clinical-trial-landscape-review": _clinical_trials_preflight,
     "clinical-trial-results-review": _clinical_trial_results_preflight,
     "vcf-cohort-review": _vcf_cohort_preflight,
+    "hmmer-profile-search": _hmmer_search_preflight,
 }
 
 

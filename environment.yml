@@ -6,6 +6,7 @@ dependencies:
   - python>=3.11
   - rdkit>=2024.03
   - blast>=2.16,<2.18
+  - hmmer>=3.4,<3.5
   - pip
   - pip:
       - pydeseq2==0.5.4

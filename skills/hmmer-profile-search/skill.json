@@ -1,0 +1,45 @@
+{
+  "id": "hmmer-profile-search",
+  "title": "HMMER Profile Search",
+  "kind": "pipeline",
+  "description": "Validate and run a bounded local HMMER hmmsearch from workspace amino-acid profile HMMs to a protein FASTA database, with domain coordinates and auditable outputs.",
+  "tools": [
+    {
+      "name": "hmmer_profile_preflight",
+      "description": "Validate a workspace HMMER3 amino-acid profile and protein FASTA database, report model, sequence, residue, threshold, and runtime details before researcher approval.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "hmm_path": { "type": "string", "description": "Workspace-relative uncompressed HMMER3 .hmm profile path." },
+          "database_path": { "type": "string", "description": "Workspace-relative protein .fa, .fasta, or .faa database path." },
+          "evalue": { "type": "number", "minimum": 1e-300, "maximum": 10, "default": 1e-5, "description": "Per-sequence reporting E-value threshold passed as -E." },
+          "domain_evalue": { "type": "number", "minimum": 1e-300, "maximum": 10, "default": 1e-5, "description": "Per-domain conditional E-value reporting threshold passed as --domE." },
+          "max_hits": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 },
+          "threads": { "type": "integer", "minimum": 1, "maximum": 4, "default": 1 }
+        },
+        "required": ["hmm_path", "database_path"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "hmmer_profile_search",
+      "description": "Run an approved local HMMER hmmsearch and persist hit, domain, source domtblout, JSON, manifest, and Markdown outputs with input hashes.",
+      "handler": "scripts/handler.py:search",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "hmm_path": { "type": "string" },
+          "database_path": { "type": "string" },
+          "evalue": { "type": "number", "minimum": 1e-300, "maximum": 10, "default": 1e-5 },
+          "domain_evalue": { "type": "number", "minimum": 1e-300, "maximum": 10, "default": 1e-5 },
+          "max_hits": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 },
+          "threads": { "type": "integer", "minimum": 1, "maximum": 4, "default": 1 }
+        },
+        "required": ["hmm_path", "database_path"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

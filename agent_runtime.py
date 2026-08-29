@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -197,6 +197,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         "transcriptomics and expression": "转录组与表达",
         "sequence similarity search": "序列相似性搜索",
         "protein structure and sequence": "蛋白结构与序列",
+        "protein family and domain analysis": "蛋白家族与结构域",
         "molecular chemistry": "分子化学",
         "literature and study discovery": "文献与研究发现",
         "human genetics and variant evidence": "人类遗传与变异证据",
@@ -224,6 +225,11 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         reply = (
             f"当前问题被路由到 {lane}。{evidence_text} "
             "VCF 调用依赖上游 caller、FILTER、测序深度和 assay 误差模型；VAF 不是肿瘤比例或疗效指标，低频信号需要结合 LOD 与 read-level 证据复核。"
+        )
+    elif "protein family and domain analysis" in raw_lanes:
+        reply = (
+            f"当前问题被路由到 {lane}。{evidence_text} "
+            "HMMER 命中需要结合 profile 来源、搜索空间、E-value、覆盖度、bias 和结构域架构解释；单个 profile match 不等同于功能证明。"
         )
     elif "human genetics and variant evidence" in raw_lanes:
         reply = (
@@ -301,6 +307,9 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a guided plan request without granting execution authority."""
+    hmmer_search = extract_hmmer_profile_plan(message)
+    if hmmer_search:
+        return "hmmer-profile-search", hmmer_search
     vcf_cohort = extract_vcf_cohort_plan(message)
     if vcf_cohort:
         return "vcf-cohort-review", vcf_cohort
@@ -399,6 +408,46 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     if sample_type == "protein" and context.get("sequence"):
         return "protein-sequence-review", {"sequence": context["sequence"]}
     return None
+
+
+def extract_hmmer_profile_plan(message: str) -> dict[str, Any] | None:
+    hmm = re.search(r"([\w./-]+\.hmm)\b", message, re.I)
+    database = re.search(r"([\w./-]+\.(?:fa|fasta|faa))\b", message, re.I)
+    if not hmm or not database or not re.search(
+        r"\bhmm(?:er|search)?\b|profile\s+hmm|protein\s+(?:family|domain)|"
+        r"结构域|蛋白家族|隐马尔可夫",
+        message,
+        re.I,
+    ):
+        return None
+    domain_evalue = re.search(
+        r"(?:domain\s+e-?value|domE|结构域\s*e-?value)\s*[:：=]?\s*([0-9.eE+-]+)",
+        message,
+        re.I,
+    )
+    sequence_evalue = re.search(
+        r"(?<!domain\s)(?<!结构域)(?:sequence\s+)?e-?value(?:\s*(?:threshold|cutoff|阈值))?\s*[:：=]?\s*([0-9.eE+-]+)",
+        message,
+        re.I,
+    )
+    max_hits = re.search(
+        r"(?:max(?:imum)?\s+hits?|最多(?:命中)?)\s*[:：=]?\s*(\d+)",
+        message,
+        re.I,
+    )
+    try:
+        sequence_threshold = float(sequence_evalue.group(1)) if sequence_evalue else 1e-5
+        domain_threshold = float(domain_evalue.group(1)) if domain_evalue else sequence_threshold
+    except ValueError:
+        return None
+    return {
+        "hmm_path": hmm.group(1),
+        "database_path": database.group(1),
+        "evalue": sequence_threshold,
+        "domain_evalue": domain_threshold,
+        "max_hits": int(max_hits.group(1)) if max_hits else 25,
+        "threads": 1,
+    }
 
 
 def extract_vcf_cohort_plan(message: str) -> dict[str, Any] | None:

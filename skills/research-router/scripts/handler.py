@@ -8,6 +8,10 @@ from typing import Any
 
 LANES = (
     ("molecular chemistry", r"smiles|molecule|compound|ligand|药|分子|化合物|配体|logp|tpsa"),
+    (
+        "protein family and domain analysis",
+        r"\bhmm(?:er|search)?\b|profile\s+hmm|protein\s+(?:family|domain)|结构域|蛋白家族|隐马尔可夫",
+    ),
     ("protein structure and sequence", r"protein|peptide|fasta|sequence|mutation|蛋白|多肽|序列|突变"),
     ("public biological databases", r"pubchem|uniprot|rcsb|database|accession|数据库|条目"),
     ("target evidence and prioritization", r"target evidence|target priorit|disease association|靶点证据|靶点优先|疾病关联"),
@@ -46,6 +50,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
         suggested.append("chem_analyze_molecule")
     if "protein structure and sequence" in lanes:
         suggested.append("protein_analyze_sequence")
+    if "protein family and domain analysis" in lanes:
+        suggested.extend(["hmmer_profile_preflight", "workflow_create_plan"])
     if "public biological databases" in lanes:
         suggested.extend(["database_lookup_pubchem", "database_lookup_uniprot"])
     if "target evidence and prioritization" in lanes:

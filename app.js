@@ -747,6 +747,11 @@ function renderArtifacts() {
           </div>
           <p>相似性命中是相关性证据，不单独证明共享功能或生物活性。</p>
         `;
+      } else if (artifact.type === "hmmer-profile-preflight") {
+        card.innerHTML = renderHmmerProfilePreflight(title, artifact.data || {});
+      } else if (artifact.type === "hmmer-profile-search") {
+        card.classList.add("hmmer-profile-artifact");
+        card.innerHTML = renderHmmerProfileSearch(title, artifact.data || {});
       } else if (artifact.type === "rnaseq-preflight") {
         card.innerHTML = renderRnaseqPreflight(title, artifact.data || {});
       } else if (artifact.type === "transcriptomics-de") {
@@ -812,6 +817,118 @@ function renderArtifacts() {
       }
       els.artifactList.appendChild(card);
     });
+}
+
+function renderHmmerProfilePreflight(title, data) {
+  const thresholds = data.thresholds || {};
+  const models = data.models || [];
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(`${data.engine || "HMMER"} ${data.version || ""}`.trim())}</span></header>
+    <div class="hmmer-input-line">
+      <span>Profile</span>
+      <code>${escapeHtml(data.hmm_path || "")}</code>
+      <small>${escapeHtml(data.database_path || "")}</small>
+    </div>
+    <div class="hmmer-metrics">
+      ${[
+        ["Models", data.model_count || 0],
+        ["Sequences", data.sequence_count || 0],
+        ["Residues", Number(data.residue_count || 0).toLocaleString("en-US")],
+        ["Max hits", thresholds.max_hits || 0],
+        ["Engine", data.version || "n/a"],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="hmmer-model-list">
+      ${models.map((model) => `<div><strong>${escapeHtml(model.name)}</strong><span>${escapeHtml(`${model.length} aa · ${model.accession || "no accession"}`)}</span></div>`).join("")}
+    </div>
+    <div class="hmmer-filter-line">
+      <span>Sequence E ≤ ${escapeHtml(formatScientific(thresholds.sequence_evalue))}</span>
+      <span>Domain c-E ≤ ${escapeHtml(formatScientific(thresholds.domain_evalue))}</span>
+      <span>${escapeHtml(thresholds.threads || 1)} thread(s)</span>
+    </div>
+    <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || "Review the profile, database and thresholds before execution.")}</p>
+  `;
+}
+
+function renderHmmerProfileSearch(title, data) {
+  const hits = data.hits || [];
+  const domains = data.domains || [];
+  const inputs = data.inputs || {};
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(formatTimestamp(data.retrieved_at))}</span></header>
+    <div class="hmmer-input-line">
+      <span>HMMER ${escapeHtml(data.version || "3")}</span>
+      <code>${escapeHtml(inputs.hmm_path || "")}</code>
+      <small>${escapeHtml(inputs.database_path || "")}</small>
+    </div>
+    <div class="hmmer-metrics">
+      ${[
+        ["Models", data.model_count || 0],
+        ["Sequences", data.database_sequence_count || 0],
+        ["Residues", Number(data.database_residue_count || 0).toLocaleString("en-US")],
+        ["Hits", data.reported_hit_count || 0],
+        ["Domains", data.reported_domain_count || 0],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="hmmer-filter-line">
+      <span>Sequence E ≤ ${escapeHtml(formatScientific(inputs.evalue))}</span>
+      <span>Domain c-E ≤ ${escapeHtml(formatScientific(inputs.domain_evalue))}</span>
+      <span>Top ${escapeHtml(inputs.max_hits || 0)} profile-target pairs</span>
+    </div>
+    <section class="hmmer-section">
+      <header><strong>Domain architecture</strong><span>target alignment coordinates</span></header>
+      <div class="hmmer-architectures">
+        ${hits.slice(0, 25).map((hit) => renderHmmerArchitecture(hit)).join("") || '<p class="hmmer-empty">No profile-target hits met the approved reporting thresholds.</p>'}
+      </div>
+    </section>
+    <section class="hmmer-section">
+      <header><strong>Reported domains</strong><span>conditional and independent E-values</span></header>
+      <div class="hmmer-domain-table">
+        <div><b>Target / model</b><b>Target span</b><b>HMM span</b><b>c-Evalue</b><b>i-Evalue</b><b>Score</b><b>Acc</b></div>
+        ${domains.slice(0, 100).map((domain) => `<div>
+          <strong>${escapeHtml(domain.target_name)}<small>${escapeHtml(domain.query_name)}</small></strong>
+          <code>${escapeHtml(`${domain.alignment_from}–${domain.alignment_to}`)}</code>
+          <code>${escapeHtml(`${domain.hmm_from}–${domain.hmm_to}`)}</code>
+          <span>${escapeHtml(formatScientific(domain.conditional_evalue))}</span>
+          <span>${escapeHtml(formatScientific(domain.independent_evalue))}</span>
+          <span>${escapeHtml(domain.domain_score)}</span>
+          <span>${escapeHtml(domain.accuracy)}</span>
+        </div>`).join("")}
+      </div>
+    </section>
+    <div class="hmmer-review-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "HMMER profile matches require profile, search-space and functional review.")}</p>
+      <div class="target-output-paths">${Object.entries(data.outputs || {}).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>
+    </div>
+  `;
+}
+
+function renderHmmerArchitecture(hit) {
+  const length = Math.max(1, Number(hit.target_length || 1));
+  const domains = hit.domains || [];
+  return `
+    <article class="hmmer-architecture">
+      <div class="hmmer-target-name">
+        <strong>${escapeHtml(hit.target_name || "Target")}</strong>
+        <small>${escapeHtml(`${length} aa · ${hit.target_description || ""}`)}</small>
+      </div>
+      <div class="hmmer-track-wrap">
+        <div class="hmmer-domain-track">
+          ${domains.map((domain) => {
+            const left = clamp(((Number(domain.alignment_from || 1) - 1) / length) * 100, 0, 100);
+            const width = clamp(((Number(domain.alignment_to || 1) - Number(domain.alignment_from || 1) + 1) / length) * 100, 1, 100 - left);
+            const title = `${domain.query_name} · target ${domain.alignment_from}–${domain.alignment_to} · HMM ${domain.hmm_from}–${domain.hmm_to} · i-E ${formatScientific(domain.independent_evalue)}`;
+            return `<i style="left:${left}%;width:${width}%" title="${escapeHtml(title)}"><span>${escapeHtml(domain.query_name)}</span></i>`;
+          }).join("")}
+        </div>
+        <div class="hmmer-track-axis"><span>1</span><span>${escapeHtml(length)}</span></div>
+      </div>
+      <div class="hmmer-hit-stats">
+        <strong>${escapeHtml(formatScientific(hit.full_evalue))}</strong>
+        <span>${escapeHtml(hit.full_score)} bits · ${escapeHtml(hit.domain_count)} domain(s)</span>
+      </div>
+    </article>
+  `;
 }
 
 function renderTargetEvidencePreflight(title, data) {
@@ -1774,6 +1891,8 @@ function renderWorkflowPreflight(preflight) {
     detail = `${preflight.study?.nct_id || preflight.nct_id} · ${preflight.primary_outcome_count || 0} primary outcomes · ${preflight.serious_event_term_count || 0} serious AE terms`;
   } else if (preflight.vcf_path) {
     detail = `${preflight.vcf_path} · ${preflight.sample_count || 0} samples · ${preflight.record_count || 0} records`;
+  } else if (preflight.hmm_path) {
+    detail = `${preflight.hmm_path} · ${preflight.model_count || 0} models · ${preflight.sequence_count || 0} sequences`;
   } else if (preflight.design_formula || preflight.contrast) {
     detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
   }
@@ -1948,6 +2067,8 @@ function workflowFieldDefault(templateId, field) {
   if (templateId === "clinical-trial-results-review" && field.name === "nct_id") return "NCT02414854";
   if (templateId === "vcf-cohort-review" && field.name === "vcf_path") return "examples/ctdna_variants.vcf";
   if (templateId === "vcf-cohort-review" && field.name === "metadata_path") return "examples/ctdna_metadata.csv";
+  if (templateId === "hmmer-profile-search" && field.name === "hmm_path") return "examples/ubiquitin_demo.hmm";
+  if (templateId === "hmmer-profile-search" && field.name === "database_path") return "examples/hmmer_targets.faa";
   if (field.name === "smiles") return sample.smiles || "";
   if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
   if (field.name === "pdb_id") return sample.pdbId || "";
