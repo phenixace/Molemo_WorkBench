@@ -100,6 +100,7 @@
               <button class="segment" data-mode="risk">风险</button>
             </div>
             <button class="icon-button wide" id="apiSettings" title="API 设置" aria-label="API 设置">⚙ API</button>
+            <button class="secondary-button" id="planWorkflow">制定计划</button>
             <button class="primary-button" id="runDefaultPrompt">分析当前数据</button>
           </div>
         </header>
@@ -162,6 +163,7 @@
                 </div>
                 <span class="runtime-badge" id="apiBadge">API-ready</span>
               </div>
+              <div class="workflow-list" id="workflowList"></div>
               <div class="tool-trace" id="toolTrace"></div>
             </div>
 
@@ -232,6 +234,27 @@
         <menu>
           <button class="secondary-button" value="cancel">取消</button>
           <button class="primary-button" id="saveSettings" value="default">保存</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog class="settings-dialog workflow-dialog" id="workflowDialog">
+      <form method="dialog" class="settings-form">
+        <header>
+          <div>
+            <p class="eyebrow">GUIDED WORKFLOW</p>
+            <h3>制定分析计划</h3>
+          </div>
+          <button class="icon-button" value="close" aria-label="关闭">×</button>
+        </header>
+        <label class="input-label" for="workflowTemplate">工作流</label>
+        <select id="workflowTemplate"></select>
+        <p class="settings-note" id="workflowDescription"></p>
+        <div class="workflow-fields" id="workflowFields"></div>
+        <p class="settings-note">计划创建后不会自动执行；请在“运行”页审阅并批准。</p>
+        <menu>
+          <button class="secondary-button" value="cancel">取消</button>
+          <button class="primary-button" id="createWorkflowPlan" type="button">创建待审批计划</button>
         </menu>
       </form>
     </dialog>

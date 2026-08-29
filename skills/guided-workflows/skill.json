@@ -1,0 +1,46 @@
+{
+  "id": "guided-workflows",
+  "title": "Guided Workflows",
+  "kind": "orchestration",
+  "description": "Create and inspect scientific workflow plans that require explicit researcher approval before execution.",
+  "tools": [
+    {
+      "name": "workflow_list_templates",
+      "description": "List the guided scientific workflow templates available in this Molemo runtime.",
+      "handler": "scripts/handler.py:list_templates",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "workflow_create_plan",
+      "description": "Create a concrete scientific workflow plan in pending-approval state. This tool never executes or approves the plan.",
+      "handler": "scripts/handler.py:create_plan",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "template_id": { "type": "string", "description": "Identifier returned by workflow_list_templates." },
+          "inputs": { "type": "object", "description": "Concrete inputs required by the selected template." },
+          "objective": { "type": "string", "description": "The user's research objective for this run." }
+        },
+        "required": ["template_id", "inputs"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "workflow_get_run",
+      "description": "Inspect the status, steps, trace, and artifacts of an existing workflow run.",
+      "handler": "scripts/handler.py:get_run",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "run_id": { "type": "string" }
+        },
+        "required": ["run_id"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

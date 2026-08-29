@@ -14,6 +14,7 @@ from agent_runtime import AgentError, run_agent
 from pipeline import PipelineError, parse_molecule, parse_protein
 from skill_runtime import SkillError, SkillRegistry
 from workspace_utils import WorkspaceError, list_workspace_files, write_workspace_text
+from workflow_runtime import WORKFLOW_MANAGER, WorkflowError
 
 
 ROOT = Path(__file__).resolve().parent
@@ -23,7 +24,7 @@ STATIC_FILES = {"index.html", "styles.css", "app.js"}
 
 
 class MolemoHandler(BaseHTTPRequestHandler):
-    server_version = "molemo-bench/0.2"
+    server_version = "molemo-bench/0.3"
 
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.NO_CONTENT)
@@ -39,6 +40,7 @@ class MolemoHandler(BaseHTTPRequestHandler):
                     "service": "molemo-bench",
                     "skills": len(REGISTRY.catalog()),
                     "tools": len(REGISTRY.tools),
+                    "workflows": len(WORKFLOW_MANAGER.catalog()),
                 }
             )
             return
@@ -47,6 +49,19 @@ class MolemoHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/workspace":
             self._send_json({"ok": True, "files": list_workspace_files()})
+            return
+        if parsed.path == "/api/workflows":
+            self._send_json({"ok": True, "workflows": WORKFLOW_MANAGER.catalog()})
+            return
+        if parsed.path == "/api/runs":
+            self._send_json({"ok": True, "runs": WORKFLOW_MANAGER.list_runs()})
+            return
+        run_route = self._workflow_run_route(parsed.path)
+        if run_route and run_route[1] == "view":
+            try:
+                self._send_json({"ok": True, "run": WORKFLOW_MANAGER.get_run(run_route[0])})
+            except WorkflowError as exc:
+                self._send_json({"ok": False, **exc.to_dict()}, exc.status)
             return
         self._serve_static(parsed.path)
 
@@ -74,6 +89,26 @@ class MolemoHandler(BaseHTTPRequestHandler):
                 result = write_workspace_text(str(payload.get("path") or ""), str(payload.get("content") or ""))
                 self._send_json({"ok": True, "file": result}, HTTPStatus.CREATED)
                 return
+            if parsed.path == "/api/workflows/plan":
+                raw_inputs = payload.get("inputs")
+                if raw_inputs is not None and not isinstance(raw_inputs, dict):
+                    raise WorkflowError("Workflow inputs must be a JSON object.", "invalid_workflow_inputs")
+                run = WORKFLOW_MANAGER.create_plan(
+                    str(payload.get("template_id") or ""),
+                    raw_inputs or {},
+                    str(payload.get("objective") or ""),
+                )
+                self._send_json({"ok": True, "run": run}, HTTPStatus.CREATED)
+                return
+            run_route = self._workflow_run_route(parsed.path)
+            if run_route and run_route[1] == "approve":
+                run = WORKFLOW_MANAGER.approve(run_route[0], REGISTRY)
+                self._send_json({"ok": True, "run": run})
+                return
+            if run_route and run_route[1] == "cancel":
+                run = WORKFLOW_MANAGER.cancel(run_route[0])
+                self._send_json({"ok": True, "run": run})
+                return
             self._send_json({"ok": False, "error": "Unknown endpoint."}, HTTPStatus.NOT_FOUND)
         except AgentError as exc:
             self._send_json({"ok": False, **exc.to_dict()}, exc.status)
@@ -84,8 +119,19 @@ class MolemoHandler(BaseHTTPRequestHandler):
                 {"ok": False, "error": str(exc), "code": "local_skill_error"},
                 HTTPStatus.BAD_REQUEST,
             )
+        except WorkflowError as exc:
+            self._send_json({"ok": False, **exc.to_dict()}, exc.status)
         except json.JSONDecodeError:
             self._send_json({"ok": False, "error": "Invalid JSON body.", "code": "invalid_json"}, HTTPStatus.BAD_REQUEST)
+
+    @staticmethod
+    def _workflow_run_route(path: str) -> tuple[str, str] | None:
+        parts = path.strip("/").split("/")
+        if len(parts) == 3 and parts[:2] == ["api", "runs"] and parts[2]:
+            return parts[2], "view"
+        if len(parts) == 4 and parts[:2] == ["api", "runs"] and parts[3] in {"approve", "cancel"}:
+            return parts[2], parts[3]
+        return None
 
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0") or "0")

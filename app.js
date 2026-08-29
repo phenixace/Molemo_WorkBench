@@ -230,6 +230,8 @@ const state = {
   candidates: [],
   artifacts: [],
   skills: [],
+  workflowTemplates: [],
+  workflowRuns: [],
   workspaceFiles: [],
   chat: [],
   runtime: {
@@ -275,6 +277,7 @@ function bindElements() {
     "structureNotes",
     "sequenceBlock",
     "toolTrace",
+    "workflowList",
     "artifactList",
     "skillList",
     "designList",
@@ -312,6 +315,12 @@ function bindElements() {
     "saveSettings",
     "agentRuntimeState",
     "apiBadge",
+    "planWorkflow",
+    "workflowDialog",
+    "workflowTemplate",
+    "workflowDescription",
+    "workflowFields",
+    "createWorkflowPlan",
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -431,6 +440,10 @@ function bindEvents() {
     );
   });
 
+  els.planWorkflow.addEventListener("click", openWorkflowDialog);
+  els.workflowTemplate.addEventListener("change", renderWorkflowFields);
+  els.createWorkflowPlan.addEventListener("click", createWorkflowPlan);
+
   canvas.addEventListener("pointerdown", (event) => {
     state.pointer.down = true;
     state.pointer.x = event.clientX;
@@ -500,6 +513,7 @@ function renderAll() {
   renderPromptChips();
   renderSampleActiveState();
   renderToolTrace();
+  renderWorkflowRuns();
   renderArtifacts();
   renderSkills();
   renderWorkspaceFiles();
@@ -750,6 +764,64 @@ function renderSkills() {
   });
 }
 
+function renderWorkflowRuns() {
+  els.workflowList.innerHTML = "";
+  if (!state.workflowRuns.length) {
+    els.workflowList.innerHTML =
+      '<div class="workflow-empty"><span>No guided runs</span><p>制定计划后，可在这里审阅步骤并批准执行。</p></div>';
+    return;
+  }
+
+  state.workflowRuns
+    .slice()
+    .slice(0, 8)
+    .forEach((run) => {
+      const item = document.createElement("article");
+      item.className = "workflow-run";
+      const steps = (run.steps || [])
+        .map(
+          (step, index) => `
+            <li>
+              <span>${index + 1}</span>
+              <div><strong>${escapeHtml(step.title || step.tool)}</strong><code>${escapeHtml(step.tool || "")}</code></div>
+              <small class="workflow-step-status ${escapeHtml(step.status || "pending")}">${escapeHtml(workflowStatusLabel(step.status))}</small>
+            </li>`,
+        )
+        .join("");
+      item.innerHTML = `
+        <header>
+          <div><strong>${escapeHtml(run.title || "Guided workflow")}</strong><small>${escapeHtml(run.objective || run.description || "")}</small></div>
+          <span class="workflow-status ${escapeHtml(run.status || "pending_approval")}">${escapeHtml(workflowStatusLabel(run.status))}</span>
+        </header>
+        <ol>${steps}</ol>
+        ${run.error ? `<p class="workflow-error">${escapeHtml(run.error)}</p>` : ""}
+        ${
+          run.status === "pending_approval"
+            ? '<div class="workflow-actions"><button class="secondary-button workflow-cancel" type="button">取消</button><button class="primary-button workflow-approve" type="button">批准并运行</button></div>'
+            : ""
+        }
+      `;
+      item.querySelector(".workflow-approve")?.addEventListener("click", () => approveWorkflow(run.id));
+      item.querySelector(".workflow-cancel")?.addEventListener("click", () => cancelWorkflow(run.id));
+      els.workflowList.appendChild(item);
+    });
+}
+
+function workflowStatusLabel(status) {
+  return (
+    {
+      pending_approval: "待审批",
+      pending: "等待",
+      running: "运行中",
+      completed: "已完成",
+      failed: "失败",
+      error: "失败",
+      skipped: "跳过",
+      cancelled: "已取消",
+    }[status] || status || "等待"
+  );
+}
+
 function renderWorkspaceFiles() {
   els.workspaceFileList.innerHTML = "";
   els.workspaceFileCount.textContent = `${state.workspaceFiles.length} files`;
@@ -831,6 +903,173 @@ function renderRuntime() {
   els.apiBadge.textContent = useApi ? "Provider enabled" : "Local only";
   els.apiBadge.style.background = useApi ? "var(--green-soft)" : "var(--amber-soft)";
   els.apiBadge.style.color = useApi ? "var(--green)" : "var(--amber)";
+}
+
+function openWorkflowDialog() {
+  if (!state.workflowTemplates.length) {
+    addSystemMessage("本地工作流目录尚未加载。");
+    return;
+  }
+  const preferred = defaultWorkflowTemplate(getActiveSample());
+  els.workflowTemplate.innerHTML = state.workflowTemplates
+    .map(
+      (template) =>
+        `<option value="${escapeHtml(template.id)}" ${template.id === preferred ? "selected" : ""}>${escapeHtml(template.title)}</option>`,
+    )
+    .join("");
+  renderWorkflowFields();
+  els.workflowDialog.showModal();
+}
+
+function renderWorkflowFields() {
+  const template = state.workflowTemplates.find((item) => item.id === els.workflowTemplate.value);
+  els.workflowFields.innerHTML = "";
+  if (!template) return;
+  els.workflowDescription.textContent = template.description || "";
+  (template.fields || []).forEach((field) => {
+    const wrapper = document.createElement("label");
+    wrapper.className = "workflow-field";
+    const label = document.createElement("span");
+    label.textContent = field.label || field.name;
+    const control = createWorkflowControl(template.id, field);
+    wrapper.append(label, control);
+    els.workflowFields.appendChild(wrapper);
+  });
+}
+
+function createWorkflowControl(templateId, field) {
+  let control;
+  if (field.type === "textarea") {
+    control = document.createElement("textarea");
+    control.rows = Number(field.rows || 4);
+  } else if (field.type === "select") {
+    control = document.createElement("select");
+    (field.options || []).forEach((option) => {
+      const item = document.createElement("option");
+      item.value = option.value;
+      item.textContent = option.label;
+      control.appendChild(item);
+    });
+  } else {
+    control = document.createElement("input");
+    control.type = field.type === "number" ? "number" : "text";
+    if (field.min !== undefined) control.min = field.min;
+    if (field.max !== undefined) control.max = field.max;
+  }
+  control.dataset.workflowField = field.name;
+  control.required = Boolean(field.required);
+  control.placeholder = field.placeholder || "";
+  control.value = workflowFieldDefault(templateId, field);
+  return control;
+}
+
+function workflowFieldDefault(templateId, field) {
+  const sample = getActiveSample();
+  if (field.name === "smiles") return sample.smiles || "";
+  if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
+  if (field.name === "pdb_id") return sample.pdbId || "";
+  if (field.name === "source") {
+    if (templateId === "protein-structure-review") return sample.metadata?.sourcePath ? "workspace" : "rcsb";
+    return field.options?.[0]?.value || field.value || "";
+  }
+  if (field.name === "path") return sample.metadata?.sourcePath || "";
+  if (field.name === "query") return sample.metadata?.accession || sample.shortName || "";
+  return field.value === undefined ? "" : String(field.value);
+}
+
+function defaultWorkflowTemplate(sample) {
+  if (sample.type === "molecule") return "molecule-profile";
+  if (sample.structure?.atoms?.length) return "protein-structure-review";
+  return "protein-sequence-review";
+}
+
+async function createWorkflowPlan() {
+  const template = state.workflowTemplates.find((item) => item.id === els.workflowTemplate.value);
+  if (!template) return;
+  const inputs = {};
+  for (const control of els.workflowFields.querySelectorAll("[data-workflow-field]")) {
+    if (!control.checkValidity()) {
+      control.reportValidity();
+      return;
+    }
+    inputs[control.dataset.workflowField] = control.type === "number" ? Number(control.value) : control.value.trim();
+  }
+  els.createWorkflowPlan.disabled = true;
+  try {
+    const response = await fetch(pipelineEndpoint("/api/workflows/plan"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        template_id: template.id,
+        inputs,
+        objective: `${getActiveSample().name}: ${template.description}`,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    upsertWorkflowRun(data.run);
+    mergeArtifacts(data.run.artifacts || []);
+    els.workflowDialog.close();
+    switchTab("agent");
+    addSystemMessage(`已创建“${data.run.title}”计划，等待研究者批准。`);
+    renderAll();
+  } catch (error) {
+    addSystemMessage(`计划创建失败：${error.message}`);
+  } finally {
+    els.createWorkflowPlan.disabled = false;
+  }
+}
+
+async function approveWorkflow(runId) {
+  const run = state.workflowRuns.find((item) => item.id === runId);
+  if (!run || run.status !== "pending_approval") return;
+  run.status = "running";
+  renderWorkflowRuns();
+  try {
+    const response = await fetch(pipelineEndpoint(`/api/runs/${encodeURIComponent(runId)}/approve`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    upsertWorkflowRun(data.run);
+    mergeAgentTrace(data.run.trace || []);
+    mergeArtifacts(data.run.artifacts || []);
+    addSystemMessage(
+      data.run.status === "completed"
+        ? `“${data.run.title}”已完成，结果已进入可检查 artifacts。`
+        : `“${data.run.title}”运行失败：${data.run.error || "未知错误"}`,
+    );
+  } catch (error) {
+    run.status = "pending_approval";
+    addSystemMessage(`工作流启动失败：${error.message}`);
+  }
+  renderAll();
+}
+
+async function cancelWorkflow(runId) {
+  try {
+    const response = await fetch(pipelineEndpoint(`/api/runs/${encodeURIComponent(runId)}/cancel`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    upsertWorkflowRun(data.run);
+    addSystemMessage(`已取消“${data.run.title}”。`);
+    renderAll();
+  } catch (error) {
+    addSystemMessage(`取消失败：${error.message}`);
+  }
+}
+
+function upsertWorkflowRun(run) {
+  if (!run?.id) return;
+  const index = state.workflowRuns.findIndex((item) => item.id === run.id);
+  if (index >= 0) state.workflowRuns.splice(index, 1, { ...state.workflowRuns[index], ...run });
+  else state.workflowRuns.unshift(run);
 }
 
 async function runAgent(command) {
@@ -915,6 +1154,8 @@ async function tryWorkbenchAgent(command, sample, options = {}) {
       name: sample.name,
       smiles: sample.smiles,
       sequence: sample.sequence,
+      pdb_id: sample.pdbId,
+      path: sample.metadata?.sourcePath,
       properties: sample.properties,
       notes: sample.notes,
     },
@@ -960,6 +1201,19 @@ function mergeAgentTrace(trace) {
 
 function mergeArtifacts(artifacts) {
   artifacts.forEach((artifact) => {
+    if (artifact.type === "workflow-plan" && artifact.data?.id) {
+      const existing = state.workflowRuns.find((item) => item.id === artifact.data.id);
+      if (existing) {
+        existing.status = artifact.data.status || existing.status;
+      } else {
+        upsertWorkflowRun({
+          ...artifact.data,
+          description: "Agent proposed workflow",
+          trace: [],
+          artifacts: [artifact],
+        });
+      }
+    }
     const index = state.artifacts.findIndex((item) => item.id === artifact.id);
     if (index >= 0) state.artifacts.splice(index, 1, artifact);
     else state.artifacts.push(artifact);
@@ -1243,22 +1497,31 @@ async function fetchPipelineSample(kind, payload) {
 
 async function loadWorkbenchMetadata() {
   try {
-    const [healthResponse, skillsResponse, workspaceResponse] = await Promise.all([
+    const [healthResponse, skillsResponse, workspaceResponse, workflowsResponse, runsResponse] = await Promise.all([
       fetch(pipelineEndpoint("/api/health")),
       fetch(pipelineEndpoint("/api/skills")),
       fetch(pipelineEndpoint("/api/workspace")),
+      fetch(pipelineEndpoint("/api/workflows")),
+      fetch(pipelineEndpoint("/api/runs")),
     ]);
-    if (!healthResponse.ok || !skillsResponse.ok || !workspaceResponse.ok) throw new Error("Local metadata request failed");
-    const [health, skills, workspace] = await Promise.all([
+    if (!healthResponse.ok || !skillsResponse.ok || !workspaceResponse.ok || !workflowsResponse.ok || !runsResponse.ok) {
+      throw new Error("Local metadata request failed");
+    }
+    const [health, skills, workspace, workflows, runs] = await Promise.all([
       healthResponse.json(),
       skillsResponse.json(),
       workspaceResponse.json(),
+      workflowsResponse.json(),
+      runsResponse.json(),
     ]);
     state.skills = skills.skills || [];
     state.workspaceFiles = workspace.files || [];
+    state.workflowTemplates = workflows.workflows || [];
+    state.workflowRuns = runs.runs || [];
     els.localStatusText.textContent = `${health.skills || state.skills.length} skills · local agent ready`;
     renderSkills();
     renderWorkspaceFiles();
+    renderWorkflowRuns();
     renderMetrics();
   } catch (error) {
     els.localStatusText.textContent = "本地服务未启动";
@@ -2014,6 +2277,7 @@ function exportReport() {
       toolMode: state.runtime.toolMode,
     },
     skills: state.skills.map((skill) => ({ id: skill.id, kind: skill.kind })),
+    workflowRuns: state.workflowRuns,
     workspaceFiles: state.workspaceFiles,
   };
   const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });

@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Local workspace files may be read only through registered tools. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -146,7 +146,21 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
     trace = [trace_from_result(route, {"question": message})]
     artifacts: list[dict[str, Any]] = []
     evidence: list[str] = []
-    for tool_name, arguments in local_intent_tools(message):
+    plan_request = local_workflow_plan(message, context)
+    if plan_request:
+        template_id, inputs = plan_request
+        try:
+            result = registry.execute(
+                "workflow_create_plan",
+                {"template_id": template_id, "inputs": inputs, "objective": message},
+            )
+            trace.append(trace_from_result(result, {"template_id": template_id, "inputs": inputs}))
+            artifacts.extend(result.get("artifacts") or [])
+            evidence.append(str(result.get("summary") or "Workflow plan created."))
+        except SkillError as exc:
+            evidence.append(f"Workflow plan could not be created: {exc}")
+
+    for tool_name, arguments in [] if plan_request else local_intent_tools(message):
         try:
             result = registry.execute(tool_name, arguments)
             trace.append(trace_from_result(result, arguments))
@@ -156,7 +170,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
             evidence.append(f"{tool_name} could not complete: {exc}")
     sample_type = str(context.get("type") or "")
     try:
-        if sample_type == "molecule" and context.get("smiles"):
+        if not plan_request and sample_type == "molecule" and context.get("smiles"):
             result = registry.execute("chem_analyze_molecule", {"smiles": context["smiles"]})
             trace.append(trace_from_result(result, {"smiles": context["smiles"]}))
             artifacts.extend(result.get("artifacts") or [])
@@ -165,7 +179,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
             evidence.append(
                 f"RDKit: {sample.get('formula', 'molecule')}, MW {props.get('MW', 'n/a')}, logP {props.get('logP', 'n/a')}, TPSA {props.get('TPSA', 'n/a')}."
             )
-        elif sample_type == "protein" and context.get("sequence"):
+        elif not plan_request and sample_type == "protein" and context.get("sequence"):
             result = registry.execute("protein_analyze_sequence", {"sequence": context["sequence"]})
             trace.append(trace_from_result(result, {"sequence": context["sequence"]}))
             artifacts.extend(result.get("artifacts") or [])
@@ -179,10 +193,16 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
 
     lane = ", ".join(route.get("lanes") or ["general life science"])
     evidence_text = " ".join(evidence) if evidence else "No structured molecule or protein is active yet."
-    reply = (
-        f"当前问题被路由到 {lane}。{evidence_text} "
-        "这些结果是本地计算或结构解析，不等同于实验结论。下一步可继续要求序列比对、性质图、候选设计，或把 FASTA/SMILES 文件导入 workspace 后再分析。"
-    )
+    if plan_request:
+        reply = (
+            f"当前问题被路由到 {lane}。{evidence_text} "
+            "计划尚未执行；请在“运行”页审阅输入与步骤，并由研究者明确批准。"
+        )
+    else:
+        reply = (
+            f"当前问题被路由到 {lane}。{evidence_text} "
+            "这些结果是本地计算或结构解析，不等同于实验结论。下一步可继续要求序列比对、性质图、候选设计，或把 FASTA/SMILES 文件导入 workspace 后再分析。"
+        )
     return {
         "ok": True,
         "message": reply,
@@ -216,6 +236,29 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
     if pubchem_query:
         selected.append(("database_lookup_pubchem", {"query": pubchem_query}))
     return selected
+
+
+def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
+    """Build a guided plan request without granting execution authority."""
+    if not re.search(r"(?:制定|生成|创建|准备|给我)?.{0,4}(?:分析计划|执行计划|研究计划|分析流程|管线)|\bworkflow\b|\bpipeline\b|\bplan\b", message, re.I):
+        return None
+
+    fastq = re.search(r"([\w./-]+\.(?:fastq|fq))\b", message, re.I)
+    if fastq:
+        return "fastq-qc-review", {"path": fastq.group(1), "max_reads": 10000}
+
+    pdb = re.search(r"(?:pdb|rcsb|structure|结构)\s*(?:id|编号|条目)?\s*[:：#-]?\s*([0-9][a-z0-9]{3})\b", message, re.I)
+    if pdb:
+        return "protein-structure-review", {"source": "rcsb", "pdb_id": pdb.group(1).upper()}
+
+    sample_type = str(context.get("type") or "")
+    if sample_type == "molecule" and context.get("smiles"):
+        return "molecule-profile", {"smiles": context["smiles"]}
+    if sample_type == "protein" and context.get("pdb_id"):
+        return "protein-structure-review", {"source": "rcsb", "pdb_id": context["pdb_id"]}
+    if sample_type == "protein" and context.get("sequence"):
+        return "protein-sequence-review", {"sequence": context["sequence"]}
+    return None
 
 
 def extract_pubchem_query(message: str) -> str:

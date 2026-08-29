@@ -1,7 +1,7 @@
 {
   "name": "molemo-bench",
-  "version": "0.2.0",
-  "description": "Local-first life-science agent workflows with public database retrieval, molecular and protein structures, sequencing QC, scientific visualization, and traceable pipelines.",
+  "version": "0.3.0",
+  "description": "Local-first life-science agent workflows with researcher approval, public database retrieval, molecular and protein structures, sequencing QC, visualization, and traceable pipelines.",
   "author": { "name": "phenixace" },
   "license": "MIT",
   "keywords": [
@@ -12,6 +12,7 @@
     "protein-structure",
     "fastq-qc",
     "scientific-visualization",
+    "researcher-approval",
     "agent-skills",
     "benchmark"
   ],

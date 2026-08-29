@@ -2,7 +2,7 @@
 
 Molemo WorkBench 把生命科学问题连接到可检查的本地证据。用户可以接入自己的 OpenAI-compatible 模型；模型负责理解问题和选择工具，分子解析、蛋白序列计算、文件读取、管线执行与可视化则在本机通过注册 skills 完成。每次运行保留工具参数、状态、摘要和 artifact，使结论能够被回看、导出和评测。
 
-当前仓库是这一主线的可运行参考实现，也是 `Molemo_Bench v0.2`。它借鉴了 Rosalind Workbench 将问题、工具、viewer 和证据放在同一工作区的产品范式，但不依赖 GPT-Rosalind，也不与 OpenAI Rosalind 项目关联。前端采用克制的研究会话与证据双栏，避免把科学工作流做成展示型仪表盘。
+当前仓库是这一主线的可运行参考实现，也是 `Molemo_Bench v0.3`。它借鉴了 Rosalind Workbench 将问题、计划、工具、viewer 和证据放在同一工作区的产品范式，但不依赖 GPT-Rosalind，也不与 OpenAI Rosalind 项目关联。前端采用克制的研究会话与证据双栏，避免把科学工作流做成展示型仪表盘。
 
 ## 运行
 
@@ -30,13 +30,14 @@ API key 只在当前页面内存与单次本地请求中使用，不保存到文
 ## 已实现的闭环
 
 1. 从自然语言研究问题进入本地 Agent。
-2. Agent 发现并调用 `skills/` 下的结构化工具。
-3. RDKit、序列算法、公共数据库或受控 workspace 生成来源明确的结果。
-4. 前端把结果呈现为分子结构、真实 PDB/mmCIF 蛋白结构、序列、比对、FASTQ QC 或性质图 artifact。
-5. 工具 trace、结论、候选设计和 artifact 可导出为 JSON。
-6. `Molemo_Bench v0.2` 对工具正确性、trace 完整性和 artifact 生成进行回归评测。
+2. 单步任务可直接调用结构化科学工具；多步任务先生成具体计划。
+3. 研究者在“运行”页检查输入、工具和步骤，明确批准后才开始执行。
+4. RDKit、序列算法、公共数据库或受控 workspace 按计划生成来源明确的结果。
+5. 前端把结果呈现为分子结构、真实 PDB/mmCIF 蛋白结构、序列、比对、FASTQ QC 或性质图 artifact。
+6. 工具 trace、计划状态、结论、候选设计和 artifact 可导出为 JSON。
+7. `Molemo_Bench v0.3` 对工具正确性、审批边界、trace 完整性和 artifact 生成进行回归评测。
 
-当前包含 9 个 skills、13 个工具：研究路由、分子分析、蛋白分析、序列比对、科学可视化、受控 workspace、PubChem/UniProt 检索、RCSB PDB 与本地 PDB/mmCIF 结构、FASTQ 质量控制。公共数据库工具访问固定官方域名，不需要用户 API key。新增 skill 只需加入 `SKILL.md`、`skill.json` 与 handler，服务会自动发现。
+当前包含 10 个 skills、16 个工具：研究路由、guided workflows、分子分析、蛋白分析、序列比对、科学可视化、受控 workspace、PubChem/UniProt 检索、RCSB PDB 与本地 PDB/mmCIF 结构、FASTQ 质量控制。六类 guided workflow 覆盖分子画像、蛋白序列、蛋白结构、FASTQ QC、双序列比对和公共数据库记录。Agent 可以列出、创建和查看计划，但批准能力只存在于本地 WorkBench API。公共数据库工具访问固定官方域名，不需要用户 API key。
 
 ## 评测与测试
 
@@ -49,7 +50,7 @@ python -m unittest discover -s tests -v
 
 ## 能力边界
 
-当前版本已覆盖中心化 Chat、第三方模型接入、本地科学工具、分子 viewer、PDB/mmCIF 原子坐标、公共数据库检索、序列与比对、FASTQ QC、受控文件工作区和可审计运行记录。尚未实现 BLAST/HMMER、批量数据库检索、比对/定量/差异分析等完整 NGS、病理切片和实验采购；没有坐标文件时显示的蛋白序列图仍是序列启发式视图。
+当前版本已覆盖中心化 Chat、第三方模型接入、研究者审批、本地科学工具、分子 viewer、PDB/mmCIF 原子坐标、公共数据库检索、序列与比对、FASTQ QC、受控文件工作区和可审计运行记录。guided workflow 当前同步执行六类固定模板，不是任意 shell 管线。尚未实现 BLAST/HMMER、批量数据库检索、比对/定量/差异分析等完整 NGS、病理切片和实验采购；没有坐标文件时显示的蛋白序列图仍是序列启发式视图。
 
 详细范围见 [能力矩阵](docs/CAPABILITY_MATRIX.md) 和 [架构说明](docs/ARCHITECTURE.md)。公开参照为 [Rosalind Workbench](https://learn.chatgpt.com/blog/rosalind-workbench) 与 [OpenAI Life Science Research plugin](https://github.com/openai/plugins/tree/main/plugins/life-science-research)。
 
