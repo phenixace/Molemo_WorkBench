@@ -2,7 +2,7 @@
 
 Molemo WorkBench 把生命科学问题连接到可检查的本地证据。用户可以接入自己的 OpenAI-compatible 模型；模型负责理解问题和选择工具，分子解析、蛋白序列计算、文件读取、管线执行与可视化则在本机通过注册 skills 完成。每次运行保留工具参数、状态、摘要和 artifact，使结论能够被回看、导出和评测。
 
-当前仓库是这一主线的可运行参考实现，也是 `Molemo_Bench v0.10`。它借鉴了 Rosalind Workbench 将问题、计划、工具、viewer 和证据放在同一工作区的产品范式，但不依赖 GPT-Rosalind，也不与 OpenAI Rosalind 项目关联。前端采用克制的研究会话与证据双栏；进入运行、结果或工具页后，右侧切换为整高文档视图，不把科学工作流做成展示型仪表盘。
+当前仓库是这一主线的可运行参考实现，也是 `Molemo_Bench v0.11`。它借鉴了 Rosalind Workbench 将问题、计划、工具、viewer 和证据放在同一工作区的产品范式，但不依赖 GPT-Rosalind，也不与 OpenAI Rosalind 项目关联。前端采用克制的研究会话与证据双栏；进入运行、结果或工具页后，右侧切换为整高文档视图，不把科学工作流做成展示型仪表盘。
 
 ## 运行
 
@@ -34,12 +34,12 @@ API key 只在当前页面内存与单次本地请求中使用，不保存到文
 1. 从自然语言研究问题进入本地 Agent。
 2. 单步任务可直接调用结构化科学工具；多步任务先生成具体计划。
 3. 研究者在“运行”页检查输入、工具和步骤，明确批准后才开始执行。
-4. RDKit、NCBI BLAST+、PyDESeq2、序列算法、Europe PMC、ClinVar、Ensembl、gnomAD、其他公共数据库或受控 workspace 按计划生成来源明确的结果。
-5. 前端把结果呈现为文献 evidence map、临床试验版图或单项 posted-results 文档、靶点证据矩阵、变异证据文档、分子结构、真实 PDB/mmCIF 蛋白结构、序列、BLAST 命中与比对、FASTQ QC、PCA、volcano、heatmap 或性质图 artifact。
+4. RDKit、NCBI BLAST+、PyDESeq2、VCF 4.x 解析、序列算法、Europe PMC、ClinVar、Ensembl、gnomAD、其他公共数据库或受控 workspace 按计划生成来源明确的结果。
+5. 前端把结果呈现为文献 evidence map、临床试验版图或单项 posted-results 文档、多样本 VCF 变异景观与轨迹、靶点证据矩阵、变异证据文档、分子结构、真实 PDB/mmCIF 蛋白结构、序列、BLAST 命中与比对、FASTQ QC、PCA、volcano、heatmap 或性质图 artifact。
 6. 工具 trace、计划状态、结论、候选设计和 artifact 可导出为 JSON。
-7. `Molemo_Bench v0.10` 对工具正确性、审批边界、trace 完整性和 artifact 生成进行回归评测。
+7. `Molemo_Bench v0.11` 对工具正确性、审批边界、trace 完整性和 artifact 生成进行回归评测。
 
-当前包含 16 个 skills、29 个工具和十三类 guided workflow：研究路由、文献证据审阅、临床试验版图、单项临床试验结果审阅、靶点证据比较、人类变异证据审阅、分子分析、蛋白分析、双序列比对、本地 BLASTP/BLASTN、bulk RNA-seq 差异表达、科学可视化、受控 workspace、公共数据库检索、RCSB PDB 与本地 PDB/mmCIF 结构、FASTQ 质量控制。
+当前包含 17 个 skills、31 个工具和十四类 guided workflow：研究路由、文献证据审阅、临床试验版图、单项临床试验结果审阅、多样本 VCF 队列审阅、靶点证据比较、人类变异证据审阅、分子分析、蛋白分析、双序列比对、本地 BLASTP/BLASTN、bulk RNA-seq 差异表达、科学可视化、受控 workspace、公共数据库检索、RCSB PDB 与本地 PDB/mmCIF 结构、FASTQ 质量控制。
 
 文献工作流保留批准后的精确 Europe PMC 检索式、年份窗口、摘要与预印本过滤、来源相关性顺序、PMID/PMCID/DOI、文献类型和有界摘要。即时 preview 最多向 Agent 提供十篇可引用记录；完整 evidence map 最多收集二十五篇，并保存论文表、JSON 报告、manifest 和摘要。相关性排序与引用次数都不被当作质量分数，当前也不声称完成全文风险偏倚评价、系统综述筛选或 meta-analysis。
 
@@ -49,7 +49,9 @@ API key 只在当前页面内存与单次本地请求中使用，不保存到文
 
 临床试验版图接受一个疾病、可选干预、状态范围和研究类型。即时 preview 最多返回十条 ClinicalTrials.gov 记录；研究者批准后最多收集三十条，并保存 NCT ID、状态、phase、sponsor、设计、登记终点、结果可用性、关联 PMID、国家、日期、TSV、JSON 报告、manifest 和摘要。给定一个精确 NCT ID 时，独立的结果审阅工作流先验证 posted tabular results，批准后再按来源顺序保存 participant flow、baseline、outcome values、submitted statistical analyses、adverse events、protocol/SAP 和关联论文。它不重算个体数据，也不生成自定义疗效、安全性、确定性或研究质量分数。
 
-Agent 可以调用有界文献和临床试验 preview、精确 NCT 结果预检、变异/靶点/分析预检、列出和创建计划，但文献全集收集、临床试验版图与结果持久化、完整变异审阅、BLAST、差异表达与靶点比较执行工具都不暴露给第三方模型。Europe PMC、ClinicalTrials.gov、ClinVar、Ensembl、gnomAD、PubChem、UniProt、RCSB 和 Open Targets 访问固定官方域名，不需要用户 API key；页面中的第三方 LLM key 仍由用户自己提供。
+多样本 VCF 工作流接受 workspace 内的文本 VCF 4.x 和可选样本信息表。审批前验证样本、记录、ALT、`CSQ/ANN`、深度、VAF 与 FILTER 规则；批准后保存 variant、sample-call、sample-QC、trajectory 表、JSON、manifest 和摘要，并生成可检查的变异矩阵、低频调用和受试者纵向轨迹。示例 `examples/ctdna_variants.vcf` 与 `examples/ctdna_metadata.csv` 是完全合成数据。该流程不把 VAF 当肿瘤比例，不判定 somatic/germline、driver、耐药、治疗推荐或临床可行动性。
+
+Agent 可以调用有界文献和临床试验 preview、精确 NCT 结果预检、VCF 队列预检、变异/靶点/分析预检、列出和创建计划，但文献全集收集、临床试验版图与结果持久化、完整 VCF/单变异审阅、BLAST、差异表达与靶点比较执行工具都不暴露给第三方模型。Europe PMC、ClinicalTrials.gov、ClinVar、Ensembl、gnomAD、PubChem、UniProt、RCSB 和 Open Targets 访问固定官方域名，不需要用户 API key；页面中的第三方 LLM key 仍由用户自己提供。
 
 ## 评测与测试
 
@@ -62,7 +64,7 @@ python -m unittest discover -s tests -v
 
 ## 能力边界
 
-当前版本已覆盖中心化 Chat、第三方模型接入、研究者审批、本地科学工具、可引用文献 evidence map、ClinicalTrials.gov 临床试验版图与单项 posted-results 审阅、候选靶点证据比较、单个简单人类变异的多源证据审阅、分子 viewer、PDB/mmCIF 原子坐标、公共数据库检索、序列与比对、本地 FASTA 数据库上的 BLASTP/BLASTN、FASTQ QC、raw-count bulk RNA-seq 差异表达、受控文件工作区和可审计运行记录。guided workflow 当前同步执行十三类固定模板，不是任意 shell 管线。临床试验结果能力保留官方汇总表，不执行个体数据重分析、跨试验比较、风险偏倚分级、监管结论或 meta-analysis；变异能力尚不覆盖批量 VCF、结构变异、haplotype、家系共分离或临床 ACMG/AMP 判定；靶点比较仍限于 Open Targets 公共证据，文献审阅仍限于 Europe PMC 元数据与摘要；此外仍未实现 HMMER、远程或大规模 BLAST 数据库、FASTQ 到表达矩阵的 alignment/quantification、单细胞分析、病理切片和实验采购。没有坐标文件时显示的蛋白序列图仍是序列启发式视图。
+当前版本已覆盖中心化 Chat、第三方模型接入、研究者审批、本地科学工具、可引用文献 evidence map、ClinicalTrials.gov 临床试验版图与单项 posted-results 审阅、processed 多样本 VCF 技术审阅、候选靶点证据比较、单个简单人类变异的多源证据审阅、分子 viewer、PDB/mmCIF 原子坐标、公共数据库检索、序列与比对、本地 FASTA 数据库上的 BLASTP/BLASTN、FASTQ QC、raw-count bulk RNA-seq 差异表达、受控文件工作区和可审计运行记录。guided workflow 当前同步执行十四类固定模板，不是任意 shell 管线。VCF 能力不覆盖 BCF/VCF.gz、raw-read calling、CNV/SV、matched-normal 判定、临床解释或报告；临床试验结果能力不执行个体数据重分析、跨试验比较、风险偏倚分级、监管结论或 meta-analysis；单变异能力尚不覆盖 haplotype、家系共分离或临床 ACMG/AMP 判定；此外仍未实现 HMMER、远程或大规模 BLAST 数据库、FASTQ 到表达矩阵的 alignment/quantification、单细胞分析、病理切片和实验采购。没有坐标文件时显示的蛋白序列图仍是序列启发式视图。
 
 详细范围见 [能力矩阵](docs/CAPABILITY_MATRIX.md) 和 [架构说明](docs/ARCHITECTURE.md)。公开参照为 [OpenAI Rosalind](https://openai.com/rosalind/) 与 [OpenAI Life Science Research plugin](https://github.com/openai/plugins/tree/main/plugins/life-science-research)。
 

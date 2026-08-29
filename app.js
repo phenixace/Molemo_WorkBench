@@ -767,6 +767,11 @@ function renderArtifacts() {
       } else if (artifact.type === "clinical-trial-results") {
         card.classList.add("clinical-results-artifact");
         card.innerHTML = renderClinicalTrialResults(title, artifact.data || {});
+      } else if (artifact.type === "vcf-cohort-preflight") {
+        card.innerHTML = renderVcfCohortPreflight(title, artifact.data || {});
+      } else if (artifact.type === "vcf-cohort-review") {
+        card.classList.add("vcf-cohort-artifact");
+        card.innerHTML = renderVcfCohortReview(title, artifact.data || {});
       } else if (artifact.type === "variant-evidence-preflight") {
         card.innerHTML = renderVariantEvidencePreflight(title, artifact.data || {});
       } else if (artifact.type === "variant-evidence-review") {
@@ -1390,6 +1395,185 @@ function variantPredictionLabel(item) {
   return parts.join(" · ") || "Not returned";
 }
 
+function renderVcfCohortPreflight(title, data) {
+  const thresholds = data.thresholds || {};
+  return `
+    <header><strong>${title}</strong><span>VCF input validation</span></header>
+    <div class="vcf-input-line">
+      <span>${escapeHtml(data.fileformat || "VCF")}</span>
+      <code>${escapeHtml(data.vcf_path || "")}</code>
+      <small>${escapeHtml(data.metadata_path || "No longitudinal metadata")}</small>
+    </div>
+    <div class="vcf-metrics">
+      ${[
+        ["Samples", data.sample_count || 0],
+        ["Subjects", data.subject_count || 0],
+        ["Records", data.record_count || 0],
+        ["ALT alleles", data.allele_count || 0],
+        ["Included calls", data.included_call_count || 0],
+        ["Low-frequency", data.low_frequency_call_count || 0],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="vcf-filter-line">
+      <span>VAF ≥ ${escapeHtml(formatVaf(thresholds.min_vaf))}</span>
+      <span>DP ≥ ${escapeHtml(thresholds.min_depth ?? 0)}</span>
+      <span>${thresholds.include_filtered ? "Including non-PASS records" : "PASS / unfiltered records only"}</span>
+      <span>${escapeHtml((data.annotation_sources || []).join(", ") || "No CSQ/ANN annotation")}</span>
+    </div>
+    <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || "VCF calls remain dependent on the upstream assay and caller.")}</p>
+  `;
+}
+
+function renderVcfCohortReview(title, data) {
+  const thresholds = data.thresholds || {};
+  const sampleQc = data.sample_qc || [];
+  const matrix = data.mutation_matrix || {};
+  const trajectories = data.trajectories || [];
+  const lowFrequency = (data.calls || [])
+    .filter((call) => call.included && Number(call.vaf) < Number(thresholds.low_frequency_boundary ?? 0.05))
+    .sort((a, b) => Number(a.vaf) - Number(b.vaf));
+  return `
+    <header>
+      <strong>${title}</strong>
+      <span>${escapeHtml(formatTimestamp(data.retrieved_at))}</span>
+    </header>
+    <div class="vcf-input-line">
+      <span>${escapeHtml(data.header?.fileformat || "VCF")}</span>
+      <code>${escapeHtml(data.inputs?.vcf_path || "")}</code>
+      <small>${escapeHtml(data.header?.reference || "Reference not declared")}</small>
+    </div>
+    <div class="vcf-metrics">
+      ${[
+        ["Samples", data.sample_count || 0],
+        ["Subjects", data.subject_count || 0],
+        ["ALT alleles", data.allele_count || 0],
+        ["Included calls", data.included_call_count || 0],
+        ["Low-frequency", data.low_frequency_call_count || 0],
+        ["Recurrent", data.recurrent_variant_count || 0],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="vcf-filter-line">
+      <span>VAF ≥ ${escapeHtml(formatVaf(thresholds.min_vaf))}</span>
+      <span>DP ≥ ${escapeHtml(thresholds.min_depth ?? 0)}</span>
+      <span>${thresholds.include_filtered ? "Non-PASS included" : "Non-PASS excluded"}</span>
+      <span>Low frequency &lt; ${escapeHtml(formatVaf(thresholds.low_frequency_boundary))}</span>
+    </div>
+    <section class="vcf-section">
+      <header><strong>Sample QC</strong><span>observed and qualifying calls</span></header>
+      <div class="vcf-sample-qc">
+        <div><b>Sample</b><b>Subject / timepoint</b><b>Mean DP</b><b>Observed</b><b>Included</b></div>
+        ${sampleQc.map((sample) => `<div>
+          <strong>${escapeHtml(sample.sample)}</strong>
+          <span>${escapeHtml(`${sample.subject} · ${sample.timepoint}`)}</span>
+          <span>${escapeHtml(sample.mean_depth ?? "n/a")}</span>
+          <span>${escapeHtml(sample.observed_calls || 0)}</span>
+          <span>${escapeHtml(sample.included_calls || 0)}</span>
+        </div>`).join("")}
+      </div>
+    </section>
+    <section class="vcf-section">
+      <header><strong>Variant landscape</strong><span>top qualifying variants · VAF intensity</span></header>
+      ${renderVcfMutationMatrix(matrix)}
+      <div class="vcf-matrix-legend"><span><i class="included"></i>Included</span><span><i class="excluded"></i>Observed, excluded</span><span><i></i>Not observed</span></div>
+    </section>
+    <section class="vcf-section">
+      <header><strong>Low-frequency calls</strong><span>included below ${escapeHtml(formatVaf(thresholds.low_frequency_boundary))}</span></header>
+      <div class="vcf-call-table">
+        <div><b>Variant</b><b>Sample</b><b>VAF</b><b>DP</b></div>
+        ${lowFrequency.slice(0, 30).map((call) => `<div>
+          <strong>${escapeHtml([call.gene, call.variant_id].filter(Boolean).join(" · "))}</strong>
+          <span>${escapeHtml(`${call.subject} · ${call.timepoint}`)}</span>
+          <span>${escapeHtml(formatVaf(call.vaf))}</span>
+          <span>${escapeHtml(call.depth ?? "n/a")}</span>
+        </div>`).join("") || '<p class="vcf-empty">No calls meet the approved low-frequency definition.</p>'}
+      </div>
+    </section>
+    ${trajectories.length ? `<section class="vcf-section">
+      <header><strong>Longitudinal trajectories</strong><span>observed VAF · per-series scale</span></header>
+      <div class="vcf-trajectories">
+        ${trajectories.slice(0, 12).map((trajectory) => renderVcfTrajectory(trajectory)).join("")}
+      </div>
+    </section>` : ""}
+    <div class="vcf-review-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "Processed VCF calls require upstream assay and caller review.")}</p>
+      <div class="target-output-paths">${Object.entries(data.outputs || {}).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>
+    </div>
+  `;
+}
+
+function renderVcfMutationMatrix(matrix) {
+  const samples = matrix.samples || [];
+  const variants = matrix.variants || [];
+  if (!samples.length || !variants.length) return '<p class="vcf-empty">No calls met the approved filters.</p>';
+  return `
+    <div class="vcf-matrix-scroll">
+      <div class="vcf-matrix" style="--vcf-samples:${samples.length}">
+        <span></span>
+        ${samples.map((sample) => `<small title="${escapeHtml(sample)}">${escapeHtml(shortSampleLabel(sample))}</small>`).join("")}
+        ${variants.map((variant) => `
+          <strong title="${escapeHtml(`${variant.gene || "Unannotated"} · ${variant.variant_id}`)}"><b>${escapeHtml(variant.gene || "Unannotated")}</b><small>${escapeHtml(variant.hgvsp || variant.variant_id)}</small></strong>
+          ${(variant.values || []).map((value, index) => {
+            const className = value.included ? "included" : value.observed ? "excluded" : "empty";
+            return `<i class="${className}" style="--vcf-fill:${vcfCellFill(value)}" title="${escapeHtml(`${samples[index]} · ${variant.variant_id} · ${value.observed ? `VAF ${formatVaf(value.vaf)} · ${value.status}` : "not observed"}`)}"></i>`;
+          }).join("")}
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderVcfTrajectory(trajectory) {
+  const points = trajectory.points || [];
+  const observed = points.filter((point) => Number.isFinite(Number(point.vaf)));
+  const maximum = Math.max(0.1, ...observed.map((point) => Number(point.vaf)));
+  const coordinates = points.map((point, index) => {
+    const x = points.length > 1 ? 16 + (index / (points.length - 1)) * 268 : 150;
+    const y = Number.isFinite(Number(point.vaf)) ? 70 - (Number(point.vaf) / maximum) * 54 : null;
+    return { ...point, x, y };
+  });
+  const lineSegments = [];
+  let segment = [];
+  coordinates.forEach((point) => {
+    if (point.y === null) {
+      if (segment.length > 1) lineSegments.push(segment);
+      segment = [];
+      return;
+    }
+    segment.push(point);
+  });
+  if (segment.length > 1) lineSegments.push(segment);
+  return `
+    <article class="vcf-trajectory">
+      <header><strong>${escapeHtml([trajectory.gene, trajectory.variant_id].filter(Boolean).join(" · "))}</strong><span>${escapeHtml(trajectory.subject)}</span></header>
+      <svg viewBox="0 0 300 84" role="img" aria-label="${escapeHtml(`${trajectory.subject} ${trajectory.variant_id} VAF trajectory`)}">
+        <line x1="16" y1="70" x2="284" y2="70"></line>
+        <line x1="16" y1="16" x2="16" y2="70"></line>
+        ${lineSegments.map((items) => `<polyline points="${items.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>`).join("")}
+        ${coordinates.filter((point) => point.y !== null).map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3"><title>${escapeHtml(`${point.sample} · ${point.timepoint} · VAF ${formatVaf(point.vaf)} · DP ${point.depth ?? "n/a"}`)}</title></circle>`).join("")}
+      </svg>
+      <div class="vcf-trajectory-labels">${points.map((point) => `<span>${escapeHtml(point.timepoint)}</span>`).join("")}</div>
+      <small>0–${escapeHtml(formatVaf(maximum))} VAF</small>
+    </article>
+  `;
+}
+
+function formatVaf(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "n/a";
+  return `${(number * 100).toFixed(number < 0.01 ? 2 : 1).replace(/\.0$/, "")}%`;
+}
+
+function shortSampleLabel(value) {
+  const text = String(value || "");
+  return text.length > 10 ? `${text.slice(0, 8)}…` : text;
+}
+
+function vcfCellFill(value) {
+  if (!value?.observed) return "#f4f2ed";
+  if (!value.included) return "#d8d0c4";
+  return mixHex("#dce9e6", "#147d72", clamp(Number(value.vaf || 0) * 2.5, 0.12, 1));
+}
+
 function renderRnaseqPreflight(title, data) {
   const contrast = data.contrast || {};
   return `
@@ -1588,6 +1772,8 @@ function renderWorkflowPreflight(preflight) {
     detail = `${preflight.condition}${preflight.intervention ? ` · ${preflight.intervention}` : ""} · ${Number(preflight.hit_count || 0).toLocaleString("en-US")} studies`;
   } else if (preflight.study?.nct_id || preflight.nct_id) {
     detail = `${preflight.study?.nct_id || preflight.nct_id} · ${preflight.primary_outcome_count || 0} primary outcomes · ${preflight.serious_event_term_count || 0} serious AE terms`;
+  } else if (preflight.vcf_path) {
+    detail = `${preflight.vcf_path} · ${preflight.sample_count || 0} samples · ${preflight.record_count || 0} records`;
   } else if (preflight.design_formula || preflight.contrast) {
     detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
   }
@@ -1760,6 +1946,8 @@ function workflowFieldDefault(templateId, field) {
   if (templateId === "clinical-trial-landscape-review" && field.name === "condition") return "asthma";
   if (templateId === "clinical-trial-landscape-review" && field.name === "intervention") return "dupilumab";
   if (templateId === "clinical-trial-results-review" && field.name === "nct_id") return "NCT02414854";
+  if (templateId === "vcf-cohort-review" && field.name === "vcf_path") return "examples/ctdna_variants.vcf";
+  if (templateId === "vcf-cohort-review" && field.name === "metadata_path") return "examples/ctdna_metadata.csv";
   if (field.name === "smiles") return sample.smiles || "";
   if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
   if (field.name === "pdb_id") return sample.pdbId || "";

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Multi-sample VCF Review"
+  short_description: "Review cohort calls and sample trajectories"

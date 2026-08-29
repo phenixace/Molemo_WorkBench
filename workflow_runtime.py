@@ -18,6 +18,7 @@ from literature_review import LiteratureReviewError, preflight_literature_review
 from variant_evidence import VariantEvidenceError, preflight_variant_evidence
 from clinical_trials import ClinicalTrialsError, preflight_clinical_trial_landscape
 from clinical_trial_results import ClinicalTrialResultsError, preflight_clinical_trial_results
+from vcf_cohort import VcfCohortError, preflight_vcf_cohort
 
 
 ROOT = Path(__file__).resolve().parent
@@ -254,6 +255,35 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "ClinicalTrials.gov posted results 是申办方或研究者提交的汇总表，不是独立疗效、安全性或偏倚风险结论。",
             "每个数值都必须结合分组、单位、分母、时间窗、分析人群和统计方法解释。",
             "不良事件是描述性登记数据；关键评价仍需结合方案、SAP、全文论文与监管资料。",
+        ],
+    },
+    "vcf-cohort-review": {
+        "title": "多样本 VCF 审阅",
+        "description": "预检 workspace VCF 与样本信息，批准后整理变异景观、低频调用、样本 QC 和纵向轨迹。",
+        "fields": [
+            _field("vcf_path", "Workspace VCF", "text", required=True, placeholder="examples/ctdna_variants.vcf"),
+            _field("metadata_path", "样本信息 CSV / TSV（可选）", "text", placeholder="examples/ctdna_metadata.csv"),
+            _field("sample_column", "样本列", "text", value="sample"),
+            _field("subject_column", "受试者列", "text", value="subject"),
+            _field("timepoint_column", "时间点列", "text", value="timepoint"),
+            _field("time_order_column", "时间顺序列", "text", value="time_order"),
+            _field("min_vaf", "最小 VAF", "number", value=0.01, min=0, max=1, step=0.001),
+            _field("min_depth", "最小深度", "number", value=10, min=0, max=100000),
+            _field(
+                "include_filtered",
+                "记录过滤",
+                "select",
+                required=True,
+                options=[
+                    {"value": "false", "label": "仅 PASS / 未过滤"},
+                    {"value": "true", "label": "包含非 PASS"},
+                ],
+            ),
+        ],
+        "assumptions": [
+            "输入是上游流程生成的 processed VCF；caller、panel、测序深度和实验误差模型已经由研究者确认。",
+            "VAF 不是肿瘤比例、克隆比例或疗效指标；低频调用必须结合 assay LOD 与 read-level 证据。",
+            "此流程不判定 somatic/germline、driver、耐药、治疗推荐或临床可行动性。",
         ],
     },
     "pairwise-alignment-review": {
@@ -556,6 +586,45 @@ def _clinical_trial_results_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
         raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
 
 
+def _vcf_cohort_arguments(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        min_vaf = float(inputs.get("min_vaf", 0.01))
+        min_depth = int(inputs.get("min_depth", 10))
+    except (TypeError, ValueError) as exc:
+        raise WorkflowError("VCF thresholds must be numeric.", "invalid_workflow_inputs") from exc
+    arguments = {
+        "vcf_path": _require_text(inputs, "vcf_path", "Workspace VCF"),
+        "metadata_path": str(inputs.get("metadata_path") or "").strip(),
+        "sample_column": str(inputs.get("sample_column") or "sample").strip(),
+        "subject_column": str(inputs.get("subject_column") or "subject").strip(),
+        "timepoint_column": str(inputs.get("timepoint_column") or "timepoint").strip(),
+        "time_order_column": str(inputs.get("time_order_column") or "time_order").strip(),
+        "min_vaf": min_vaf,
+        "min_depth": min_depth,
+        "include_filtered": _workflow_boolean(inputs.get("include_filtered", False)),
+    }
+    inputs.update(arguments)
+    return arguments
+
+
+def _vcf_cohort_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    arguments = _vcf_cohort_arguments(inputs)
+    return [
+        _step(
+            "解析 VCF 并生成样本变异景观与轨迹",
+            "vcf_cohort_review",
+            arguments,
+        )
+    ]
+
+
+def _vcf_cohort_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_vcf_cohort(**inputs)
+    except VcfCohortError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _workflow_boolean(value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -648,6 +717,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "variant-evidence-review": _variant_evidence_steps,
     "clinical-trial-landscape-review": _clinical_trials_steps,
     "clinical-trial-results-review": _clinical_trial_results_steps,
+    "vcf-cohort-review": _vcf_cohort_steps,
     "pairwise-alignment-review": _alignment_steps,
     "sequence-similarity-search": _sequence_search_steps,
     "database-record-review": _database_steps,
@@ -660,6 +730,7 @@ PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "variant-evidence-review": _variant_evidence_preflight,
     "clinical-trial-landscape-review": _clinical_trials_preflight,
     "clinical-trial-results-review": _clinical_trial_results_preflight,
+    "vcf-cohort-review": _vcf_cohort_preflight,
 }
 
 

@@ -1,0 +1,51 @@
+{
+  "id": "vcf-cohort-review",
+  "title": "Multi-sample VCF Review",
+  "kind": "pipeline",
+  "description": "Validate and review a bounded workspace VCF cohort with explicit sample metadata, depth/VAF/FILTER rules, mutation landscape, low-frequency calls, longitudinal trajectories, and auditable outputs.",
+  "tools": [
+    {
+      "name": "vcf_cohort_preflight",
+      "description": "Validate one uncompressed workspace VCF 4.x file and optional sample metadata. Return sample, record, alternate-allele, qualifying-call, annotation, recurrence, and threshold summaries before researcher approval.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "vcf_path": { "type": "string", "description": "Workspace-relative uncompressed .vcf path." },
+          "metadata_path": { "type": "string", "description": "Optional workspace-relative CSV or TSV with sample, subject, timepoint and numeric time_order columns." },
+          "sample_column": { "type": "string", "default": "sample" },
+          "subject_column": { "type": "string", "default": "subject" },
+          "timepoint_column": { "type": "string", "default": "timepoint" },
+          "time_order_column": { "type": "string", "default": "time_order" },
+          "min_vaf": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.01 },
+          "min_depth": { "type": "integer", "minimum": 0, "maximum": 100000, "default": 10 },
+          "include_filtered": { "type": "boolean", "default": false }
+        },
+        "required": ["vcf_path"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vcf_cohort_review",
+      "description": "Run an approved bounded multi-sample VCF review and persist variant, call, sample-QC, trajectory, JSON, manifest, and Markdown outputs without classifying somatic status, drivers, actionability, or treatment response.",
+      "handler": "scripts/handler.py:review",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "vcf_path": { "type": "string" },
+          "metadata_path": { "type": "string" },
+          "sample_column": { "type": "string", "default": "sample" },
+          "subject_column": { "type": "string", "default": "subject" },
+          "timepoint_column": { "type": "string", "default": "timepoint" },
+          "time_order_column": { "type": "string", "default": "time_order" },
+          "min_vaf": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.01 },
+          "min_depth": { "type": "integer", "minimum": 0, "maximum": 100000, "default": 10 },
+          "include_filtered": { "type": "boolean", "default": false }
+        },
+        "required": ["vcf_path"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

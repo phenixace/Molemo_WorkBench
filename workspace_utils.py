@@ -29,6 +29,7 @@ TEXT_SUFFIXES = {
     ".mmcif",
     ".fastq",
     ".fq",
+    ".vcf",
 }
 
 

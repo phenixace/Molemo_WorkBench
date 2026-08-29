@@ -21,6 +21,11 @@ LANES = (
     ("experimental protein structure", r"pdb|rcsb|mmcif|coordinate|atom-level|原子|坐标|三维结构"),
     ("sequencing quality control", r"fastq|phred|q20|q30|read quality|测序|质控|读长"),
     ("transcriptomics and expression", r"rna-?seq|count matrix|differential expression|transcriptom|差异表达|转录组|表达矩阵"),
+    (
+        "sequencing and cohort variants",
+        r"\bvcf\b|ctdna|liquid biopsy|variant landscape|variant trajectory|"
+        r"变异景观|变异轨迹|样本轨迹|液体活检|低频变异|低频调用",
+    ),
     ("sequence similarity search", r"blast|homolog|sequence search|同源|相似序列|序列搜索"),
     ("sequence comparison", r"align|alignment|identity|比对|相似度"),
     ("scientific visualization", r"plot|chart|visual|viewer|绘图|作图|画图|图表|可视化|显示|结构"),
@@ -59,6 +64,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
         suggested.append("ngs_fastq_qc")
     if "transcriptomics and expression" in lanes:
         suggested.extend(["transcriptomics_preflight", "workflow_create_plan"])
+    if "sequencing and cohort variants" in lanes:
+        suggested.extend(["vcf_cohort_preflight", "workflow_create_plan"])
     if "sequence similarity search" in lanes:
         suggested.append("workflow_create_plan")
     if "sequence comparison" in lanes:

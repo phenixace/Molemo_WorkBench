@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -201,6 +201,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         "literature and study discovery": "文献与研究发现",
         "human genetics and variant evidence": "人类遗传与变异证据",
         "clinical and translational evidence": "临床与转化证据",
+        "sequencing and cohort variants": "测序与队列变异",
     }
     lane = ", ".join(lane_labels.get(item, item) for item in raw_lanes)
     evidence_text = " ".join(evidence) if evidence else "No structured molecule or protein is active yet."
@@ -218,6 +219,11 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         reply = (
             f"当前问题被路由到 {lane}。{evidence_text} "
             "ClinicalTrials.gov 登记状态、研究设计和注册终点不等同于疗效或安全性结论；请用 NCT ID 核对实时记录，并分别审阅 posted results、方案与关联论文。"
+        )
+    elif "sequencing and cohort variants" in raw_lanes:
+        reply = (
+            f"当前问题被路由到 {lane}。{evidence_text} "
+            "VCF 调用依赖上游 caller、FILTER、测序深度和 assay 误差模型；VAF 不是肿瘤比例或疗效指标，低频信号需要结合 LOD 与 read-level 证据复核。"
         )
     elif "human genetics and variant evidence" in raw_lanes:
         reply = (
@@ -295,6 +301,9 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a guided plan request without granting execution authority."""
+    vcf_cohort = extract_vcf_cohort_plan(message)
+    if vcf_cohort:
+        return "vcf-cohort-review", vcf_cohort
     clinical_results = extract_clinical_results_plan(message)
     if clinical_results:
         return "clinical-trial-results-review", clinical_results
@@ -390,6 +399,45 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     if sample_type == "protein" and context.get("sequence"):
         return "protein-sequence-review", {"sequence": context["sequence"]}
     return None
+
+
+def extract_vcf_cohort_plan(message: str) -> dict[str, Any] | None:
+    vcf = re.search(r"([\w./-]+\.vcf)\b", message, re.I)
+    if not vcf or not re.search(
+        r"\bvcf\b|ctdna|liquid\s+biopsy|variant\s+(?:landscape|cohort|trajectory|review)|"
+        r"变异(?:景观|队列|轨迹|审阅)|样本轨迹|液体活检|低频(?:变异|调用|信号)",
+        message,
+        re.I,
+    ):
+        return None
+    metadata_paths = re.findall(r"([\w./-]+\.(?:csv|tsv))\b", message, re.I)
+    metadata_path = next(
+        (path for path in metadata_paths if re.search(r"meta|sample|clinical|样本|信息", path, re.I)),
+        metadata_paths[0] if metadata_paths else "",
+    )
+    vaf_match = re.search(
+        r"(?:min(?:imum)?\s*vaf|vaf\s*(?:threshold|cutoff)|最小\s*vaf|vaf\s*阈值)\s*[:：=]?\s*(0(?:\.\d+)?|1(?:\.0+)?)",
+        message,
+        re.I,
+    )
+    depth_match = re.search(
+        r"(?:min(?:imum)?\s*(?:depth|dp)|最小(?:深度|dp)|深度阈值)\s*[:：=]?\s*(\d+)",
+        message,
+        re.I,
+    )
+    return {
+        "vcf_path": vcf.group(1),
+        "metadata_path": metadata_path,
+        "sample_column": "sample",
+        "subject_column": "subject",
+        "timepoint_column": "timepoint",
+        "time_order_column": "time_order",
+        "min_vaf": float(vaf_match.group(1)) if vaf_match else 0.01,
+        "min_depth": int(depth_match.group(1)) if depth_match else 10,
+        "include_filtered": bool(
+            re.search(r"include\s+(?:non-pass|filtered)|包含(?:非\s*pass|过滤记录)", message, re.I)
+        ),
+    }
 
 
 def extract_nct_id(message: str) -> str:

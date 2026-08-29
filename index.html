@@ -14,14 +14,9 @@
     <div class="app-shell">
       <aside class="sidebar" aria-label="molemo workspace">
         <div class="brand-block">
-          <div class="brand-mark" aria-hidden="true">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
           <div>
             <h1>Molemo</h1>
-            <p>Life science workbench</p>
+            <p>生命科学工作台</p>
           </div>
         </div>
 
@@ -38,31 +33,35 @@
           <div class="sample-list" id="sampleList"></div>
         </section>
 
-        <section class="sidebar-section">
-          <div class="section-heading">
+        <details class="sidebar-section sidebar-disclosure">
+          <summary class="section-heading">
             <span>导入</span>
+          </summary>
+          <div class="sidebar-disclosure-body">
+            <label class="input-label" for="structureInput">SMILES / FASTA / PDB ID</label>
+            <textarea id="structureInput" rows="5" spellcheck="false">CC(=O)OC1=CC=CC=C1C(=O)O</textarea>
+            <div class="import-actions">
+              <button class="secondary-button" id="loadSmiles">SMILES</button>
+              <button class="secondary-button" id="loadFasta">FASTA</button>
+              <button class="secondary-button" id="loadStructure">PDB</button>
+            </div>
           </div>
-          <label class="input-label" for="structureInput">SMILES / FASTA / PDB ID</label>
-          <textarea id="structureInput" rows="5" spellcheck="false">CC(=O)OC1=CC=CC=C1C(=O)O</textarea>
-          <div class="import-actions">
-            <button class="secondary-button" id="loadSmiles">SMILES</button>
-            <button class="secondary-button" id="loadFasta">FASTA</button>
-            <button class="secondary-button" id="loadStructure">PDB</button>
-          </div>
-        </section>
+        </details>
 
-        <section class="sidebar-section">
-          <div class="section-heading">
-          <span>本地文件</span>
+        <details class="sidebar-section sidebar-disclosure">
+          <summary class="section-heading">
+            <span>本地文件</span>
             <span class="section-count" id="workspaceFileCount">0 files</span>
+          </summary>
+          <div class="sidebar-disclosure-body">
+            <label class="file-drop" for="workspaceFiles">
+              <input id="workspaceFiles" type="file" multiple accept=".txt,.md,.csv,.tsv,.json,.jsonl,.yaml,.yml,.fa,.fasta,.faa,.fna,.smi,.smiles,.pdb,.cif,.mmcif,.fastq,.fq,.vcf" />
+              <span>选择 FASTA、SMILES、PDB、FASTQ、VCF 或表格文件</span>
+            </label>
+            <button class="secondary-button" id="saveWorkspaceFiles">导入本地工作区</button>
+            <div class="workspace-file-list" id="workspaceFileList"></div>
           </div>
-          <label class="file-drop" for="workspaceFiles">
-            <input id="workspaceFiles" type="file" multiple accept=".txt,.md,.csv,.tsv,.json,.jsonl,.yaml,.yml,.fa,.fasta,.faa,.fna,.smi,.smiles,.pdb,.cif,.mmcif,.fastq,.fq" />
-            <span>选择 FASTA、SMILES、PDB、FASTQ 或表格文件</span>
-          </label>
-          <button class="secondary-button" id="saveWorkspaceFiles">导入本地工作区</button>
-          <div class="workspace-file-list" id="workspaceFileList"></div>
-        </section>
+        </details>
 
         <section class="sidebar-section compact">
           <div class="metric-row">
@@ -88,7 +87,7 @@
         <header class="topbar">
           <div class="workspace-title">
             <div>
-              <p class="eyebrow">Research workspace</p>
+              <p class="eyebrow">研究工作区</p>
               <h2 id="activeTitle">Aspirin lead review</h2>
             </div>
             <span class="mode-pill" id="activeType">Molecule</span>
@@ -100,8 +99,8 @@
               <button class="segment" data-mode="risk">风险</button>
             </div>
             <button class="icon-button wide" id="apiSettings" title="API 设置" aria-label="API 设置">⚙ API</button>
-            <button class="secondary-button" id="planWorkflow">制定计划</button>
-            <button class="primary-button" id="runDefaultPrompt">分析当前数据</button>
+            <button class="secondary-button" id="planWorkflow">新建分析</button>
+            <button class="primary-button" id="runDefaultPrompt">运行</button>
           </div>
         </header>
 
@@ -109,8 +108,7 @@
           <div class="viewer-panel">
             <div class="panel-toolbar">
               <div>
-                <span class="panel-kicker">Viewer</span>
-                <strong id="viewerLabel">2D/3D structure canvas</strong>
+                <strong id="viewerLabel">结构查看器</strong>
               </div>
               <div class="tool-group">
                 <div class="viewer-style-control" role="tablist" aria-label="分子显示风格">
@@ -183,10 +181,7 @@
 
         <section class="console-panel" aria-label="自然语言 Agent">
           <div class="console-header">
-            <div>
-              <span class="panel-kicker">Molemo Agent</span>
-              <strong>Research conversation</strong>
-            </div>
+            <strong>研究对话</strong>
             <button class="secondary-button" id="exportReport">导出</button>
           </div>
           <div class="prompt-chips" id="promptChips"></div>

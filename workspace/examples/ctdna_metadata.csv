@@ -1,0 +1,7 @@
+sample,subject,timepoint,time_order
+P01_BASELINE,P01,Baseline,0
+P01_WEEK4,P01,Week 4,4
+P01_WEEK8,P01,Week 8,8
+P02_BASELINE,P02,Baseline,0
+P02_WEEK4,P02,Week 4,4
+P02_WEEK8,P02,Week 8,8
