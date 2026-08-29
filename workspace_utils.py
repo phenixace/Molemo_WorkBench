@@ -33,7 +33,9 @@ TEXT_SUFFIXES = {
     ".fastq",
     ".fq",
     ".vcf",
+    ".mtx",
 }
+BINARY_SUFFIXES = {".h5ad", ".h5", ".hdf5", ".gz"}
 
 
 class WorkspaceError(ValueError):
@@ -111,4 +113,27 @@ def write_workspace_text(relative_path: str, content: str) -> dict[str, object]:
     return {
         "path": target.relative_to(ensure_workspace().resolve()).as_posix(),
         "size": len(encoded),
+    }
+
+
+def write_workspace_file(relative_path: str, content: bytes) -> dict[str, object]:
+    raw = bytes(content)
+    if not raw:
+        raise WorkspaceError("Workspace uploads cannot be empty.")
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise WorkspaceError(f"Workspace uploads are limited to {MAX_UPLOAD_BYTES} bytes.")
+    target = resolve_workspace_path(relative_path)
+    suffix = target.suffix.lower()
+    if suffix not in TEXT_SUFFIXES | BINARY_SUFFIXES:
+        raise WorkspaceError(f"Unsupported workspace file type: {suffix or 'unknown'}")
+    if suffix in TEXT_SUFFIXES:
+        try:
+            raw.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise WorkspaceError("Scientific text uploads must use UTF-8 encoding.") from exc
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(raw)
+    return {
+        "path": target.relative_to(ensure_workspace().resolve()).as_posix(),
+        "size": len(raw),
     }

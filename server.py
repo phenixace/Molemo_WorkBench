@@ -8,12 +8,18 @@ import mimetypes
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from agent_runtime import AgentError, run_agent
 from pipeline import PipelineError, parse_molecule, parse_protein
 from skill_runtime import SkillError, SkillRegistry
-from workspace_utils import WorkspaceError, list_workspace_files, write_workspace_text
+from workspace_utils import (
+    MAX_UPLOAD_BYTES,
+    WorkspaceError,
+    list_workspace_files,
+    write_workspace_file,
+    write_workspace_text,
+)
 from workflow_runtime import WORKFLOW_MANAGER, WorkflowError
 
 
@@ -24,7 +30,7 @@ STATIC_FILES = {"index.html", "styles.css", "app.js"}
 
 
 class MolemoHandler(BaseHTTPRequestHandler):
-    server_version = "molemo-bench/0.8"
+    server_version = "molemo-bench/0.14"
 
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.NO_CONTENT)
@@ -68,6 +74,12 @@ class MolemoHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         try:
+            if parsed.path == "/api/workspace/upload":
+                query = parse_qs(parsed.query)
+                path = str((query.get("path") or [""])[0]).strip()
+                result = write_workspace_file(path, self._read_bytes(MAX_UPLOAD_BYTES))
+                self._send_json({"ok": True, "file": result}, HTTPStatus.CREATED)
+                return
             payload = self._read_json()
             if parsed.path == "/api/molecule":
                 sample = parse_molecule(str(payload.get("smiles", "")))
@@ -141,6 +153,16 @@ class MolemoHandler(BaseHTTPRequestHandler):
         if not raw:
             return {}
         return json.loads(raw.decode("utf-8"))
+
+    def _read_bytes(self, maximum: int) -> bytes:
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        if length > maximum:
+            raise AgentError(
+                f"Request body exceeds the local {maximum // (1024 * 1024)} MB upload limit.",
+                "request_too_large",
+                413,
+            )
+        return self.rfile.read(length)
 
     def _serve_static(self, request_path: str) -> None:
         path = unquote(request_path)

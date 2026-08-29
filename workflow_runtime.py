@@ -128,14 +128,20 @@ TEMPLATES: dict[str, dict[str, Any]] = {
     },
     "single-cell-exploratory-analysis": {
         "title": "单细胞 RNA-seq 探索分析",
-        "description": "预检 cell-by-gene raw counts，批准后运行 Scanpy QC、UMAP、Leiden 与 marker 排名。",
+        "description": "预检 CSV/TSV、AnnData 或 10x raw counts，批准后运行 Scanpy QC、可选 Scrublet、UMAP、Leiden 与 marker 排名。",
         "fields": [
             _field(
                 "count_matrix_path",
                 "Cell × gene raw count matrix",
                 "text",
                 required=True,
-                placeholder="examples/single_cell_counts.csv",
+                placeholder="examples/single_cell_demo.h5ad",
+            ),
+            _field(
+                "count_layer",
+                "AnnData raw-count layer（可选）",
+                "text",
+                placeholder="counts",
             ),
             _field(
                 "metadata_path",
@@ -151,11 +157,45 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             _field("n_neighbors", "邻居数", "number", value=15, min=2, max=100),
             _field("leiden_resolution", "Leiden resolution", "number", value=1, min=0.05, max=5, step=0.05),
             _field("marker_genes", "每群 marker 数", "number", value=10, min=1, max=50),
+            _field(
+                "run_scrublet",
+                "Scrublet doublet 评分",
+                "select",
+                options=[
+                    {"value": "false", "label": "不运行"},
+                    {"value": "true", "label": "运行并保留预测细胞"},
+                ],
+            ),
+            _field(
+                "doublet_batch_key",
+                "Scrublet 批次字段（可选）",
+                "text",
+                placeholder="donor",
+            ),
+            _field(
+                "expected_doublet_rate",
+                "预期 doublet rate",
+                "number",
+                value=0.05,
+                min=0.001,
+                max=0.3,
+                step=0.001,
+            ),
+            _field(
+                "exclude_predicted_doublets",
+                "预测 doublet 的处理",
+                "select",
+                options=[
+                    {"value": "false", "label": "保留，仅标记"},
+                    {"value": "true", "label": "批准后排除"},
+                ],
+            ),
         ],
         "assumptions": [
             "输入是 cell-by-gene 非负整数 UMI/raw counts，不是归一化或 log expression。",
             "UMAP 与 Leiden cluster 是探索性表示，不自动等同于细胞类型。",
             "marker 排名按细胞比较，不替代基于生物学重复的 pseudobulk 推断。",
+            "Scrublet 是模型化 QC 信号；自动阈值与预测细胞需要按样本复核。",
         ],
     },
     "target-evidence-review": {
@@ -533,6 +573,7 @@ def _single_cell_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
         "count_matrix_path": count_matrix_path,
         "metadata_path": str(inputs.get("metadata_path") or "").strip(),
         "cell_id_column": str(inputs.get("cell_id_column") or "cell_id").strip(),
+        "count_layer": str(inputs.get("count_layer") or "").strip(),
         "min_genes": inputs.get("min_genes", 20),
         "min_cells": inputs.get("min_cells", 3),
         "max_mito_percent": inputs.get("max_mito_percent", 20),
@@ -540,6 +581,10 @@ def _single_cell_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
         "n_neighbors": inputs.get("n_neighbors", 15),
         "leiden_resolution": inputs.get("leiden_resolution", 1),
         "marker_genes": inputs.get("marker_genes", 10),
+        "run_scrublet": inputs.get("run_scrublet", False),
+        "doublet_batch_key": str(inputs.get("doublet_batch_key") or "").strip(),
+        "expected_doublet_rate": inputs.get("expected_doublet_rate", 0.05),
+        "exclude_predicted_doublets": inputs.get("exclude_predicted_doublets", False),
     }
     try:
         normalized = preflight_single_cell(**arguments)
@@ -554,7 +599,7 @@ def _single_cell_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     inputs.update(execution_arguments)
     return [
         _step(
-            "运行 Scanpy QC、UMAP、Leiden 与 marker 排名",
+            "运行 Scanpy QC、可选 Scrublet、UMAP、Leiden 与 marker 排名",
             "single_cell_run_analysis",
             execution_arguments,
         )

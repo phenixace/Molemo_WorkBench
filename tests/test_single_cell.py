@@ -1,3 +1,4 @@
+import gzip
 import json
 import shutil
 import tempfile
@@ -17,6 +18,9 @@ from workspace_utils import WORKSPACE_ROOT, resolve_workspace_path
 
 COUNTS = "examples/single_cell_counts.csv"
 METADATA = "examples/single_cell_metadata.csv"
+H5AD = "examples/single_cell_demo.h5ad"
+TENX_MTX = "examples/single_cell_10x/matrix.mtx"
+TENX_H5 = "examples/single_cell_10x.h5"
 PARAMETERS = {
     "count_matrix_path": COUNTS,
     "metadata_path": METADATA,
@@ -54,6 +58,63 @@ class SingleCellTests(unittest.TestCase):
     def test_preflight_rejects_workspace_escape(self):
         with self.assertRaises(SingleCellError):
             preflight_single_cell("../single_cell_counts.csv")
+
+    def test_preflight_reads_h5ad_count_layer_and_rejects_normalized_x(self):
+        result = preflight_single_cell(
+            H5AD,
+            count_layer="counts",
+            min_genes=20,
+            min_cells=3,
+        )
+
+        self.assertEqual(result["input_format"], "h5ad")
+        self.assertEqual(result["count_layer"], "counts")
+        self.assertEqual(result["available_layers"], ["counts"])
+        self.assertEqual(result["cells"], 90)
+        self.assertEqual(
+            [item["column"] for item in result["metadata"]["categorical_columns"]],
+            ["donor", "condition", "synthetic_truth"],
+        )
+        with self.assertRaisesRegex(SingleCellError, "raw counts"):
+            preflight_single_cell(H5AD, min_genes=20, min_cells=3)
+
+    def test_preflight_reads_standard_10x_mtx_and_h5(self):
+        matrix = preflight_single_cell(TENX_MTX, min_genes=20, min_cells=3)
+        h5 = preflight_single_cell(TENX_H5, min_genes=20, min_cells=3)
+
+        self.assertEqual(matrix["input_format"], "10x_mtx")
+        self.assertEqual(len(matrix["input_files"]), 3)
+        self.assertEqual(h5["input_format"], "10x_h5")
+        self.assertEqual((matrix["cells"], matrix["genes"]), (90, 57))
+        self.assertEqual((h5["cells"], h5["genes"]), (90, 57))
+
+    def test_preflight_reads_compressed_10x_mtx(self):
+        temporary_root = WORKSPACE_ROOT / ".molemo" / "test-inputs"
+        temporary_root.mkdir(parents=True, exist_ok=True)
+        source = WORKSPACE_ROOT / "examples" / "single_cell_10x"
+        with tempfile.TemporaryDirectory(dir=temporary_root) as temporary:
+            target = Path(temporary)
+            for name in ("matrix.mtx", "features.tsv", "barcodes.tsv"):
+                with (source / name).open("rb") as input_handle, gzip.open(
+                    target / f"{name}.gz", "wb"
+                ) as output_handle:
+                    shutil.copyfileobj(input_handle, output_handle)
+            relative = (target / "matrix.mtx.gz").relative_to(WORKSPACE_ROOT).as_posix()
+            result = preflight_single_cell(relative, min_genes=20, min_cells=3)
+
+        self.assertEqual(result["input_format"], "10x_mtx_gz")
+        self.assertEqual((result["cells"], result["genes"]), (90, 57))
+
+    def test_doublet_settings_require_scrublet_and_valid_batch(self):
+        with self.assertRaisesRegex(SingleCellError, "requires run_scrublet"):
+            preflight_single_cell(COUNTS, exclude_predicted_doublets=True)
+        with self.assertRaisesRegex(SingleCellError, "not found"):
+            preflight_single_cell(
+                COUNTS,
+                METADATA,
+                run_scrublet=True,
+                doublet_batch_key="missing_batch",
+            )
 
     def test_execution_tool_is_hidden_from_external_agents(self):
         exposed = {item["function"]["name"] for item in self.registry.openai_tools()}
@@ -109,6 +170,42 @@ class SingleCellTests(unittest.TestCase):
                 if output_root.parent == (WORKSPACE_ROOT / "analyses").resolve():
                     shutil.rmtree(output_root, ignore_errors=True)
 
+    @unittest.skipUnless(single_cell_toolchain_status()["available"], "Scanpy runtime is unavailable")
+    def test_approved_h5ad_workflow_records_scrublet_without_excluding_by_default(self):
+        parameters = {
+            **PARAMETERS,
+            "count_matrix_path": H5AD,
+            "metadata_path": "",
+            "count_layer": "counts",
+            "run_scrublet": True,
+            "doublet_batch_key": "donor",
+            "exclude_predicted_doublets": False,
+        }
+        with tempfile.TemporaryDirectory() as storage:
+            manager = WorkflowManager(Path(storage))
+            run = manager.create_plan(
+                "single-cell-exploratory-analysis",
+                parameters,
+                "Score likely doublets without removing them",
+            )
+            completed = manager.approve(run["id"], self.registry)
+            result = next(
+                item["data"]
+                for item in completed["artifacts"]
+                if item["type"] == "single-cell-analysis"
+            )
+            output_root = resolve_workspace_path(result["output_root"])
+            try:
+                self.assertEqual(result["input_format"], "h5ad")
+                self.assertEqual(result["count_layer"], "counts")
+                self.assertTrue(result["doublet"]["enabled"])
+                self.assertGreater(result["doublet"]["predicted"], 0)
+                self.assertEqual(result["doublet"]["excluded"], 0)
+                self.assertEqual(result["cells_retained"], 90)
+                self.assertEqual(set(result["doublet"]["batch_thresholds"]), {"D1", "D2", "D3"})
+            finally:
+                shutil.rmtree(output_root, ignore_errors=True)
+
     def test_local_agent_builds_single_cell_plan_without_running_it(self):
         request = local_workflow_plan(
             "用 examples/single_cell_counts.csv 和 examples/single_cell_metadata.csv 做单细胞 RNA-seq "
@@ -122,6 +219,21 @@ class SingleCellTests(unittest.TestCase):
         self.assertEqual(inputs["count_matrix_path"], COUNTS)
         self.assertEqual(inputs["metadata_path"], METADATA)
         self.assertEqual(inputs["leiden_resolution"], 0.4)
+
+    def test_local_agent_extracts_h5ad_layer_and_scrublet_boundary(self):
+        request = local_workflow_plan(
+            "用 examples/single_cell_demo.h5ad 做单细胞 UMAP，count layer=counts，"
+            "运行 Scrublet，batch key donor，只标记不排除 doublet",
+            {},
+        )
+
+        self.assertIsNotNone(request)
+        _, inputs = request
+        self.assertEqual(inputs["count_matrix_path"], H5AD)
+        self.assertEqual(inputs["count_layer"], "counts")
+        self.assertTrue(inputs["run_scrublet"])
+        self.assertEqual(inputs["doublet_batch_key"], "donor")
+        self.assertFalse(inputs["exclude_predicted_doublets"])
 
 
 if __name__ == "__main__":

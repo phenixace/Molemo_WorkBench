@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. For single-cell analyses, preserve the raw-count input mode, QC thresholds, retained cells and genes, normalization, feature selection, random seed, graph and clustering parameters, and biological sample metadata. UMAP geometry, Leiden clusters, and cell-level marker rankings are exploratory; never name a cell type without external annotation evidence or treat cells as biological replicates. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. For single-cell analyses, preserve the input format, selected raw-count layer, QC thresholds, retained cells and genes, normalization, feature selection, random seed, graph and clustering parameters, biological sample metadata, and any Scrublet batch key, thresholds, prediction count, and exclusion decision. UMAP geometry, Leiden clusters, Scrublet predictions, and cell-level marker rankings are exploratory; never name a cell type without external annotation evidence or treat cells as biological replicates. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -420,17 +420,19 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
 
 
 def extract_single_cell_plan(message: str) -> dict[str, Any] | None:
-    table_paths = re.findall(r"([\w./-]+\.(?:csv|tsv))\b", message, re.I)
-    if not table_paths or not re.search(
+    paths = re.findall(
+        r"([\w./-]+(?:matrix\.mtx(?:\.gz)?|\.(?:h5ad|hdf5|h5|csv|tsv)))\b",
+        message,
+        re.I,
+    )
+    if not paths or not re.search(
         r"single[- ]?cell|scRNA-?seq|single cell RNA|单细胞|单细胞转录组|细胞聚类|Leiden|UMAP",
         message,
         re.I,
     ):
         return None
-    count_path = next(
-        (path for path in table_paths if re.search(r"count|matrix|expression|表达|计数", path, re.I)),
-        table_paths[0],
-    )
+    count_path = next((path for path in paths if not re.search(r"meta|annot|metadata|注释", path, re.I)), paths[0])
+    table_paths = [path for path in paths if re.search(r"\.(?:csv|tsv)$", path, re.I)]
     metadata_path = next(
         (path for path in table_paths if path != count_path and re.search(r"meta|annot|cell|样本|注释", path, re.I)),
         next((path for path in table_paths if path != count_path), ""),
@@ -440,10 +442,20 @@ def extract_single_cell_plan(message: str) -> dict[str, Any] | None:
         match = re.search(r"(?:" + pattern + r")\s*[:：=]?\s*([0-9.]+)", message, re.I)
         return float(match.group(1)) if match else default
 
+    count_layer = re.search(r"(?:count|raw)[_ -]?layer\s*[:：=]?\s*([\w.-]+)|(?:计数|原始)层\s*[:：=]?\s*([\w.-]+)", message, re.I)
+    batch_key = re.search(r"(?:doublet[_ -]?)?batch(?:[_ -]?key|\s*列)?\s*[:：=]?\s*([\w.-]+)|Scrublet\s*批次(?:字段|列)?\s*[:：=]?\s*([\w.-]+)", message, re.I)
+    run_scrublet = bool(re.search(r"Scrublet|doublet|双细胞", message, re.I))
+    keep_doublets = bool(
+        re.search(r"(?:不|不要)(?:予以)?(?:排除|删除|过滤)|(?:保留|仅标记|只标记)[^。,.]{0,16}(?:doublet|双细胞)", message, re.I)
+    )
+    exclude_doublets = not keep_doublets and bool(
+        re.search(r"(?:exclude|remove|filter|排除|删除|过滤)[^。,.]{0,16}(?:doublet|双细胞)", message, re.I)
+    )
     return {
         "count_matrix_path": count_path,
         "metadata_path": metadata_path,
         "cell_id_column": "cell_id",
+        "count_layer": next((value for value in (count_layer.groups() if count_layer else []) if value), ""),
         "min_genes": int(number(r"min[_ -]?genes|每细胞最少(?:检测)?基因", 20)),
         "min_cells": int(number(r"min[_ -]?cells|每基因最少(?:检测)?细胞", 3)),
         "max_mito_percent": number(r"max(?:imum)?[_ -]?(?:mt|mito)(?:[_ -]?percent)?|线粒体(?:比例|计数)?上限", 20),
@@ -451,6 +463,10 @@ def extract_single_cell_plan(message: str) -> dict[str, Any] | None:
         "n_neighbors": int(number(r"n[_ -]?neighbors|邻居数", 15)),
         "leiden_resolution": number(r"(?:leiden[_ -]?)?resolution|分辨率", 1),
         "marker_genes": int(number(r"marker[_ -]?genes|每群 marker(?: 数)?", 10)),
+        "run_scrublet": run_scrublet,
+        "doublet_batch_key": next((value for value in (batch_key.groups() if batch_key else []) if value), ""),
+        "expected_doublet_rate": number(r"expected[_ -]?doublet[_ -]?rate|预期双细胞率|预期 doublet rate", 0.05),
+        "exclude_predicted_doublets": exclude_doublets,
     }
 
 

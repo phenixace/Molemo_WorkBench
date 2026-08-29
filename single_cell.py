@@ -23,6 +23,7 @@ from workspace_utils import MAX_UPLOAD_BYTES, WORKSPACE_ROOT, resolve_workspace_
 
 ROOT = Path(__file__).resolve().parent
 RUNNER_PATH = ROOT / "tools" / "run_scanpy.py"
+INSPECTOR_PATH = ROOT / "tools" / "inspect_single_cell.py"
 PROJECT_SCANPY_PYTHON = ROOT / ".molemo-tools" / "bin" / "python"
 TABLE_SUFFIXES = {".csv", ".tsv"}
 MAX_CELLS = 20_000
@@ -44,6 +45,7 @@ def single_cell_toolchain_status() -> dict[str, Any]:
             "python": None,
             "scanpy_version": None,
             "leidenalg_version": None,
+            "scikit_image_version": None,
         }
     versions = _probe_scanpy(python)
     return {
@@ -51,6 +53,7 @@ def single_cell_toolchain_status() -> dict[str, Any]:
         "python": str(python),
         "scanpy_version": versions.get("scanpy") if versions else None,
         "leidenalg_version": versions.get("leidenalg") if versions else None,
+        "scikit_image_version": versions.get("scikit_image") if versions else None,
     }
 
 
@@ -70,6 +73,7 @@ def preflight_single_cell(
     count_matrix_path: str,
     metadata_path: str = "",
     cell_id_column: str = "cell_id",
+    count_layer: str = "",
     min_genes: int = 20,
     min_cells: int = 3,
     max_mito_percent: float = 20.0,
@@ -77,6 +81,10 @@ def preflight_single_cell(
     n_neighbors: int = 15,
     leiden_resolution: float = 1.0,
     marker_genes: int = 10,
+    run_scrublet: bool = False,
+    doublet_batch_key: str = "",
+    expected_doublet_rate: float = 0.05,
+    exclude_predicted_doublets: bool = False,
 ) -> dict[str, Any]:
     parameters = _normalize_parameters(
         min_genes=min_genes,
@@ -86,34 +94,54 @@ def preflight_single_cell(
         n_neighbors=n_neighbors,
         leiden_resolution=leiden_resolution,
         marker_genes=marker_genes,
+        run_scrublet=run_scrublet,
+        doublet_batch_key=doublet_batch_key,
+        expected_doublet_rate=expected_doublet_rate,
+        exclude_predicted_doublets=exclude_predicted_doublets,
     )
     cell_id_column = str(cell_id_column or "cell_id").strip()
     if not cell_id_column:
         raise SingleCellError("cell_id_column is required.")
-
-    count_path, count_relative = _resolve_table(count_matrix_path, "single-cell count matrix")
-    matrix = _inspect_count_matrix(
-        count_path,
-        cell_id_column=cell_id_column,
-        min_genes=parameters["min_genes"],
-        min_cells=parameters["min_cells"],
-        max_mito_percent=parameters["max_mito_percent"],
-    )
+    count_layer = str(count_layer or "").strip()
+    if count_layer == "X":
+        count_layer = ""
+    count_input = _resolve_count_input(count_matrix_path)
+    count_path = count_input["path"]
 
     metadata_relative = None
-    metadata_summary: dict[str, Any] = {
-        "provided": False,
-        "columns": [],
-        "categorical_columns": [],
-    }
+    metadata_file = None
     if str(metadata_path or "").strip():
         metadata_file, metadata_relative = _resolve_table(metadata_path, "cell metadata")
-        metadata_summary = _inspect_metadata(
-            metadata_file,
-            cell_id_column=cell_id_column,
-            expected_cells=matrix["cell_ids"],
-        )
 
+    toolchain = single_cell_toolchain_status()
+    python = find_scanpy_python()
+    if not toolchain["available"] or python is None:
+        raise SingleCellError(
+            "Scanpy runtime is unavailable; install the project environment before inspecting this input."
+        )
+    if parameters["run_scrublet"] and not toolchain["scikit_image_version"]:
+        raise SingleCellError(
+            "Scrublet automatic thresholding requires scikit-image in the Scanpy runtime."
+        )
+    matrix = _inspect_with_scanpy(
+        python,
+        {
+            "count_matrix": str(count_path),
+            "input_format": count_input["input_format"],
+            "count_layer": count_layer,
+            "count_delimiter": _delimiter(count_path),
+            "metadata": str(metadata_file) if metadata_file else None,
+            "metadata_delimiter": _delimiter(metadata_file) if metadata_file else None,
+            "cell_id_column": cell_id_column,
+            "parameters": parameters,
+        },
+    )
+    if matrix["cells"] > MAX_CELLS:
+        raise SingleCellError(f"Count matrix exceeds the {MAX_CELLS:,}-cell limit.")
+    if matrix["genes"] > MAX_GENES:
+        raise SingleCellError(f"Count matrix exceeds the {MAX_GENES:,}-gene limit.")
+    if matrix["entries"] > MAX_ENTRIES:
+        raise SingleCellError(f"Count matrix exceeds the {MAX_ENTRIES:,}-entry limit.")
     if matrix["cells_after_filter"] < 10:
         raise SingleCellError(
             "Configured QC thresholds retain fewer than 10 cells; relax the thresholds or inspect the matrix."
@@ -125,19 +153,41 @@ def preflight_single_cell(
     if parameters["n_neighbors"] >= matrix["cells_after_filter"]:
         parameters["n_neighbors"] = max(2, matrix["cells_after_filter"] - 1)
 
-    toolchain = single_cell_toolchain_status()
-    warnings = list(matrix["warnings"])
-    if not toolchain["available"]:
-        warnings.append(
-            "Scanpy runtime is unavailable; install the project environment before approving execution."
+    metadata_summary = matrix["metadata"]
+    if parameters["run_scrublet"] and parameters["doublet_batch_key"]:
+        batch_key = parameters["doublet_batch_key"]
+        if batch_key not in metadata_summary["columns"]:
+            raise SingleCellError(f"doublet_batch_key was not found in cell metadata: {batch_key}")
+        batch_field = next(
+            (
+                field
+                for field in metadata_summary["categorical_columns"]
+                if field["column"] == batch_key
+            ),
+            None,
         )
+        if batch_field is None:
+            raise SingleCellError(
+                "doublet_batch_key must identify a metadata field with 2 to 30 non-empty batches."
+            )
+        if batch_field.get("missing"):
+            raise SingleCellError("doublet_batch_key cannot contain empty batch values.")
+
+    warnings = list(matrix["warnings"])
     if metadata_summary["provided"] and not metadata_summary["categorical_columns"]:
         warnings.append("Metadata has no bounded categorical field suitable for coloring the embedding.")
-
+    if parameters["run_scrublet"]:
+        warnings.append(
+            "Scrublet predictions depend on a simulated-doublet model and automatic threshold; review scores and threshold before interpreting or excluding cells."
+        )
     return {
-        "ready": bool(toolchain["available"]),
+        "ready": True,
         "input_mode": "cell_by_gene_raw_counts",
-        "count_matrix_path": count_relative,
+        "input_format": matrix["input_format"],
+        "input_files": count_input["input_files"],
+        "count_matrix_path": count_input["relative"],
+        "count_layer": matrix["count_layer"],
+        "available_layers": matrix["available_layers"],
         "metadata_path": metadata_relative,
         "cell_id_column": cell_id_column,
         "cells": matrix["cells"],
@@ -156,8 +206,9 @@ def preflight_single_cell(
         "toolchain": toolchain,
         "warnings": warnings,
         "summary": (
-            f"Validated {matrix['cells']:,} cells by {matrix['genes']:,} genes; configured QC retains "
-            f"{matrix['cells_after_filter']:,} cells and {matrix['genes_after_filter']:,} genes."
+            f"Validated {matrix['input_format']} raw counts with {matrix['cells']:,} cells by "
+            f"{matrix['genes']:,} genes; configured QC retains {matrix['cells_after_filter']:,} cells "
+            f"and {matrix['genes_after_filter']:,} genes."
         ),
     }
 
@@ -166,6 +217,7 @@ def run_single_cell_analysis(
     count_matrix_path: str,
     metadata_path: str = "",
     cell_id_column: str = "cell_id",
+    count_layer: str = "",
     min_genes: int = 20,
     min_cells: int = 3,
     max_mito_percent: float = 20.0,
@@ -173,11 +225,16 @@ def run_single_cell_analysis(
     n_neighbors: int = 15,
     leiden_resolution: float = 1.0,
     marker_genes: int = 10,
+    run_scrublet: bool = False,
+    doublet_batch_key: str = "",
+    expected_doublet_rate: float = 0.05,
+    exclude_predicted_doublets: bool = False,
 ) -> dict[str, Any]:
     preflight = preflight_single_cell(
         count_matrix_path=count_matrix_path,
         metadata_path=metadata_path,
         cell_id_column=cell_id_column,
+        count_layer=count_layer,
         min_genes=min_genes,
         min_cells=min_cells,
         max_mito_percent=max_mito_percent,
@@ -185,6 +242,10 @@ def run_single_cell_analysis(
         n_neighbors=n_neighbors,
         leiden_resolution=leiden_resolution,
         marker_genes=marker_genes,
+        run_scrublet=run_scrublet,
+        doublet_batch_key=doublet_batch_key,
+        expected_doublet_rate=expected_doublet_rate,
+        exclude_predicted_doublets=exclude_predicted_doublets,
     )
     python = find_scanpy_python()
     if python is None:
@@ -198,6 +259,7 @@ def run_single_cell_analysis(
     metadata_file = (
         resolve_workspace_path(preflight["metadata_path"]) if preflight["metadata_path"] else None
     )
+    input_files = [resolve_workspace_path(path) for path in preflight["input_files"]]
     analysis_id = f"single-cell-{uuid.uuid4().hex[:12]}"
     analyses_root = WORKSPACE_ROOT / "analyses"
     analyses_root.mkdir(parents=True, exist_ok=True)
@@ -206,16 +268,22 @@ def run_single_cell_analysis(
     temp_root.mkdir(parents=True, exist_ok=True)
     config = {
         "count_matrix": str(count_path),
+        "input_format": preflight["input_format"],
+        "count_layer": preflight["count_layer"] if preflight["count_layer"] != "X" else "",
         "metadata": str(metadata_file) if metadata_file else None,
         "count_delimiter": _delimiter(count_path),
         "metadata_delimiter": _delimiter(metadata_file) if metadata_file else None,
         "source_paths": {
             "count_matrix": preflight["count_matrix_path"],
             "metadata": preflight["metadata_path"],
+            "input_files": preflight["input_files"],
         },
         "input_sha256": {
             "count_matrix": _sha256(count_path),
             "metadata": _sha256(metadata_file) if metadata_file else None,
+            "input_files": {
+                path.relative_to(WORKSPACE_ROOT).as_posix(): _sha256(path) for path in input_files
+            },
         },
         "cell_id_column": preflight["cell_id_column"],
         "parameters": preflight["parameters"],
@@ -451,6 +519,7 @@ def _normalize_parameters(**raw: Any) -> dict[str, Any]:
             "n_neighbors": int(raw["n_neighbors"]),
             "leiden_resolution": float(raw["leiden_resolution"]),
             "marker_genes": int(raw["marker_genes"]),
+            "expected_doublet_rate": float(raw["expected_doublet_rate"]),
         }
     except (TypeError, ValueError, KeyError) as exc:
         raise SingleCellError("Single-cell thresholds must be numeric.") from exc
@@ -462,12 +531,37 @@ def _normalize_parameters(**raw: Any) -> dict[str, Any]:
         "n_neighbors": (2, 100),
         "leiden_resolution": (0.05, 5.0),
         "marker_genes": (1, 50),
+        "expected_doublet_rate": (0.001, 0.3),
     }
     for key, (lower, upper) in bounds.items():
         value = values[key]
         if not math.isfinite(float(value)) or not lower <= value <= upper:
             raise SingleCellError(f"{key} must be between {lower} and {upper}.")
+    values.update(
+        {
+            "run_scrublet": _boolean(raw.get("run_scrublet", False)),
+            "doublet_batch_key": str(raw.get("doublet_batch_key") or "").strip(),
+            "exclude_predicted_doublets": _boolean(
+                raw.get("exclude_predicted_doublets", False)
+            ),
+        }
+    )
+    if values["exclude_predicted_doublets"] and not values["run_scrublet"]:
+        raise SingleCellError("exclude_predicted_doublets requires run_scrublet=true.")
+    if values["doublet_batch_key"] and not values["run_scrublet"]:
+        raise SingleCellError("doublet_batch_key requires run_scrublet=true.")
     return values
+
+
+def _boolean(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value or "").strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"", "0", "false", "no", "off"}:
+        return False
+    raise SingleCellError(f"Expected a boolean value; found {value!r}.")
 
 
 def _resolve_table(value: str, label: str) -> tuple[Path, str]:
@@ -482,6 +576,97 @@ def _resolve_table(value: str, label: str) -> tuple[Path, str]:
     if path.stat().st_size > MAX_UPLOAD_BYTES:
         raise SingleCellError(f"{label.capitalize()} exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.")
     return path, path.relative_to(WORKSPACE_ROOT).as_posix()
+
+
+def _resolve_count_input(value: str) -> dict[str, Any]:
+    try:
+        path = resolve_workspace_path(str(value or "").strip())
+    except Exception as exc:
+        raise SingleCellError(str(exc)) from exc
+    if not path.is_file():
+        raise SingleCellError(f"Single-cell count input does not exist: {value}")
+    name = path.name.lower()
+    if path.suffix.lower() in TABLE_SUFFIXES:
+        input_format = path.suffix.lower().lstrip(".")
+        files = [path]
+    elif path.suffix.lower() == ".h5ad":
+        input_format = "h5ad"
+        files = [path]
+    elif path.suffix.lower() in {".h5", ".hdf5"}:
+        input_format = "10x_h5"
+        files = [path]
+    elif name in {"matrix.mtx", "matrix.mtx.gz"}:
+        compressed = name.endswith(".gz")
+        suffix = ".tsv.gz" if compressed else ".tsv"
+        barcodes = path.parent / f"barcodes{suffix}"
+        features = path.parent / f"features{suffix}"
+        genes = path.parent / f"genes{suffix}"
+        feature_file = features if features.is_file() else genes
+        missing = []
+        if not barcodes.is_file():
+            missing.append(barcodes.name)
+        if not feature_file.is_file():
+            missing.append(f"features{suffix} or genes{suffix}")
+        if missing:
+            raise SingleCellError(
+                "10x MTX input requires standard files in the same directory; missing "
+                + ", ".join(missing)
+                + "."
+            )
+        input_format = "10x_mtx_gz" if compressed else "10x_mtx"
+        files = [path, barcodes, feature_file]
+    else:
+        raise SingleCellError(
+            "Single-cell input must be CSV/TSV, AnnData .h5ad, 10x .h5/.hdf5, or a standard matrix.mtx[.gz] trio."
+        )
+    total = 0
+    for item in files:
+        size = item.stat().st_size
+        if size > MAX_UPLOAD_BYTES:
+            raise SingleCellError(
+                f"Single-cell input file {item.name} exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit."
+            )
+        total += size
+    if total > MAX_UPLOAD_BYTES:
+        raise SingleCellError(
+            f"Single-cell input files exceed the combined {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit."
+        )
+    return {
+        "path": path,
+        "relative": path.relative_to(WORKSPACE_ROOT).as_posix(),
+        "input_format": input_format,
+        "input_files": [item.relative_to(WORKSPACE_ROOT).as_posix() for item in files],
+    }
+
+
+def _inspect_with_scanpy(python: Path, config: dict[str, Any]) -> dict[str, Any]:
+    if not INSPECTOR_PATH.is_file():
+        raise SingleCellError("The local single-cell input inspector is missing.")
+    temp_root = WORKSPACE_ROOT / ".molemo" / "tmp"
+    temp_root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="single-cell-preflight-", dir=temp_root) as temporary:
+        config_path = Path(temporary) / "config.json"
+        output_path = Path(temporary) / "inspection.json"
+        config_path.write_text(json.dumps(config, ensure_ascii=True), encoding="utf-8")
+        environment = {
+            **os.environ,
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
+            "NUMEXPR_NUM_THREADS": "1",
+        }
+        try:
+            _run_process(
+                [str(python), str(INSPECTOR_PATH), str(config_path), str(output_path)],
+                environment,
+            )
+        except SingleCellError as exc:
+            detail = str(exc).removeprefix("Scanpy analysis failed: ")
+            raise SingleCellError(f"Single-cell input inspection failed: {detail}") from exc
+        try:
+            return json.loads(output_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SingleCellError("Single-cell input inspection returned no valid result.") from exc
 
 
 def _delimiter(path: Path | None) -> str:
@@ -525,7 +710,9 @@ def _probe_scanpy(python: Path) -> dict[str, str] | None:
             [
                 str(python),
                 "-c",
-                "import importlib.metadata as m, json, scanpy, leidenalg; print(json.dumps({'scanpy': m.version('scanpy'), 'leidenalg': m.version('leidenalg')}))",
+                "import importlib.metadata as m, json, scanpy, leidenalg; "
+                "v=lambda n: m.version(n) if n in {d.metadata['Name'] for d in m.distributions()} else None; "
+                "print(json.dumps({'scanpy': m.version('scanpy'), 'leidenalg': m.version('leidenalg'), 'scikit_image': v('scikit-image')}))",
             ],
             check=False,
             capture_output=True,

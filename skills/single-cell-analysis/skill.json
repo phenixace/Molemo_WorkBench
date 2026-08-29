@@ -2,25 +2,30 @@
   "id": "single-cell-analysis",
   "title": "Single-cell RNA-seq Analysis",
   "kind": "pipeline",
-  "description": "Validate cell-by-gene raw counts and run researcher-approved Scanpy QC, embedding, Leiden clustering, and marker exploration.",
+  "description": "Validate raw counts from tabular, AnnData, or 10x inputs and run researcher-approved Scanpy QC, optional Scrublet, embedding, Leiden clustering, and marker exploration.",
   "tools": [
     {
       "name": "single_cell_preflight",
-      "description": "Validate a workspace cell-by-gene raw-count matrix, optional exact cell metadata, QC thresholds, retained dimensions, categorical annotations, and local Scanpy runtime without running clustering.",
+      "description": "Validate a workspace CSV/TSV, AnnData .h5ad, 10x H5, or standard 10x MTX raw-count input, optional exact cell metadata, QC and doublet settings, retained dimensions, and local Scanpy runtime without running clustering.",
       "handler": "scripts/handler.py:preflight",
       "input_schema": {
         "type": "object",
         "properties": {
-          "count_matrix_path": { "type": "string", "description": "Workspace-relative CSV or TSV with cell IDs in the first column and genes in columns." },
+          "count_matrix_path": { "type": "string", "description": "Workspace-relative CSV/TSV, .h5ad, 10x .h5/.hdf5, or standard matrix.mtx[.gz]." },
           "metadata_path": { "type": "string", "description": "Optional workspace-relative CSV or TSV with the same cell IDs.", "default": "" },
           "cell_id_column": { "type": "string", "default": "cell_id" },
+          "count_layer": { "type": "string", "description": "AnnData layer containing integer raw counts; leave empty to use X.", "default": "" },
           "min_genes": { "type": "integer", "minimum": 1, "maximum": 10000, "default": 20 },
           "min_cells": { "type": "integer", "minimum": 1, "maximum": 5000, "default": 3 },
           "max_mito_percent": { "type": "number", "minimum": 0, "maximum": 100, "default": 20 },
           "n_top_genes": { "type": "integer", "minimum": 10, "maximum": 5000, "default": 2000 },
           "n_neighbors": { "type": "integer", "minimum": 2, "maximum": 100, "default": 15 },
           "leiden_resolution": { "type": "number", "minimum": 0.05, "maximum": 5, "default": 1 },
-          "marker_genes": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 }
+          "marker_genes": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 },
+          "run_scrublet": { "type": "boolean", "default": false },
+          "doublet_batch_key": { "type": "string", "description": "Optional obs/metadata field used to run Scrublet independently per batch.", "default": "" },
+          "expected_doublet_rate": { "type": "number", "minimum": 0.001, "maximum": 0.3, "default": 0.05 },
+          "exclude_predicted_doublets": { "type": "boolean", "description": "Exclude Scrublet-predicted cells only after explicit workflow approval.", "default": false }
         },
         "required": ["count_matrix_path"],
         "additionalProperties": false
@@ -28,7 +33,7 @@
     },
     {
       "name": "single_cell_run_analysis",
-      "description": "Run bounded Scanpy preprocessing, PCA, neighbors, UMAP, Leiden clustering, and descriptive cluster-marker ranking after researcher approval.",
+      "description": "Run bounded Scanpy preprocessing, optional Scrublet scoring/exclusion, PCA, neighbors, UMAP, Leiden clustering, and descriptive cluster-marker ranking after researcher approval.",
       "handler": "scripts/handler.py:run_analysis",
       "agent_callable": false,
       "input_schema": {
@@ -37,13 +42,18 @@
           "count_matrix_path": { "type": "string" },
           "metadata_path": { "type": "string", "default": "" },
           "cell_id_column": { "type": "string", "default": "cell_id" },
+          "count_layer": { "type": "string", "default": "" },
           "min_genes": { "type": "integer", "minimum": 1, "maximum": 10000, "default": 20 },
           "min_cells": { "type": "integer", "minimum": 1, "maximum": 5000, "default": 3 },
           "max_mito_percent": { "type": "number", "minimum": 0, "maximum": 100, "default": 20 },
           "n_top_genes": { "type": "integer", "minimum": 10, "maximum": 5000, "default": 2000 },
           "n_neighbors": { "type": "integer", "minimum": 2, "maximum": 100, "default": 15 },
           "leiden_resolution": { "type": "number", "minimum": 0.05, "maximum": 5, "default": 1 },
-          "marker_genes": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 }
+          "marker_genes": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 },
+          "run_scrublet": { "type": "boolean", "default": false },
+          "doublet_batch_key": { "type": "string", "default": "" },
+          "expected_doublet_rate": { "type": "number", "minimum": 0.001, "maximum": 0.3, "default": 0.05 },
+          "exclude_predicted_doublets": { "type": "boolean", "default": false }
         },
         "required": ["count_matrix_path"],
         "additionalProperties": false

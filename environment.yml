@@ -9,6 +9,7 @@ dependencies:
   - hmmer>=3.4,<3.5
   - scanpy>=1.11,<1.12
   - leidenalg>=0.10,<0.11
+  - scikit-image>=0.24,<0.26
   - pip
   - pip:
       - pydeseq2==0.5.4

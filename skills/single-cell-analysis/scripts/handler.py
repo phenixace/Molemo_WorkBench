@@ -12,6 +12,7 @@ def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:
         "count_matrix_path": str(arguments.get("count_matrix_path") or ""),
         "metadata_path": str(arguments.get("metadata_path") or ""),
         "cell_id_column": str(arguments.get("cell_id_column") or "cell_id"),
+        "count_layer": str(arguments.get("count_layer") or ""),
         "min_genes": arguments.get("min_genes", 20),
         "min_cells": arguments.get("min_cells", 3),
         "max_mito_percent": arguments.get("max_mito_percent", 20),
@@ -19,6 +20,10 @@ def _arguments(arguments: dict[str, Any]) -> dict[str, Any]:
         "n_neighbors": arguments.get("n_neighbors", 15),
         "leiden_resolution": arguments.get("leiden_resolution", 1),
         "marker_genes": arguments.get("marker_genes", 10),
+        "run_scrublet": arguments.get("run_scrublet", False),
+        "doublet_batch_key": str(arguments.get("doublet_batch_key") or ""),
+        "expected_doublet_rate": arguments.get("expected_doublet_rate", 0.05),
+        "exclude_predicted_doublets": arguments.get("exclude_predicted_doublets", False),
     }
 
 
@@ -33,6 +38,8 @@ def preflight(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, 
                 "count_matrix": result["count_matrix_path"],
                 "metadata": result["metadata_path"],
                 "input_mode": result["input_mode"],
+                "input_format": result["input_format"],
+                "count_layer": result["count_layer"],
                 "scanpy_version": result["toolchain"]["scanpy_version"],
             }
         ],

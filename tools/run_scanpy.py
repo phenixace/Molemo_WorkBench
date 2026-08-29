@@ -17,6 +17,8 @@ import pandas as pd
 import scanpy as sc
 from scipy import sparse
 
+from single_cell_io import mitochondrial_mask, read_single_cell
+
 
 RANDOM_SEED = 0
 MAX_EMBEDDING_POINTS = 5_000
@@ -24,6 +26,10 @@ MAX_QC_POINTS = 2_000
 SCANPY_VERSION = importlib.metadata.version("scanpy")
 ANNDATA_VERSION = importlib.metadata.version("anndata")
 LEIDENALG_VERSION = importlib.metadata.version("leidenalg")
+try:
+    SCIKIT_IMAGE_VERSION = importlib.metadata.version("scikit-image")
+except importlib.metadata.PackageNotFoundError:
+    SCIKIT_IMAGE_VERSION = None
 
 
 def main() -> None:
@@ -33,23 +39,12 @@ def main() -> None:
     output_dir = Path(sys.argv[2])
     output_dir.mkdir(parents=True, exist_ok=False)
 
-    counts = pd.read_csv(
-        config["count_matrix"],
-        sep=config["count_delimiter"],
-        index_col=0,
-    ).astype(np.int64)
-    counts.index = counts.index.astype(str)
-    counts.columns = counts.columns.astype(str)
-    metadata = _read_metadata(config, counts.index)
-    adata = anndata.AnnData(
-        X=sparse.csr_matrix(counts.to_numpy(dtype=np.int64)),
-        obs=metadata,
-        var=pd.DataFrame(index=counts.columns.copy()),
-    )
-    adata.obs_names = counts.index.copy()
+    adata, source_info = read_single_cell(config)
     adata.obs_names.name = config["cell_id_column"]
-    adata.var_names_make_unique()
-    adata.var["mt"] = adata.var_names.str.upper().str.startswith("MT-")
+    input_counts = adata.X.copy()
+    input_var_names = adata.var_names.copy()
+    metadata_fields = [str(column) for column in adata.obs.columns]
+    adata.var["mt"] = mitochondrial_mask(adata)
     qc_vars = ["mt"] if bool(adata.var["mt"].any()) else []
     sc.pp.calculate_qc_metrics(adata, qc_vars=qc_vars, percent_top=None, log1p=True, inplace=True)
     if "pct_counts_mt" not in adata.obs:
@@ -66,11 +61,66 @@ def main() -> None:
     detected_after_cell_filter = np.asarray((adata.X > 0).sum(axis=0)).ravel()
     gene_mask = detected_after_cell_filter >= int(parameters["min_cells"])
     adata = adata[:, gene_mask].copy()
-    adata.layers["counts"] = adata.X.copy()
-
+    qc_retained = set(adata.obs_names)
     captured_warnings: list[str] = []
+    doublet = {
+        "enabled": False,
+        "predicted": 0,
+        "excluded": 0,
+        "expected_rate": None,
+        "batch_key": None,
+        "threshold": None,
+        "batch_thresholds": {},
+    }
     with warnings.catch_warnings(record=True) as warning_records:
         warnings.simplefilter("always")
+        if bool(parameters.get("run_scrublet")):
+            batch_key = str(parameters.get("doublet_batch_key") or "").strip() or None
+            effective_cells = adata.n_obs
+            if batch_key:
+                effective_cells = int(adata.obs[batch_key].value_counts().min())
+            n_prin_comps = min(
+                30,
+                max(2, int(math.sqrt(effective_cells))),
+                effective_cells - 1,
+                adata.n_vars - 1,
+            )
+            if n_prin_comps < 2:
+                raise ValueError("Scrublet requires at least two principal components after QC filtering.")
+            sc.pp.scrublet(
+                adata,
+                batch_key=batch_key,
+                expected_doublet_rate=float(parameters["expected_doublet_rate"]),
+                n_prin_comps=n_prin_comps,
+                random_state=RANDOM_SEED,
+                verbose=False,
+            )
+            initial_obs["doublet_score"] = np.nan
+            initial_obs["predicted_doublet"] = pd.Series(
+                pd.NA, index=initial_obs.index, dtype="boolean"
+            )
+            initial_obs.loc[adata.obs_names, "doublet_score"] = adata.obs[
+                "doublet_score"
+            ].astype(float)
+            initial_obs.loc[adata.obs_names, "predicted_doublet"] = adata.obs[
+                "predicted_doublet"
+            ].astype(bool)
+            predicted = int(adata.obs["predicted_doublet"].sum())
+            doublet = _doublet_summary(
+                adata,
+                expected_rate=float(parameters["expected_doublet_rate"]),
+                batch_key=batch_key,
+                predicted=predicted,
+                excluded=predicted if bool(parameters.get("exclude_predicted_doublets")) else 0,
+            )
+            doublet["n_prin_comps"] = n_prin_comps
+            if bool(parameters.get("exclude_predicted_doublets")):
+                adata = adata[~adata.obs["predicted_doublet"].astype(bool)].copy()
+                if adata.n_obs < 10:
+                    raise ValueError(
+                        "Excluding predicted doublets leaves fewer than 10 cells; keep them and review scores."
+                    )
+        adata.layers["counts"] = adata.X.copy()
         sc.pp.normalize_total(adata, target_sum=10_000)
         sc.pp.log1p(adata)
         adata.raw = adata
@@ -122,10 +172,10 @@ def main() -> None:
             if message and message not in captured_warnings:
                 captured_warnings.append(message[:500])
 
-    cell_qc = _cell_qc(initial_obs, adata)
+    cell_qc = _cell_qc(initial_obs, adata, qc_retained)
     embedding = _embedding_frame(adata)
     markers = _marker_frame(adata, int(parameters["marker_genes"]))
-    gene_qc = _gene_qc(initial_var, adata, counts)
+    gene_qc = _gene_qc(initial_var, adata, input_counts, input_var_names)
     cluster_summary = _cluster_summary(adata, markers)
     marker_dotplot = _marker_dotplot(adata, markers)
     embedding_points = _sample_embedding(embedding, MAX_EMBEDDING_POINTS)
@@ -142,9 +192,15 @@ def main() -> None:
     caveats = [
         "Leiden clusters and UMAP coordinates are exploratory representations, not discovered cell types.",
         "Marker ranking compares cells within this dataset and does not account for donor-level replication; use sample-aware pseudobulk methods for inferential differential expression.",
-        "This workflow does not perform doublet detection, ambient-RNA correction, batch integration, automated cell-type annotation, or trajectory inference.",
+        "This workflow does not perform ambient-RNA correction, batch integration, automated cell-type annotation, or trajectory inference.",
         "QC thresholds are dataset-specific; mitochondrial percentage and detected-gene cutoffs should be reviewed per sample when batches are present.",
     ]
+    if doublet["enabled"]:
+        caveats.append(
+            "Scrublet scores and automatic thresholds are model-based QC signals, not confirmed doublet labels; review their distribution and sample context."
+        )
+    else:
+        caveats.append("Doublet detection was not requested for this run.")
     if clusters == 1:
         caveats.append("Only one Leiden cluster was found, so cluster marker ranking was not performed.")
     summary = {
@@ -152,14 +208,18 @@ def main() -> None:
         "method_version": SCANPY_VERSION,
         "random_seed": RANDOM_SEED,
         "input_mode": "cell_by_gene_raw_counts",
-        "cells_input": int(counts.shape[0]),
-        "genes_input": int(counts.shape[1]),
+        "input_format": source_info["input_format"],
+        "count_layer": source_info["count_layer"],
+        "available_layers": source_info["available_layers"],
+        "cells_input": int(initial_obs.shape[0]),
+        "genes_input": int(len(input_var_names)),
         "cells_retained": int(adata.n_obs),
         "genes_retained": int(adata.n_vars),
         "highly_variable_genes": int(adata.var["highly_variable"].sum()),
         "clusters": clusters,
         "parameters": parameters,
-        "metadata_fields": [str(column) for column in metadata.columns],
+        "metadata_fields": metadata_fields,
+        "doublet": doublet,
         "embedding": {
             "points": embedding_points,
             "shown": len(embedding_points),
@@ -182,6 +242,7 @@ def main() -> None:
             "scanpy": SCANPY_VERSION,
             "anndata": ANNDATA_VERSION,
             "leidenalg": LEIDENALG_VERSION,
+            "scikit-image": SCIKIT_IMAGE_VERSION,
             "numpy": np.__version__,
             "pandas": pd.__version__,
         },
@@ -191,6 +252,8 @@ def main() -> None:
         "method_version": summary["method_version"],
         "random_seed": RANDOM_SEED,
         "input_mode": summary["input_mode"],
+        "input_format": summary["input_format"],
+        "count_layer": summary["count_layer"],
         "source_paths": config["source_paths"],
         "input_sha256": config["input_sha256"],
         "parameters": parameters,
@@ -200,6 +263,8 @@ def main() -> None:
             "genes_retained": summary["genes_retained"],
             "highly_variable_genes": summary["highly_variable_genes"],
             "clusters": summary["clusters"],
+            "predicted_doublets": doublet["predicted"],
+            "excluded_doublets": doublet["excluded"],
         },
         "package_versions": summary["package_versions"],
         "outputs": [
@@ -234,22 +299,37 @@ def main() -> None:
     (output_dir / "summary.md").write_text(_summary_markdown(summary), encoding="utf-8")
 
 
-def _read_metadata(config: dict[str, Any], cell_ids: pd.Index) -> pd.DataFrame:
-    if not config.get("metadata"):
-        return pd.DataFrame(index=cell_ids.copy())
-    metadata = pd.read_csv(
-        config["metadata"],
-        sep=config["metadata_delimiter"],
-        dtype=str,
-    ).set_index(config["cell_id_column"])
-    metadata.index = metadata.index.astype(str)
-    metadata = metadata.loc[cell_ids].copy()
-    for column in metadata.columns:
-        metadata[column] = metadata[column].fillna("").astype(str)
-    return metadata
+def _doublet_summary(
+    adata: anndata.AnnData,
+    *,
+    expected_rate: float,
+    batch_key: str | None,
+    predicted: int,
+    excluded: int,
+) -> dict[str, Any]:
+    scrublet = dict(adata.uns.get("scrublet") or {})
+    batches = dict(scrublet.get("batches") or {})
+    batch_thresholds = {
+        str(batch): _finite(details.get("threshold"))
+        for batch, details in batches.items()
+        if isinstance(details, dict)
+    }
+    return {
+        "enabled": True,
+        "predicted": predicted,
+        "excluded": excluded,
+        "expected_rate": expected_rate,
+        "batch_key": batch_key,
+        "threshold": _finite(scrublet.get("threshold")),
+        "batch_thresholds": batch_thresholds,
+    }
 
 
-def _cell_qc(initial_obs: pd.DataFrame, adata: anndata.AnnData) -> pd.DataFrame:
+def _cell_qc(
+    initial_obs: pd.DataFrame,
+    adata: anndata.AnnData,
+    qc_retained: set[str],
+) -> pd.DataFrame:
     retained = set(adata.obs_names)
     frame = pd.DataFrame(
         {
@@ -259,14 +339,22 @@ def _cell_qc(initial_obs: pd.DataFrame, adata: anndata.AnnData) -> pd.DataFrame:
             "pct_counts_mt": initial_obs["pct_counts_mt"].astype(float).to_numpy(),
         }
     )
+    frame["qc_retained"] = frame["cell_id"].isin(qc_retained)
     frame["retained"] = frame["cell_id"].isin(retained)
     clusters = adata.obs["leiden"].astype(str).to_dict()
     frame["cluster"] = frame["cell_id"].map(clusters)
+    if "doublet_score" in initial_obs:
+        frame["doublet_score"] = initial_obs["doublet_score"].astype(float).to_numpy()
+        frame["predicted_doublet"] = initial_obs["predicted_doublet"].to_numpy()
     for column in initial_obs.columns:
-        if column not in frame.columns:
+        if column not in frame.columns and column not in {
+            "doublet_score",
+            "predicted_doublet",
+        }:
             values = initial_obs[column]
             if values.dtype.name in {"category", "object", "string"}:
-                frame[str(column)] = values.fillna("").astype(str).to_numpy()
+                text = values.astype(object).where(pd.notna(values), "").astype(str)
+                frame[str(column)] = text.to_numpy()
     return frame
 
 
@@ -286,6 +374,9 @@ def _embedding_frame(adata: anndata.AnnData) -> pd.DataFrame:
             "pct_counts_mt": adata.obs["pct_counts_mt"].astype(float).to_numpy(),
         }
     )
+    if "doublet_score" in adata.obs:
+        frame["doublet_score"] = adata.obs["doublet_score"].astype(float).to_numpy()
+        frame["predicted_doublet"] = adata.obs["predicted_doublet"].astype(bool).to_numpy()
     for column in adata.obs.columns:
         if column not in frame.columns and column not in {"leiden"}:
             values = adata.obs[column]
@@ -327,17 +418,29 @@ def _marker_frame(adata: anndata.AnnData, marker_genes: int) -> pd.DataFrame:
     return pd.DataFrame.from_records(records, columns=columns)
 
 
-def _gene_qc(initial_var: pd.DataFrame, adata: anndata.AnnData, counts: pd.DataFrame) -> pd.DataFrame:
+def _gene_qc(
+    initial_var: pd.DataFrame,
+    adata: anndata.AnnData,
+    counts: Any,
+    gene_names: pd.Index,
+) -> pd.DataFrame:
     retained = set(adata.var_names)
     highly_variable = set(adata.var_names[adata.var["highly_variable"]])
+    if sparse.issparse(counts):
+        total_counts = np.asarray(counts.sum(axis=0)).ravel()
+        cells_by_counts = np.asarray((counts > 0).sum(axis=0)).ravel()
+    else:
+        array = np.asarray(counts)
+        total_counts = array.sum(axis=0)
+        cells_by_counts = (array > 0).sum(axis=0)
     return pd.DataFrame(
         {
-            "gene": counts.columns.astype(str),
-            "total_counts": counts.sum(axis=0).astype(int).to_numpy(),
-            "cells_by_counts": (counts > 0).sum(axis=0).astype(int).to_numpy(),
+            "gene": gene_names.astype(str),
+            "total_counts": np.asarray(total_counts, dtype=np.int64),
+            "cells_by_counts": np.asarray(cells_by_counts, dtype=np.int64),
             "mitochondrial": initial_var["mt"].astype(bool).to_numpy(),
-            "retained": [gene in retained for gene in counts.columns],
-            "highly_variable": [gene in highly_variable for gene in counts.columns],
+            "retained": [gene in retained for gene in gene_names],
+            "highly_variable": [gene in highly_variable for gene in gene_names],
         }
     )
 
@@ -437,13 +540,21 @@ def _finite(value: Any) -> float | None:
 
 
 def _summary_markdown(summary: dict[str, Any]) -> str:
+    doublet = summary["doublet"]
+    doublet_line = (
+        f"- Scrublet: {doublet['predicted']:,} predicted, {doublet['excluded']:,} excluded\n"
+        if doublet["enabled"]
+        else "- Scrublet: not run\n"
+    )
     return (
         "# Single-cell exploratory analysis\n\n"
         f"- Method: Scanpy {summary['method_version']}\n"
+        f"- Source: {summary['input_format']} · counts from {summary['count_layer']}\n"
         f"- Input: {summary['cells_input']:,} cells by {summary['genes_input']:,} genes\n"
         f"- Retained: {summary['cells_retained']:,} cells and {summary['genes_retained']:,} genes\n"
         f"- Highly variable genes: {summary['highly_variable_genes']:,}\n"
         f"- Leiden clusters: {summary['clusters']}\n"
+        f"{doublet_line}"
         f"- Random seed: {summary['random_seed']}\n\n"
         "Clusters, UMAP coordinates, and cell-level marker rankings are exploratory. "
         "Review QC per biological sample and use sample-aware inference before making biological claims.\n"

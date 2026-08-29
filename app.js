@@ -1827,8 +1827,8 @@ function renderSingleCellPreflight(title, data) {
   return `
     <header><strong>${title}</strong><span>${escapeHtml(`Scanpy ${data.toolchain?.scanpy_version || "unavailable"}`)}</span></header>
     <div class="single-cell-input-line">
-      <span>Raw counts</span><code>${escapeHtml(data.count_matrix_path || "")}</code>
-      ${data.metadata_path ? `<small>${escapeHtml(data.metadata_path)}</small>` : ""}
+      <span>${escapeHtml(`${data.input_format || "table"} · ${data.count_layer || "X"}`)}</span><code>${escapeHtml(data.count_matrix_path || "")}</code>
+      ${data.metadata_path ? `<small>${escapeHtml(data.metadata_path)}</small>` : `<small>${escapeHtml(`${(data.input_files || []).length} input file(s)`)}</small>`}
     </div>
     <div class="single-cell-metrics">
       ${[
@@ -1845,6 +1845,7 @@ function renderSingleCellPreflight(title, data) {
       <span>MT ≤ ${escapeHtml(parameters.max_mito_percent ?? 100)}%</span>
       <span>${escapeHtml(parameters.n_neighbors || 0)} neighbors</span>
       <span>Leiden ${escapeHtml(parameters.leiden_resolution || 1)}</span>
+      <span>${parameters.run_scrublet ? escapeHtml(`Scrublet · ${parameters.doublet_batch_key || "all cells"} · expected ${formatDecimal(Number(parameters.expected_doublet_rate || 0) * 100, 1)}%${parameters.exclude_predicted_doublets ? " · exclude" : " · retain"}`) : "Scrublet off"}</span>
     </div>
     ${(data.metadata?.categorical_columns || []).length ? `<div class="single-cell-metadata">${data.metadata.categorical_columns.map((field) => `<span><strong>${escapeHtml(field.column)}</strong>${escapeHtml(`${field.levels} levels`)}</span>`).join("")}</div>` : ""}
     ${(data.warnings || []).map((warning) => `<p class="single-cell-warning">${escapeHtml(warning)}</p>`).join("")}
@@ -1870,7 +1871,7 @@ function renderSingleCellAnalysis(title, data) {
     const levels = new Set(points.map((point) => String(point[field] ?? "")).filter(Boolean));
     return levels.size > 1 && levels.size <= 30;
   });
-  const colorKeys = ["cluster", ...metadataFields];
+  const colorKeys = ["cluster", ...(data.doublet?.enabled ? ["predicted_doublet"] : []), ...metadataFields];
   const markerPlot = data.marker_dotplot || {};
   const markerGenes = (markerPlot.genes || []).slice(0, 24);
   const markerClusters = markerPlot.clusters || [];
@@ -1885,11 +1886,12 @@ function renderSingleCellAnalysis(title, data) {
         ["Genes retained", `${Number(data.genes_retained || 0).toLocaleString("en-US")} / ${Number(data.genes_input || 0).toLocaleString("en-US")}`],
         ["HVG", Number(data.highly_variable_genes || 0).toLocaleString("en-US")],
         ["Clusters", data.clusters || 0],
+        ["Doublets", data.doublet?.enabled ? `${data.doublet.predicted || 0}${data.doublet.excluded ? ` / ${data.doublet.excluded} excluded` : " predicted"}` : "not run"],
         ["Seed", data.random_seed ?? 0],
       ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
     </div>
     <div class="single-cell-method-line">
-      <span>Raw counts</span><i></i><span>QC</span><i></i><span>CP10k + log1p</span><i></i><span>HVG / PCA</span><i></i><span>Neighbors / UMAP / Leiden</span>
+      <span>${escapeHtml(`${data.input_format || "raw"} · ${data.count_layer || "X"}`)}</span><i></i><span>QC</span>${data.doublet?.enabled ? `<i></i><span>${escapeHtml(`Scrublet ${data.doublet.excluded ? "exclude" : "score"}`)}</span>` : ""}<i></i><span>CP10k + log1p</span><i></i><span>HVG / PCA</span><i></i><span>Neighbors / UMAP / Leiden</span>
     </div>
     <section class="single-cell-section">
       <header><div><strong>Cell embedding</strong><span>${escapeHtml(`UMAP · ${data.embedding?.shown || 0} / ${data.embedding?.total || 0} cells`)}</span></div><div class="single-cell-color-control" role="group" aria-label="Color cell embedding">${colorKeys.map((key, index) => `<button type="button" data-single-cell-color="${escapeHtml(key)}" class="${index === 0 ? "is-active" : ""}">${escapeHtml(key)}</button>`).join("")}</div></header>
@@ -2029,7 +2031,7 @@ function renderWorkflowPreflight(preflight) {
   } else if (preflight.hmm_path) {
     detail = `${preflight.hmm_path} · ${preflight.model_count || 0} models · ${preflight.sequence_count || 0} sequences`;
   } else if (preflight.input_mode === "cell_by_gene_raw_counts") {
-    detail = `${preflight.count_matrix_path} · ${preflight.cells_after_filter || 0} cells · ${preflight.genes_after_filter || 0} genes`;
+    detail = `${preflight.count_matrix_path} · ${preflight.input_format || "table"} / ${preflight.count_layer || "X"} · ${preflight.cells_after_filter || 0} cells · ${preflight.genes_after_filter || 0} genes`;
   } else if (preflight.design_formula || preflight.contrast) {
     detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
   }
@@ -2206,8 +2208,9 @@ function workflowFieldDefault(templateId, field) {
   if (templateId === "vcf-cohort-review" && field.name === "metadata_path") return "examples/ctdna_metadata.csv";
   if (templateId === "hmmer-profile-search" && field.name === "hmm_path") return "examples/ubiquitin_demo.hmm";
   if (templateId === "hmmer-profile-search" && field.name === "database_path") return "examples/hmmer_targets.faa";
-  if (templateId === "single-cell-exploratory-analysis" && field.name === "count_matrix_path") return "examples/single_cell_counts.csv";
-  if (templateId === "single-cell-exploratory-analysis" && field.name === "metadata_path") return "examples/single_cell_metadata.csv";
+  if (templateId === "single-cell-exploratory-analysis" && field.name === "count_matrix_path") return "examples/single_cell_demo.h5ad";
+  if (templateId === "single-cell-exploratory-analysis" && field.name === "metadata_path") return "";
+  if (templateId === "single-cell-exploratory-analysis" && field.name === "count_layer") return "counts";
   if (field.name === "smiles") return sample.smiles || "";
   if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
   if (field.name === "pdb_id") return sample.pdbId || "";
@@ -2792,11 +2795,14 @@ async function saveSelectedWorkspaceFiles() {
       continue;
     }
     try {
-      const response = await fetch(pipelineEndpoint("/api/workspace/write"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: file.name, content: await file.text() }),
-      });
+      const response = await fetch(
+        `${pipelineEndpoint("/api/workspace/upload")}?path=${encodeURIComponent(file.name)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: await file.arrayBuffer(),
+        },
+      );
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
       saved += 1;
