@@ -2450,6 +2450,99 @@ select:focus {
   gap: 6px;
 }
 
+.geo-matrix-files {
+  display: grid;
+  gap: 3px;
+}
+
+.geo-matrix-files code {
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+  overflow-wrap: anywhere;
+}
+
+.geo-matrix-section {
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.geo-matrix-section > header {
+  min-height: 25px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.geo-matrix-section > header strong {
+  font-size: 9px;
+}
+
+.geo-matrix-section > header span,
+.geo-matrix-more {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.geo-matrix-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+}
+
+.geo-matrix-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 8px;
+}
+
+.geo-matrix-table th,
+.geo-matrix-table td {
+  height: 31px;
+  padding: 5px 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.geo-matrix-table th:last-child,
+.geo-matrix-table td:last-child {
+  border-right: 0;
+}
+
+.geo-matrix-table tbody tr:last-child th,
+.geo-matrix-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.geo-matrix-table thead th {
+  height: 27px;
+  background: var(--surface-subtle);
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.geo-matrix-table th:first-child {
+  width: 90px;
+}
+
+.geo-matrix-table th:nth-child(3),
+.geo-matrix-table th:nth-child(4),
+.geo-matrix-table th:nth-child(5) {
+  width: 72px;
+}
+
+.geo-matrix-table code {
+  font-family: var(--mono);
+}
+
 .literature-evidence-artifact {
   gap: 9px;
 }

@@ -20,6 +20,7 @@ ALLOWED_HOSTS = {
     "clinicaltrials.gov",
     "clinicaltables.nlm.nih.gov",
     "eutils.ncbi.nlm.nih.gov",
+    "ftp.ncbi.nlm.nih.gov",
     "gnomad.broadinstitute.org",
     "pubchem.ncbi.nlm.nih.gov",
     "rest.ensembl.org",
@@ -33,7 +34,8 @@ ALLOWED_HOSTS = {
 MAX_JSON_BYTES = 6 * 1024 * 1024
 MAX_JSON_REQUEST_BYTES = 256 * 1024
 MAX_STRUCTURE_BYTES = 24 * 1024 * 1024
-USER_AGENT = "Molemo-WorkBench/0.21 (public scientific database client)"
+MAX_BINARY_BYTES = 32 * 1024 * 1024
+USER_AGENT = "Molemo-WorkBench/0.22 (public scientific database client)"
 MAX_STRING_QUERY_BYTES = 16 * 1024
 _STRING_REQUEST_LOCK = threading.Lock()
 _STRING_LAST_REQUEST = 0.0
@@ -72,6 +74,36 @@ def get_json_array(url: str) -> list[Any]:
 def get_text(url: str) -> str:
     raw = _get(url, "text/plain", MAX_STRUCTURE_BYTES)
     return raw.decode("utf-8", errors="replace")
+
+
+def get_binary(url: str, max_bytes: int = MAX_BINARY_BYTES) -> bytes:
+    """GET bounded bytes from an allow-listed scientific data host."""
+    bounded = max(1, min(int(max_bytes), MAX_BINARY_BYTES))
+    return _get(url, "application/octet-stream", bounded)
+
+
+def get_head_metadata(url: str) -> dict[str, Any]:
+    """Read bounded response metadata without downloading the response body."""
+    parsed = _validated_external_url(url)
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT}, method="HEAD")
+    try:
+        with _EXTERNAL_OPENER.open(request, timeout=30) as response:
+            final_url = response.geturl()
+            _validated_external_url(final_url)
+            length = response.headers.get("Content-Length")
+            return {
+                "url": final_url,
+                "host": parsed.hostname,
+                "content_length": int(length) if length and length.isdigit() else None,
+                "content_type": str(response.headers.get("Content-Type") or ""),
+                "last_modified": str(response.headers.get("Last-Modified") or ""),
+            }
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            raise ExternalDataError("No matching public database record was found.") from exc
+        raise ExternalDataError(f"Public database request failed with HTTP {exc.code}.") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise ExternalDataError(f"Could not reach the public database: {exc}") from exc
 
 
 def post_json(url: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -225,15 +257,17 @@ def _request(
     body: bytes | None = None,
     content_type: str | None = None,
 ) -> bytes:
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname not in ALLOWED_HOSTS:
-        raise ExternalDataError("External requests are restricted to approved scientific databases.")
+    parsed = _validated_external_url(url)
     headers = {"Accept": accept, "User-Agent": USER_AGENT}
     if body is not None and content_type:
         headers["Content-Type"] = content_type
     request = urllib.request.Request(url, data=body, headers=headers, method=method)
     def read_response() -> bytes:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with _EXTERNAL_OPENER.open(request, timeout=30) as response:
+            _validated_external_url(response.geturl())
+            length = response.headers.get("Content-Length")
+            if length and length.isdigit() and int(length) > max_bytes:
+                raise ExternalDataError("Public database response exceeded the local size limit.")
             return response.read(max_bytes + 1)
 
     try:
@@ -258,6 +292,22 @@ def _request(
     if len(raw) > max_bytes:
         raise ExternalDataError("Public database response exceeded the local size limit.")
     return raw
+
+
+def _validated_external_url(url: str):
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in ALLOWED_HOSTS:
+        raise ExternalDataError("External requests are restricted to approved scientific databases.")
+    return parsed
+
+
+class _AllowlistedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _validated_external_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_EXTERNAL_OPENER = urllib.request.build_opener(_AllowlistedRedirectHandler())
 
 
 def lookup_pubchem(query: str) -> dict[str, Any]:

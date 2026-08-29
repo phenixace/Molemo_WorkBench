@@ -16,6 +16,7 @@ from transcriptomics import TranscriptomicsError, preflight_bulk_rnaseq
 from target_evidence import TargetEvidenceError, resolve_target_review_inputs
 from literature_review import LiteratureReviewError, preflight_literature_review
 from geo_dataset_discovery import GeoDatasetError, preflight_geo_dataset_discovery
+from geo_series_matrix import GeoSeriesMatrixError, preflight_geo_series_matrix
 from variant_evidence import VariantEvidenceError, preflight_variant_evidence
 from clinical_trials import ClinicalTrialsError, preflight_clinical_trial_landscape
 from clinical_trial_results import ClinicalTrialResultsError, preflight_clinical_trial_results
@@ -429,6 +430,26 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "GEO sample 数量不等于独立生物学重复数，审批前必须检查受试者、配对、批次与实验设计。",
             "补充文件存在不表示 raw counts、归一化矩阵或样本注释已经适合本地分析。",
             "该步骤只发现并保存元数据，不下载或分析表达数据。",
+        ],
+    },
+    "geo-series-matrix-import": {
+        "title": "GEO Series Matrix 导入",
+        "description": "预检一个精确 GSE 的官方 Series Matrix，批准后下载并整理表达矩阵、样本注释与结构性 QC。",
+        "fields": [
+            _field("accession", "GEO Series", "text", required=True, placeholder="GSE1000"),
+            _field(
+                "matrix_file",
+                "Matrix file（多平台时必填）",
+                "text",
+                value="",
+                placeholder="GSE1000-GPL96_series_matrix.txt.gz",
+            ),
+        ],
+        "assumptions": [
+            "Series Matrix 是提交者处理后的测量值，不自动等同于 raw counts、TPM、CPM 或 log2 expression。",
+            "样本分组、独立生物学重复、配对、批次与排除规则必须由研究者结合 GEO 记录和论文确认。",
+            "导入只做结构和描述性 QC，不自动映射 probe、校正批次或执行差异表达。",
+            "现有 PyDESeq2 管线只接受 raw 非负整数 counts，不能直接消费 Series Matrix。",
         ],
     },
     "variant-evidence-review": {
@@ -1019,6 +1040,34 @@ def _geo_dataset_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
         raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
 
 
+def _geo_series_matrix_arguments(inputs: dict[str, Any]) -> dict[str, str]:
+    arguments = {
+        "accession": _require_text(inputs, "accession", "GEO Series accession").upper(),
+        "matrix_file": str(inputs.get("matrix_file") or "").strip(),
+    }
+    inputs.update(arguments)
+    return arguments
+
+
+def _geo_series_matrix_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    arguments = _geo_series_matrix_arguments(inputs)
+    return [_step("下载并检查 GEO Series Matrix", "geo_series_matrix_import", arguments)]
+
+
+def _geo_series_matrix_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        result = preflight_geo_series_matrix(**_geo_series_matrix_arguments(inputs))
+    except GeoSeriesMatrixError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+    if not result["ready"]:
+        raise WorkflowError(
+            "Multiple Series Matrix files are available; set matrix_file to one of: "
+            + ", ".join(result["available_files"]),
+            "workflow_preflight_failed",
+        )
+    return result
+
+
 def _variant_evidence_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     variant = _require_text(inputs, "variant", "Variant identifier")
     inputs["variant"] = variant
@@ -1281,6 +1330,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "target-ligand-bioactivity-review": _chembl_bioactivity_steps,
     "literature-evidence-review": _literature_steps,
     "public-omics-dataset-discovery": _geo_dataset_steps,
+    "geo-series-matrix-import": _geo_series_matrix_steps,
     "variant-evidence-review": _variant_evidence_steps,
     "clinical-trial-landscape-review": _clinical_trials_steps,
     "clinical-trial-results-review": _clinical_trial_results_steps,
@@ -1301,6 +1351,7 @@ PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "target-ligand-bioactivity-review": _chembl_bioactivity_preflight,
     "literature-evidence-review": _literature_preflight,
     "public-omics-dataset-discovery": _geo_dataset_preflight,
+    "geo-series-matrix-import": _geo_series_matrix_preflight,
     "variant-evidence-review": _variant_evidence_preflight,
     "clinical-trial-landscape-review": _clinical_trials_preflight,
     "clinical-trial-results-review": _clinical_trial_results_preflight,

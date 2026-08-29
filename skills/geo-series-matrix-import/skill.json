@@ -1,0 +1,37 @@
+{
+  "id": "geo-series-matrix-import",
+  "title": "GEO Series Matrix Import",
+  "kind": "pipeline",
+  "description": "Preflight and import one bounded official GEO Series Matrix with sample metadata, structural QC, provenance, and explicit processed-value boundaries.",
+  "tools": [
+    {
+      "name": "geo_series_matrix_preflight",
+      "description": "Inspect the official matrix directory for one exact GSE accession, resolve one Series Matrix file, and report source size and local limits without downloading the matrix body.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "accession": { "type": "string", "pattern": "^GSE[1-9][0-9]{0,8}$" },
+          "matrix_file": { "type": "string", "default": "", "description": "Exact platform-specific matrix filename when the Series exposes more than one." }
+        },
+        "required": ["accession"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "geo_series_matrix_import",
+      "description": "Download and persist one researcher-approved official GEO Series Matrix under bounded compressed, decompressed, dimension and cell limits; preserve expression values, sample annotations, QC, source file and manifest.",
+      "handler": "scripts/handler.py:run_import",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "accession": { "type": "string", "pattern": "^GSE[1-9][0-9]{0,8}$" },
+          "matrix_file": { "type": "string", "default": "" }
+        },
+        "required": ["accession"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

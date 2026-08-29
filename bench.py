@@ -133,7 +133,7 @@ def _run_benchmark(tasks_path: Path) -> dict[str, Any]:
         "failure_rate": round((total - passed_count) / total, 4) if total else 0,
     }
     return {
-        "benchmark": "Molemo_Bench v0.21",
+        "benchmark": "Molemo_Bench v0.22",
         "tasks": total,
         "passed": passed_count,
         "metrics": metrics,
@@ -161,13 +161,14 @@ def cleanup_task_output(task: dict[str, Any], result: dict[str, Any] | None) -> 
             "chembl-bioactivity-",
             "protein-conservation-",
             "geo-datasets-",
+            "geo-series-matrix-",
         )
     ):
         shutil.rmtree(target, ignore_errors=True)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run Molemo_Bench v0.21 against the local skill registry.")
+    parser = argparse.ArgumentParser(description="Run Molemo_Bench v0.22 against the local skill registry.")
     parser.add_argument("--tasks", type=Path, default=DEFAULT_TASKS)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()

@@ -917,6 +917,11 @@ function renderArtifacts() {
         card.classList.add("geo-dataset-artifact");
         card.innerHTML = renderGeoDatasetLandscape(title, data, artifact.type === "geo-dataset-preview");
         bindGeoDatasetActions(card);
+      } else if (["geo-series-matrix-preflight", "geo-series-matrix-import"].includes(artifact.type)) {
+        const data = artifact.data || {};
+        card.classList.add("geo-dataset-artifact", "geo-matrix-artifact");
+        card.innerHTML = renderGeoSeriesMatrix(title, data, artifact.type === "geo-series-matrix-preflight");
+        bindGeoSeriesMatrixActions(card);
       } else if (artifact.type === "literature-evidence-map") {
         card.classList.add("literature-evidence-artifact");
         card.innerHTML = renderLiteratureEvidenceMap(title, artifact.data || {});
@@ -1682,6 +1687,86 @@ function renderGeoCountRows(rows) {
   return `<div class="geo-count-list">${rows.slice(0, 6).map((item) => `<div><span>${escapeHtml(item.label)}</span><b>${escapeHtml(item.count)}</b></div>`).join("") || "<p>No metadata returned.</p>"}</div>`;
 }
 
+function renderGeoSeriesMatrix(title, data, preflight) {
+  const sourceUrl = safeExternalUrl(data.download_url || data.source_url) ? (data.download_url || data.source_url) : "";
+  const metrics = data.matrix_metrics || {};
+  const samples = data.sample_summaries || [];
+  const metadata = data.metadata_summaries || [];
+  const available = data.available_files || [];
+  if (preflight) {
+    return `
+      <header><strong>${title}</strong><span>${data.ready ? "Ready for approval" : "Selection required"}</span></header>
+      <div class="geo-query"><span>GEO source</span><code>${escapeHtml(data.matrix_file || data.accession || "")}</code></div>
+      <div class="geo-metrics">
+        ${[
+          ["Series", data.accession || "n/a"],
+          ["Matrices", available.length],
+          ["Compressed", data.compressed_bytes ? formatBytes(data.compressed_bytes) : "unknown"],
+          ["Local limit", formatBytes(data.limits?.compressed_bytes || 0)],
+        ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+      </div>
+      <div class="geo-matrix-files">${available.map((file) => `<code>${escapeHtml(file)}</code>`).join("")}</div>
+      <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || "Series Matrix values are submitter-processed measurements.")}</p>
+      ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open official matrix source</a>` : ""}
+    `;
+  }
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(data.source || "NCBI GEO")}</span></header>
+    <div class="geo-query"><span>Source file</span><code>${escapeHtml(data.matrix_file || "")}</code></div>
+    <div class="geo-metrics">
+      ${[
+        ["Features", Number(data.feature_count || 0).toLocaleString("en-US")],
+        ["Samples", Number(data.sample_count || 0).toLocaleString("en-US")],
+        ["Missing", formatPercent(metrics.missing_fraction || 0)],
+        ["Source", formatBytes(data.compressed_bytes || 0)],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="geo-filters">
+      <span>${escapeHtml(data.accession || "GEO Series")}</span>
+      <span>${escapeHtml((data.series_type || []).join("; ") || "Series Matrix")}</span>
+      <span>${formatPercent(metrics.integer_fraction || 0)} integer-valued</span>
+      <span>processed values</span>
+    </div>
+    <section class="geo-matrix-section">
+      <header><strong>Sample QC</strong><span>${samples.length} samples</span></header>
+      <div class="geo-matrix-table-wrap">
+        <table class="geo-matrix-table">
+          <thead><tr><th>Sample</th><th>Title / source</th><th>Missing</th><th>Median</th><th>IQR</th></tr></thead>
+          <tbody>${samples.slice(0, 40).map((sample) => `<tr>
+            <th><code>${escapeHtml(sample.sample)}</code></th>
+            <td>${escapeHtml(sample.title || sample.source || "No title")}</td>
+            <td>${escapeHtml(formatPercent(sample.missing_fraction || 0))}</td>
+            <td><code>${escapeHtml(sample.median == null ? "n/a" : formatDecimal(sample.median, 3))}</code></td>
+            <td><code>${escapeHtml(sample.q1 == null || sample.q3 == null ? "n/a" : `${formatDecimal(sample.q1, 3)} – ${formatDecimal(sample.q3, 3)}`)}</code></td>
+          </tr>`).join("")}</tbody>
+        </table>
+      </div>
+      ${samples.length > 40 ? `<p class="geo-matrix-more">${escapeHtml(samples.length - 40)} additional samples remain in the exported tables.</p>` : ""}
+    </section>
+    <section class="geo-matrix-section">
+      <header><strong>Sample metadata</strong><span>${metadata.length} fields</span></header>
+      <div class="geo-count-list">${metadata.slice(0, 10).map((field) => `<div><span>${escapeHtml(field.field.replaceAll("_", " "))}</span><b>${escapeHtml(field.unique_count)}</b></div>`).join("")}</div>
+    </section>
+    <p class="geo-handoff">${escapeHtml(data.analysis_handoff || "Confirm study design before analysis.")}</p>
+    <div class="geo-actions">
+      <button class="secondary-button" type="button" data-geo-matrix-review="${escapeHtml(data.accession || "")}">审阅分组</button>
+      ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Official source</a>` : ""}
+    </div>
+    <div class="target-output-paths">${Object.entries(data.outputs || {}).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>
+    <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "Processed values are not raw counts.")}</p>
+  `;
+}
+
+function bindGeoSeriesMatrixActions(card) {
+  card.querySelectorAll("[data-geo-matrix-review]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const accession = button.dataset.geoMatrixReview || "GEO Series";
+      els.commandInput.value = `基于已导入的 ${accession} Series Matrix，审阅样本分组、独立重复、配对、批次、数值变换和适合的描述性分析`;
+      els.commandInput.focus();
+    });
+  });
+}
+
 function renderGeoDataset(dataset, open) {
   const recordUrl = safeExternalUrl(dataset.url) ? dataset.url : "";
   const downloadUrl = safeExternalUrl(dataset.download_url) ? dataset.download_url : "";
@@ -1711,6 +1796,7 @@ function renderGeoDataset(dataset, open) {
         <p class="geo-handoff">${escapeHtml(dataset.analysis_handoff || "Inspect study design and data files before local analysis.")}</p>
         <div class="geo-actions">
           <button class="secondary-button" type="button" data-geo-review="${escapeHtml(dataset.accession)}">审阅设计</button>
+          <button class="secondary-button" type="button" data-geo-import="${escapeHtml(dataset.accession)}">导入矩阵</button>
           ${recordUrl ? `<a href="${escapeHtml(recordUrl)}" target="_blank" rel="noreferrer">GEO record</a>` : ""}
           ${downloadUrl ? `<a href="${escapeHtml(downloadUrl)}" target="_blank" rel="noreferrer">Download directory</a>` : ""}
           ${(dataset.pubmed_ids || []).slice(0, 4).map((pmid) => `<a href="https://pubmed.ncbi.nlm.nih.gov/${escapeHtml(pmid)}/" target="_blank" rel="noreferrer">PMID ${escapeHtml(pmid)}</a>`).join("")}
@@ -1726,6 +1812,13 @@ function bindGeoDatasetActions(card) {
     button.addEventListener("click", () => {
       const accession = button.dataset.geoReview || "GEO Series";
       els.commandInput.value = `审阅 ${accession} 的研究设计、样本分组、可用矩阵和适合的本地分析路径`;
+      els.commandInput.focus();
+    });
+  });
+  card.querySelectorAll("[data-geo-import]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const accession = button.dataset.geoImport || "GEO Series";
+      els.commandInput.value = `导入 ${accession} 的官方 GEO Series Matrix 到本地工作区`;
       els.commandInput.focus();
     });
   });

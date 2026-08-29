@@ -250,6 +250,27 @@ def compact_tool_result(result: dict[str, Any], limit: int = 24000) -> str:
             "artifacts_omitted": True,
         }
         return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+    if isinstance(data, dict) and data.get("method") == "NCBI GEO Series Matrix bounded import":
+        compact_data = {
+            key: value
+            for key, value in data.items()
+            if key not in {"sample_metadata", "feature_preview", "preflight"}
+        }
+        compact_data["sample_summaries"] = list(data.get("sample_summaries") or [])[:24]
+        compact_data["metadata_summaries"] = list(data.get("metadata_summaries") or [])[:16]
+        compact_data["samples_omitted"] = max(
+            0, len(data.get("sample_summaries") or []) - len(compact_data["sample_summaries"])
+        )
+        compact = {
+            "ok": result.get("ok", True),
+            "tool": result.get("tool"),
+            "skill": result.get("skill"),
+            "summary": result.get("summary"),
+            "data": compact_data,
+            "caveats": result.get("caveats") or [],
+            "artifacts_omitted": True,
+        }
+        return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
     if len(encoded) <= limit:
         return encoded
     if isinstance(data, dict) and isinstance(data.get("activities"), list) and data.get("source") == "ChEMBL":

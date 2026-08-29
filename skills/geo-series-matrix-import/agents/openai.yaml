@@ -1,0 +1,3 @@
+interface:
+  display_name: "GEO Series Matrix Import"
+  short_description: "Bring one approved GEO matrix into the workspace"
