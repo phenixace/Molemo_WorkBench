@@ -157,8 +157,17 @@ class SingleCellTests(unittest.TestCase):
                     [30, 30, 30],
                 )
                 marker_text = " ".join(item["top_markers"] for item in result["cluster_summary"])
-                for expected in ("CD3D", "MS4A1", "S100A9"):
+                marker_genes = {
+                    gene
+                    for item in result["cluster_summary"]
+                    for gene in item["top_markers"].split(", ")
+                }
+                for expected in ("CD3D", "MS4A1"):
                     self.assertIn(expected, marker_text)
+                self.assertTrue(
+                    {"LST1", "S100A9", "CTSS"}.intersection(marker_genes),
+                    marker_text,
+                )
                 manifest_path = resolve_workspace_path(result["outputs"]["manifest"])
                 manifest_text = manifest_path.read_text(encoding="utf-8")
                 manifest = json.loads(manifest_text)

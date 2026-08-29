@@ -30,7 +30,11 @@ def read_single_cell(config: dict[str, Any]) -> tuple[anndata.AnnData, dict[str,
         selected_layer = "X"
     elif input_format == "h5ad":
         source = sc.read_h5ad(path)
-        source_layers = sorted(str(layer) for layer in source.layers.keys())
+        source_layers = sorted(
+            str(layer)
+            for layer in source.layers.keys()
+            if layer is not None and str(layer).strip()
+        )
         if count_layer:
             if count_layer not in source.layers:
                 raise ValueError(
