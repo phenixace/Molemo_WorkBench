@@ -563,7 +563,8 @@ select:focus {
   gap: 2px;
 }
 
-.viewer-evidence-control {
+.viewer-evidence-control,
+.viewer-scope-control {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -571,19 +572,22 @@ select:focus {
   border-right: 1px solid var(--line);
 }
 
-.viewer-evidence {
+.viewer-evidence,
+.viewer-scope {
   min-height: 29px;
   padding: 0 8px;
   border-color: transparent;
   background: transparent;
 }
 
-.viewer-evidence.is-active {
+.viewer-evidence.is-active,
+.viewer-scope.is-active {
   border-color: var(--line);
   background: var(--surface-subtle);
 }
 
 .viewer-evidence-control[hidden],
+.viewer-scope-control[hidden],
 .viewer-style-control[hidden],
 .icon-button[hidden] {
   display: none;
@@ -963,6 +967,150 @@ select:focus {
 .chembl-bioactivity-artifact {
   width: 100%;
   gap: 9px;
+}
+
+.variant-structure-artifact {
+  width: 100%;
+  gap: 9px;
+}
+
+.variant-structure-site {
+  min-width: 0;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: 76px minmax(118px, 0.7fr) minmax(180px, 1.3fr);
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+}
+
+.variant-structure-site span,
+.variant-structure-metrics span {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.variant-structure-site strong {
+  font-size: 10px;
+}
+
+.variant-structure-site code {
+  min-width: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.variant-structure-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.variant-structure-metrics > div {
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.variant-structure-metrics strong {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.variant-structure-entry-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 13px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.variant-structure-entry-line span + span::before {
+  content: "·";
+  margin-right: 13px;
+  color: var(--line-strong);
+}
+
+.variant-structure-section > header {
+  min-height: 29px;
+  padding: 4px 1px;
+  border-bottom: 1px solid var(--line);
+}
+
+.variant-structure-section > header strong {
+  font-size: 10px;
+}
+
+.variant-structure-section > header span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.variant-structure-contact-list > div {
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: minmax(100px, 0.7fr) minmax(110px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 2px;
+  border-bottom: 1px solid var(--line);
+  font-size: 9px;
+}
+
+.variant-structure-contact-list code,
+.variant-structure-protein-list code {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+}
+
+.variant-structure-contact-list > div > span {
+  text-align: right;
+}
+
+.variant-structure-protein-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 6px 0;
+}
+
+.variant-structure-protein-list > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 9px;
+}
+
+.variant-structure-protein-list b {
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.variant-structure-footer {
+  display: grid;
+  gap: 6px;
+}
+
+.variant-structure-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .chembl-target-line {
@@ -4895,6 +5043,7 @@ button:disabled {
   .target-detail-grid,
   .target-output-paths,
   .chembl-metrics,
+  .variant-structure-metrics,
   .functional-preflight-summary,
   .functional-metrics,
   .variant-identity,
@@ -4909,6 +5058,32 @@ button:disabled {
 
   .chembl-target-line {
     grid-template-columns: 50px minmax(0, 1fr);
+  }
+
+  .variant-structure-site {
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+
+  .variant-structure-site code {
+    grid-column: 2;
+  }
+
+  .variant-structure-entry-line {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 8px;
+  }
+
+  .variant-structure-entry-line span + span::before {
+    content: none;
+  }
+
+  .variant-structure-contact-list > div {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .variant-structure-contact-list code {
+    grid-column: 1;
   }
 
   .chembl-target-line code {

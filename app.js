@@ -221,6 +221,7 @@ const state = {
   activeMode: "structure",
   activeTab: "properties",
   viewerStyle: "ballstick",
+  structureScope: "global",
   structureEvidenceMode: "structure",
   paeHover: null,
   showLabels: true,
@@ -295,6 +296,7 @@ function bindElements() {
     "loadStructure",
     "loadAlphaFold",
     "structureEvidenceModes",
+    "structureScopeModes",
     "viewerStyleControls",
     "workspaceFiles",
     "saveWorkspaceFiles",
@@ -426,6 +428,16 @@ function bindEvents() {
       state.structureEvidenceMode = button.dataset.evidenceMode;
       state.paeHover = null;
       renderStructureEvidenceModes();
+      renderStructureScopeModes();
+      renderHeader();
+    });
+  });
+
+  document.querySelectorAll(".viewer-scope").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.structureScope = button.dataset.structureScope;
+      state.zoom = 1;
+      renderStructureScopeModes();
       renderHeader();
     });
   });
@@ -537,6 +549,7 @@ function selectSample(id, options = {}) {
   if (!sample) return;
   state.activeId = id;
   state.zoom = 1;
+  state.structureScope = sample.structure?.focus ? "site" : "global";
   state.structureEvidenceMode = "structure";
   state.paeHover = null;
   state.angleX = sample.type === "protein" ? -0.38 : -0.24;
@@ -563,6 +576,7 @@ function renderAll() {
   renderSegments();
   renderViewerStyles();
   renderStructureEvidenceModes();
+  renderStructureScopeModes();
 }
 
 function renderHeader() {
@@ -584,15 +598,22 @@ function renderHeader() {
       els.confidenceReadout.textContent = `PAE 0–${Number(pae.max_error).toFixed(2)} Å · AlphaFold DB`;
     }
   } else {
-  els.viewerLabel.textContent = sample.structure?.atoms?.length
-    ? sample.metadata?.coordinateType === "predicted"
-      ? `${preset.name} AlphaFold prediction · pLDDT`
-      : `${preset.name} atom-level protein structure`
-    : sample.type === "protein"
-      ? "protein ribbon and residue field"
-      : `${preset.name} molecular view`;
-  els.selectionReadout.textContent = sample.selection;
-  els.confidenceReadout.textContent = sample.confidence;
+    const focus = sample.structure?.focus;
+    els.viewerLabel.textContent = focus && state.structureScope === "site"
+      ? `${focus.variant} experimental site context`
+      : sample.structure?.atoms?.length
+        ? sample.metadata?.coordinateType === "predicted"
+          ? `${preset.name} AlphaFold prediction · pLDDT`
+          : `${preset.name} atom-level protein structure`
+        : sample.type === "protein"
+          ? "protein ribbon and residue field"
+          : `${preset.name} molecular view`;
+    els.selectionReadout.textContent = focus
+      ? `${sample.pdbId} · ${focus.chain}:${focus.observed_residue}${focus.author_residue_number} · ${focus.structure_allele} allele`
+      : sample.selection;
+    els.confidenceReadout.textContent = focus
+      ? `${focus.contact_count} contacts ≤ ${Number(focus.contact_cutoff_angstrom).toFixed(2)} Å · author numbering`
+      : sample.confidence;
   }
   els.structureInput.value = sample.metadata?.accession || sample.pdbId || sample.smiles || sample.sequence || "";
 }
@@ -669,6 +690,15 @@ function renderStructureEvidenceModes() {
     control.hidden = paeMode;
   }
   canvas.classList.toggle("is-pae", paeMode);
+}
+
+function renderStructureScopeModes() {
+  const hasFocus = Boolean(getActiveSample().structure?.focus);
+  if (!hasFocus) state.structureScope = "global";
+  els.structureScopeModes.hidden = !hasFocus || isPaeMode();
+  document.querySelectorAll(".viewer-scope").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.structureScope === state.structureScope);
+  });
 }
 
 function isPaeMode(sample = getActiveSample()) {
@@ -866,6 +896,16 @@ function renderArtifacts() {
         card.classList.add("chembl-bioactivity-artifact");
         card.innerHTML = renderChemblBioactivityReview(title, data);
         bindChemblBioactivityActions(card);
+      } else if (artifact.type === "variant-structure-preflight") {
+        const data = artifact.data || {};
+        card.classList.add("variant-structure-artifact");
+        card.innerHTML = renderVariantStructureReview(title, data, true);
+        bindVariantStructureActions(card, data);
+      } else if (artifact.type === "variant-structure-review") {
+        const data = artifact.data || {};
+        card.classList.add("variant-structure-artifact");
+        card.innerHTML = renderVariantStructureReview(title, data, false);
+        bindVariantStructureActions(card, data);
       } else if (artifact.type === "literature-evidence-map") {
         card.classList.add("literature-evidence-artifact");
         card.innerHTML = renderLiteratureEvidenceMap(title, artifact.data || {});
@@ -1174,6 +1214,72 @@ function bindChemblBioactivityActions(card) {
         button.disabled = false;
       }
     });
+  });
+}
+
+function renderVariantStructureReview(title, data, preview = false) {
+  const entry = data.entry || {};
+  const site = data.site || {};
+  const proteinContacts = site.protein_contacts || [];
+  const heteroContacts = site.hetero_contacts || [];
+  const rawSourceUrl = data.source_url || entry.source_url || "";
+  const sourceUrl = safeExternalUrl(rawSourceUrl) ? rawSourceUrl : "";
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(preview ? "preflight" : formatTimestamp(data.retrieved_at))}</span></header>
+    <div class="variant-structure-site">
+      <span>Author residue</span>
+      <strong>${escapeHtml(`${site.chain || "?"}:${site.observed_residue || "?"}${site.author_residue_number || "?"}`)}</strong>
+      <code>${escapeHtml(`${entry.pdb_id || "PDB"} · ${site.variant || "variant"} · ${site.structure_allele || "unresolved"} allele`)}</code>
+    </div>
+    <div class="variant-structure-metrics">
+      ${[
+        ["Resolution", entry.resolution_angstrom ? `${entry.resolution_angstrom} Å` : "n/a"],
+        ["Nonlocal protein", site.nonlocal_protein_contact_count ?? site.protein_contact_count ?? 0],
+        ["Hetero groups", site.hetero_contact_count || 0],
+        ["Cutoff", `${Number(site.contact_cutoff_angstrom || 0).toFixed(2)} Å`],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="variant-structure-entry-line">
+      <span>${escapeHtml((entry.methods || []).join(", ") || "experimental coordinates")}</span>
+      <span>${escapeHtml(entry.release_date || "release date unavailable")}</span>
+      <span>first coordinate model</span>
+    </div>
+    <section class="variant-structure-section">
+      <header><strong>Coordinate groups near the site</strong><span>nearest heavy-atom pair</span></header>
+      <div class="variant-structure-contact-list">
+        ${heteroContacts.slice(0, 25).map((contact) => `<div>
+          <strong>${escapeHtml(contact.instance_id)}</strong>
+          <code>${escapeHtml(`${contact.focus_atom} · ${contact.contact_atom}`)}</code>
+          <span>${escapeHtml(`${Number(contact.min_distance_angstrom).toFixed(3)} Å${contact.short_contact_below_2_1_angstrom ? " · short contact" : ""}`)}</span>
+        </div>`).join("") || "<p>No coordinate hetero group falls within the approved cutoff.</p>"}
+      </div>
+    </section>
+    <section class="variant-structure-section">
+      <header><strong>Protein environment</strong><span>author residue numbering</span></header>
+      <div class="variant-structure-protein-list">
+        ${proteinContacts.slice(0, 40).map((contact) => `<span><strong>${escapeHtml(`${contact.chain}:${contact.residue}${contact.resSeq}`)}</strong><code>${escapeHtml(`${contact.focus_atom}–${contact.contact_atom}`)}</code><b>${escapeHtml(`${Number(contact.min_distance_angstrom).toFixed(3)} Å${contact.sequence_relation === "sequence-adjacent" ? " · adjacent" : ""}`)}</b></span>`).join("") || "<p>No protein residue falls within the approved cutoff.</p>"}
+      </div>
+    </section>
+    <div class="variant-structure-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "Geometric proximity in one deposited model is not a functional or energetic conclusion.")}</p>
+      ${preview ? "" : `<div class="target-output-paths">${Object.entries(data.outputs || {}).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>`}
+      <div class="variant-structure-actions">
+        ${data.sample ? '<button class="secondary-button variant-structure-open" type="button">在位点视图打开</button>' : ""}
+        ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open RCSB entry</a>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function bindVariantStructureActions(card, data) {
+  card.querySelector(".variant-structure-open")?.addEventListener("click", () => {
+    const sample = data.sample;
+    if (!sample?.type) return;
+    upsertCustomSample(sample);
+    selectSample(sample.id, { keepDesigns: true });
+    state.structureScope = "site";
+    switchTab("properties");
+    renderAll();
   });
 }
 
@@ -2400,6 +2506,8 @@ function renderWorkflowPreflight(preflight) {
     detail = `${preflight.organism.name || "Homo sapiens"} · ${preflight.mapped_count || 0}/${(preflight.input_terms || []).length} STRING mappings · score ≥ ${preflight.parameters?.required_score || 400}`;
   } else if (preflight.design_formula || preflight.contrast) {
     detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
+  } else if (preflight.entry?.pdb_id && preflight.site?.variant) {
+    detail = `${preflight.entry.pdb_id} · ${preflight.site.chain}:${preflight.site.observed_residue}${preflight.site.author_residue_number} · ${preflight.site.structure_allele} allele · ${preflight.site.contact_count || 0} contacts`;
   }
   return `<div class="workflow-preflight"><strong>Preflight ready</strong><span>${escapeHtml(preflight.summary || "Inputs validated.")}</span>${detail ? `<code>${escapeHtml(detail)}</code>` : ""}</div>`;
 }
@@ -2578,6 +2686,9 @@ function createWorkflowControl(templateId, field) {
 
 function workflowFieldDefault(templateId, field) {
   const sample = getActiveSample();
+  if (templateId === "protein-variant-structure-review" && field.name === "pdb_id") return sample.pdbId || "6OIM";
+  if (templateId === "protein-variant-structure-review" && field.name === "chain") return sample.structure?.focus?.chain || "A";
+  if (templateId === "protein-variant-structure-review" && field.name === "variant") return sample.structure?.focus?.variant || sample.metadata?.variant || "G12C";
   if (templateId === "gene-set-functional-analysis" && field.name === "genes") return "TP53, MDM2, ATM, CDKN1A";
   if (templateId === "target-evidence-review" && field.name === "disease") return "asthma";
   if (templateId === "target-evidence-review" && field.name === "candidates") return "IL4R, TSLP, IL6R, JAK1";
@@ -2613,6 +2724,7 @@ function workflowFieldDefault(templateId, field) {
 
 function defaultWorkflowTemplate(sample) {
   if (sample.type === "molecule") return "molecule-profile";
+  if (sample.structure?.focus) return "protein-variant-structure-review";
   if (sample.structure?.atoms?.length) return "protein-structure-review";
   return "protein-sequence-review";
 }
@@ -3797,6 +3909,19 @@ function drawProteinStructure(sample, width, height) {
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
+  geometry.contacts.forEach((contact) => {
+    const start = project(contact.focus.x, contact.focus.y, contact.focus.z, width, height, scale);
+    const end = project(contact.other.x, contact.other.y, contact.other.z, width, height, scale);
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.strokeStyle = contact.kind === "hetero" ? "rgba(178, 69, 92, 0.78)" : "rgba(20, 125, 114, 0.58)";
+    ctx.lineWidth = contact.kind === "hetero" ? 1.8 : 1.2;
+    ctx.stroke();
+    ctx.restore();
+  });
   geometry.backbone.forEach((chain, chainIndex) => {
     const points = chain.points.map((point) => ({
       ...project(point.x, point.y, point.z, width, height, scale),
@@ -3807,6 +3932,7 @@ function drawProteinStructure(sample, width, height) {
     ctx.lineWidth = state.viewerStyle === "wire" ? 2.2 : 5.5;
     if (predicted) {
       for (let index = 1; index < points.length; index += 1) {
+        if (points[index].point.sourceIndex - points[index - 1].point.sourceIndex > 1) continue;
         ctx.beginPath();
         ctx.moveTo(points[index - 1].x, points[index - 1].y);
         ctx.lineTo(points[index].x, points[index].y);
@@ -3814,13 +3940,14 @@ function drawProteinStructure(sample, width, height) {
         ctx.stroke();
       }
     } else {
-      ctx.beginPath();
-      points.forEach((point, index) => {
-        if (index === 0) ctx.moveTo(point.x, point.y);
-        else ctx.lineTo(point.x, point.y);
-      });
-      ctx.strokeStyle = chainColors[chainIndex % chainColors.length];
-      ctx.stroke();
+      for (let index = 1; index < points.length; index += 1) {
+        if (points[index].point.sourceIndex - points[index - 1].point.sourceIndex > 1) continue;
+        ctx.beginPath();
+        ctx.moveTo(points[index - 1].x, points[index - 1].y);
+        ctx.lineTo(points[index].x, points[index].y);
+        ctx.strokeStyle = chainColors[chainIndex % chainColors.length];
+        ctx.stroke();
+      }
     }
     ctx.globalAlpha = 1;
 
@@ -3842,21 +3969,40 @@ function drawProteinStructure(sample, width, height) {
     .sort((a, b) => a.z - b.z)
     .forEach((point) => {
       const hetero = point.atom.hetero;
-      const radius = hetero ? 4.8 : state.viewerStyle === "spacefill" ? 3.8 : state.viewerStyle === "wire" ? 1.25 : 2.25;
+      const radius = point.atom.isFocus
+        ? 6.8
+        : hetero && point.atom.isContact
+          ? 5.4
+          : hetero
+            ? 4.8
+            : point.atom.isContact
+              ? 3.4
+              : state.viewerStyle === "spacefill"
+                ? 3.8
+                : state.viewerStyle === "wire"
+                  ? 1.25
+                  : 2.25;
       ctx.beginPath();
-      ctx.fillStyle = predicted && !hetero
-        ? plddtColor(point.atom.bfactor)
-        : ELEMENT_COLORS[point.atom.e] || ELEMENT_COLORS.X;
-      ctx.globalAlpha = hetero ? 0.98 : state.viewerStyle === "wire" ? 0.5 : 0.72;
+      ctx.fillStyle = point.atom.isFocus
+        ? "#b2455c"
+        : point.atom.isContact && !hetero
+          ? "#147d72"
+          : predicted && !hetero
+            ? plddtColor(point.atom.bfactor)
+            : ELEMENT_COLORS[point.atom.e] || ELEMENT_COLORS.X;
+      ctx.globalAlpha = point.atom.isFocus || point.atom.isContact || hetero ? 0.98 : state.viewerStyle === "wire" ? 0.5 : 0.72;
       ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
       ctx.fill();
-      if (hetero) {
-        ctx.strokeStyle = "rgba(255,255,255,0.8)";
-        ctx.lineWidth = 1;
+      if (hetero || point.atom.isFocus || point.atom.isContact) {
+        ctx.strokeStyle = point.atom.isFocus ? "#672a3a" : "rgba(255,255,255,0.86)";
+        ctx.lineWidth = point.atom.isFocus ? 1.8 : 1;
         ctx.stroke();
       }
     });
   ctx.globalAlpha = 1;
+  if (state.showLabels && sample.structure?.focus) {
+    drawVariantStructureLabels(projectedAtoms, sample.structure.focus);
+  }
   ctx.restore();
   drawLegend(predicted ? "plddt" : "molecule");
 }
@@ -3870,21 +4016,43 @@ function plddtColor(value) {
 }
 
 function normalizedStructureGeometry(sample) {
-  if (structureGeometryCache.has(sample)) return structureGeometryCache.get(sample);
-  const atoms = sample.structure?.atoms || [];
+  const cache = structureGeometryCache.get(sample) || {};
+  const scope = sample.structure?.focus ? state.structureScope : "global";
+  if (cache[scope]) return cache[scope];
+  const allAtoms = sample.structure?.atoms || [];
+  const focus = sample.structure?.focus || null;
+  const focusKey = focus
+    ? structureResidueKey({ chain: focus.chain, resSeq: focus.author_residue_number, residue: focus.observed_residue, hetero: false })
+    : "";
+  const contactKinds = new Map(
+    (focus?.contacts || []).map((contact) => [structureResidueKey({ ...contact, hetero: contact.kind === "hetero" }), contact.kind]),
+  );
+  const permittedKeys = new Set([focusKey, ...contactKinds.keys()].filter(Boolean));
+  const scopedAtoms = scope === "site"
+    ? allAtoms.filter((atom) => permittedKeys.has(structureResidueKey(atom)))
+    : allAtoms;
+  const atoms = scopedAtoms.length ? scopedAtoms : allAtoms;
   const xs = atoms.map((atom) => Number(atom.x));
   const ys = atoms.map((atom) => Number(atom.y));
   const zs = atoms.map((atom) => Number(atom.z));
+  const focusAtoms = focusKey ? allAtoms.filter((atom) => structureResidueKey(atom) === focusKey) : [];
+  const centerAtoms = scope === "site" && focusAtoms.length ? focusAtoms : atoms;
   const center = {
-    x: (Math.min(...xs) + Math.max(...xs)) / 2,
-    y: (Math.min(...ys) + Math.max(...ys)) / 2,
-    z: (Math.min(...zs) + Math.max(...zs)) / 2,
+    x: scope === "site"
+      ? centerAtoms.reduce((sum, atom) => sum + Number(atom.x), 0) / Math.max(1, centerAtoms.length)
+      : (Math.min(...xs) + Math.max(...xs)) / 2,
+    y: scope === "site"
+      ? centerAtoms.reduce((sum, atom) => sum + Number(atom.y), 0) / Math.max(1, centerAtoms.length)
+      : (Math.min(...ys) + Math.max(...ys)) / 2,
+    z: scope === "site"
+      ? centerAtoms.reduce((sum, atom) => sum + Number(atom.z), 0) / Math.max(1, centerAtoms.length)
+      : (Math.min(...zs) + Math.max(...zs)) / 2,
   };
   const span = Math.max(
     Math.max(...xs) - Math.min(...xs),
     Math.max(...ys) - Math.min(...ys),
     Math.max(...zs) - Math.min(...zs),
-    1,
+    scope === "site" ? 8 : 1,
   );
   const normalizePoint = (point) => ({
     ...point,
@@ -3893,14 +4061,54 @@ function normalizedStructureGeometry(sample) {
     z: ((Number(point.z) - center.z) * 2) / span,
   });
   const geometry = {
-    atoms: atoms.map(normalizePoint),
+    atoms: atoms.map((atom) => {
+      const key = structureResidueKey(atom);
+      return {
+        ...normalizePoint(atom),
+        isFocus: key === focusKey,
+        isContact: contactKinds.has(key),
+        contactKind: contactKinds.get(key) || "",
+      };
+    }),
     backbone: (sample.structure?.backbone || []).map((chain) => ({
       chain: chain.chain,
-      points: (chain.points || []).map(normalizePoint),
+      points: (chain.points || [])
+        .map((point, sourceIndex) => ({ ...point, sourceIndex }))
+        .filter((point) => scope !== "site" || permittedKeys.has(structureResidueKey({ ...point, chain: chain.chain, hetero: false })))
+        .map(normalizePoint),
+    })).filter((chain) => chain.points.length),
+    contacts: (focus?.contacts || []).map((contact) => ({
+      kind: contact.kind,
+      distance: contact.min_distance_angstrom,
+      focus: normalizePoint({ x: contact.focus_xyz?.[0], y: contact.focus_xyz?.[1], z: contact.focus_xyz?.[2] }),
+      other: normalizePoint({ x: contact.contact_xyz?.[0], y: contact.contact_xyz?.[1], z: contact.contact_xyz?.[2] }),
     })),
   };
-  structureGeometryCache.set(sample, geometry);
+  cache[scope] = geometry;
+  structureGeometryCache.set(sample, cache);
   return geometry;
+}
+
+function structureResidueKey(atom) {
+  return `${atom.hetero ? "H" : "P"}|${atom.chain || "_"}|${atom.resSeq || ""}|${atom.residue || ""}`;
+}
+
+function drawVariantStructureLabels(projectedAtoms, focus) {
+  const focusAtoms = projectedAtoms.filter((point) => point.atom.isFocus);
+  const focusPoint = focusAtoms.find((point) => String(point.atom.name).toUpperCase() === "CA") || focusAtoms[0];
+  if (focusPoint) drawLabel(`${focus.variant} · ${focus.chain}:${focus.author_residue_number}`, focusPoint.x, focusPoint.y, 7);
+  const groups = new Map();
+  projectedAtoms.filter((point) => point.atom.hetero && point.atom.isContact).forEach((point) => {
+    const key = structureResidueKey(point.atom);
+    const group = groups.get(key) || { points: [], label: `${point.atom.residue}:${point.atom.chain}:${point.atom.resSeq}` };
+    group.points.push(point);
+    groups.set(key, group);
+  });
+  Array.from(groups.values()).slice(0, 6).forEach((group) => {
+    const x = group.points.reduce((sum, point) => sum + point.x, 0) / group.points.length;
+    const y = group.points.reduce((sum, point) => sum + point.y, 0) / group.points.length;
+    drawLabel(group.label, x, y, 5);
+  });
 }
 
 function proteinResidues(sequence) {

@@ -2,11 +2,22 @@ import json
 import unittest
 from unittest.mock import patch
 
-from agent_runtime import run_agent
+from agent_runtime import extract_variant_structure_plan, local_workflow_plan, run_agent
 from skill_runtime import SkillRegistry
 
 
 class AgentRuntimeTests(unittest.TestCase):
+    def test_variant_structure_request_requires_explicit_chain_and_creates_plan(self):
+        message = "审阅 PDB 6OIM 作者链 A 中 G12C 变体的结构口袋和配体接触，距离 4.5 Å"
+        inputs = extract_variant_structure_plan(message)
+
+        self.assertEqual(inputs["pdb_id"], "6OIM")
+        self.assertEqual(inputs["chain"], "A")
+        self.assertEqual(inputs["variant"], "G12C")
+        self.assertEqual(inputs["contact_cutoff"], 4.5)
+        self.assertEqual(local_workflow_plan(message, {})[0], "protein-variant-structure-review")
+        self.assertIsNone(extract_variant_structure_plan("审阅 PDB 6OIM 中 G12C 的结构口袋"))
+
     def test_native_tool_loop_executes_local_skill_and_redacts_provider_key(self):
         provider_responses = [
             {

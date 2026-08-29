@@ -36,6 +36,11 @@ from chembl_bioactivity import (
     normalize_chembl_inputs,
     preflight_chembl_bioactivity,
 )
+from variant_structure import (
+    VariantStructureError,
+    normalize_variant_structure_inputs,
+    preflight_variant_structure,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -98,6 +103,30 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         "assumptions": [
             "仅解析坐标文件的第一个模型。",
             "RCSB 坐标是实验结构；AlphaFold 坐标是预测模型，pLDDT 只表示局部置信度。",
+        ],
+    },
+    "protein-variant-structure-review": {
+        "title": "蛋白变体结构位点",
+        "description": "在实验结构中精确定位蛋白替换，并审阅附近蛋白残基与坐标异原子组。",
+        "fields": [
+            _field("pdb_id", "PDB ID", "text", required=True, placeholder="6OIM"),
+            _field("chain", "Author chain", "text", required=True, value="A"),
+            _field("variant", "蛋白替换", "text", required=True, placeholder="G12C"),
+            _field(
+                "contact_cutoff",
+                "重原子接触距离（Å）",
+                "number",
+                value=4.5,
+                min=3,
+                max=8,
+                step=0.1,
+            ),
+        ],
+        "assumptions": [
+            "使用 PDB 文件第一个模型中的 author chain 与 author residue numbering；不猜测链或编号映射。",
+            "结构位点必须与替换的参考或替代氨基酸一致，否则停止。",
+            "距离仅表示单个沉积构象中的重原子几何邻近，不证明共价、亲和力、机制、功能影响或致病性。",
+            "HETATM 组可能是配体、核苷酸、辅因子、离子或结晶组分，不能仅凭名称或距离赋予生物学角色。",
         ],
     },
     "fastq-qc-review": {
@@ -603,6 +632,44 @@ def _structure_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     raise WorkflowError("Structure source must be rcsb, alphafold, or workspace.", "invalid_workflow_inputs")
 
 
+def _variant_structure_arguments(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        normalized = normalize_variant_structure_inputs(
+            pdb_id=_require_text(inputs, "pdb_id", "PDB ID"),
+            chain=_require_text(inputs, "chain", "Author chain"),
+            variant=_require_text(inputs, "variant", "Protein substitution"),
+            contact_cutoff=inputs.get("contact_cutoff", 4.5),
+        )
+    except VariantStructureError as exc:
+        raise WorkflowError(str(exc), "invalid_workflow_inputs") from exc
+    arguments = {
+        "pdb_id": normalized["pdb_id"],
+        "chain": normalized["chain"],
+        "variant": normalized["variant"],
+        "contact_cutoff": normalized["contact_cutoff_angstrom"],
+    }
+    inputs.update(arguments)
+    return arguments
+
+
+def _variant_structure_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    arguments = _variant_structure_arguments(inputs)
+    return [
+        _step(
+            "保存变体位点、局部接触与结构证据",
+            "variant_structure_collect",
+            arguments,
+        )
+    ]
+
+
+def _variant_structure_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_variant_structure(**_variant_structure_arguments(inputs))
+    except VariantStructureError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _fastq_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     path = _require_text(inputs, "path", "Workspace FASTQ path")
     try:
@@ -1064,6 +1131,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "molecule-profile": _molecule_steps,
     "protein-sequence-review": _protein_steps,
     "protein-structure-review": _structure_steps,
+    "protein-variant-structure-review": _variant_structure_steps,
     "fastq-qc-review": _fastq_steps,
     "bulk-rnaseq-differential-expression": _rnaseq_steps,
     "single-cell-exploratory-analysis": _single_cell_steps,
@@ -1082,6 +1150,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
 }
 
 PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "protein-variant-structure-review": _variant_structure_preflight,
     "bulk-rnaseq-differential-expression": _rnaseq_preflight,
     "single-cell-exploratory-analysis": _single_cell_preflight,
     "gene-set-functional-analysis": _functional_analysis_preflight,

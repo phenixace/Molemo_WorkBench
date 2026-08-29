@@ -8,6 +8,12 @@ from typing import Any
 
 LANES = (
     (
+        "protein variant structural context",
+        r"variant.{0,16}(?:structure|pocket|contact|ligand)|"
+        r"(?:structure|pocket|contact|ligand).{0,16}variant|"
+        r"变体.{0,12}(?:结构|口袋|接触|配体)|(?:结构|口袋|接触|配体).{0,12}(?:变体|突变)|位点结构",
+    ),
+    (
         "target-ligand bioactivity",
         r"chembl|pchembl|bioactivit|potency|\bic50\b|\bki\b|\bkd\b|\bec50\b|"
         r"靶点.{0,10}(?:小分子|配体|活性)|(?:小分子|配体).{0,10}靶点|活性证据",
@@ -59,6 +65,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
     if not lanes:
         lanes = ["general life science"]
     suggested = []
+    if "protein variant structural context" in lanes:
+        suggested.extend(["variant_structure_preflight", "workflow_create_plan"])
     if "target-ligand bioactivity" in lanes:
         suggested.extend(["chembl_bioactivity_preflight", "workflow_create_plan"])
     if "molecular chemistry" in lanes:

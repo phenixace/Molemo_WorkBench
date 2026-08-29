@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For ChEMBL bioactivity, preserve the exact UniProt and ChEMBL target, pChEMBL, endpoint, relation, value, unit, assay type and format, confidence score, document, filters, and retrieval bounds. Confidence score 9 supports direct single-protein target assignment but does not prove direct physical binding or assay quality; mixed IC50, Ki, Kd, EC50 and assay contexts are not interchangeable, and potency does not establish selectivity, mechanism, developability, safety, or efficacy. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. For single-cell analyses, preserve the input format, selected raw-count layer, QC thresholds, retained cells and genes, normalization, feature selection, random seed, graph and clustering parameters, biological sample metadata, and any Scrublet batch key, thresholds, prediction count, and exclusion decision. UMAP geometry, Leiden clusters, Scrublet predictions, and cell-level marker rankings are exploratory; never name a cell type without external annotation evidence or treat cells as biological replicates. For gene-set functional analysis, preserve organism, exact inputs and mappings, reference coverage, FDR threshold, database versions, STRING confidence threshold, and unmapped identifiers. Reactome overrepresentation is not causal evidence, FDR is not a truth probability, STRING functional associations are not necessarily direct physical interactions, and genes are not biological replicates. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. For experimental variant structures, preserve the exact PDB entry, author chain and residue number, reference and alternate amino acids, observed structure allele, distance cutoff, nearest atom pair, ligand instance, experimental method, resolution, and retrieval time. Treat heavy-atom distance as geometric proximity in one deposited model, not proof of covalency, affinity, mechanism, functional effect, pathogenicity, or actionability; HETATM groups are not automatically inhibitors. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For ChEMBL bioactivity, preserve the exact UniProt and ChEMBL target, pChEMBL, endpoint, relation, value, unit, assay type and format, confidence score, document, filters, and retrieval bounds. Confidence score 9 supports direct single-protein target assignment but does not prove direct physical binding or assay quality; mixed IC50, Ki, Kd, EC50 and assay contexts are not interchangeable, and potency does not establish selectivity, mechanism, developability, safety, or efficacy. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. For single-cell analyses, preserve the input format, selected raw-count layer, QC thresholds, retained cells and genes, normalization, feature selection, random seed, graph and clustering parameters, biological sample metadata, and any Scrublet batch key, thresholds, prediction count, and exclusion decision. UMAP geometry, Leiden clusters, Scrublet predictions, and cell-level marker rankings are exploratory; never name a cell type without external annotation evidence or treat cells as biological replicates. For gene-set functional analysis, preserve organism, exact inputs and mappings, reference coverage, FDR threshold, database versions, STRING confidence threshold, and unmapped identifiers. Reactome overrepresentation is not causal evidence, FDR is not a truth probability, STRING functional associations are not necessarily direct physical interactions, and genes are not biological replicates. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -200,6 +200,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         "pathway and network biology": "通路与功能网络",
         "sequence similarity search": "序列相似性搜索",
         "protein structure and sequence": "蛋白结构与序列",
+        "protein variant structural context": "蛋白变体结构位点",
         "protein family and domain analysis": "蛋白家族与结构域",
         "molecular chemistry": "分子化学",
         "literature and study discovery": "文献与研究发现",
@@ -374,8 +375,42 @@ def extract_chembl_bioactivity_plan(message: str) -> dict[str, Any] | None:
     }
 
 
+def extract_variant_structure_plan(message: str) -> dict[str, Any] | None:
+    if not re.search(
+        r"variant.{0,16}(?:structure|pocket|contact|ligand)|"
+        r"(?:structure|pocket|contact|ligand).{0,16}variant|"
+        r"变体.{0,12}(?:结构|口袋|接触|配体)|(?:结构|口袋|接触|配体).{0,12}(?:变体|突变)|位点结构",
+        message,
+        re.I,
+    ):
+        return None
+    pdb = re.search(
+        r"(?:pdb|rcsb|structure|结构)\s*(?:id|编号|条目)?\s*[:：#-]?\s*([0-9][a-z0-9]{3})\b",
+        message,
+        re.I,
+    )
+    variant = re.search(r"\b([ACDEFGHIKLMNPQRSTVWY][1-9][0-9]*[ACDEFGHIKLMNPQRSTVWY])\b", message, re.I)
+    chain = re.search(r"(?:author\s+chain|chain|作者链|链)\s*[:：#-]?\s*([A-Za-z0-9_]{1,4})\b", message, re.I)
+    if not pdb or not variant or not chain:
+        return None
+    cutoff = re.search(
+        r"(?:cutoff|distance|距离|阈值)\s*[:：=]?\s*([3-8](?:\.[0-9]+)?)\s*(?:Å|A|angstrom)?",
+        message,
+        re.I,
+    )
+    return {
+        "pdb_id": pdb.group(1).upper(),
+        "chain": chain.group(1),
+        "variant": variant.group(1).upper(),
+        "contact_cutoff": float(cutoff.group(1)) if cutoff else 4.5,
+    }
+
+
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a guided plan request without granting execution authority."""
+    variant_structure = extract_variant_structure_plan(message)
+    if variant_structure:
+        return "protein-variant-structure-review", variant_structure
     single_cell = extract_single_cell_plan(message)
     if single_cell:
         return "single-cell-exploratory-analysis", single_cell

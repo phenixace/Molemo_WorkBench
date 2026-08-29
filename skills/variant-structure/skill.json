@@ -1,0 +1,41 @@
+{
+  "id": "variant-structure",
+  "title": "Protein Variant Structure Context",
+  "kind": "analysis",
+  "description": "Locate an exact protein substitution in an experimental RCSB structure and review nearby protein residues and coordinate hetero groups with author numbering.",
+  "tools": [
+    {
+      "name": "variant_structure_preflight",
+      "description": "Resolve an exact PDB author chain and one-letter protein substitution, then preview heavy-atom contacts without writing analysis outputs.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "pdb_id": { "type": "string", "description": "Four-character RCSB PDB identifier such as 6OIM." },
+          "chain": { "type": "string", "description": "Exact author chain identifier such as A." },
+          "variant": { "type": "string", "description": "One-letter protein substitution such as G12C." },
+          "contact_cutoff": { "type": "number", "minimum": 3, "maximum": 8, "default": 4.5 }
+        },
+        "required": ["pdb_id", "chain", "variant"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "variant_structure_collect",
+      "description": "Persist an approved experimental variant-site contact review with contact, ligand, report, manifest, summary, and viewer outputs.",
+      "handler": "scripts/handler.py:collect",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "pdb_id": { "type": "string" },
+          "chain": { "type": "string" },
+          "variant": { "type": "string" },
+          "contact_cutoff": { "type": "number", "minimum": 3, "maximum": 8 }
+        },
+        "required": ["pdb_id", "chain", "variant"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

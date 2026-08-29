@@ -152,9 +152,36 @@ class SkillRegistry:
 
 def compact_tool_result(result: dict[str, Any], limit: int = 24000) -> str:
     encoded = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
+    data = result.get("data")
+    if isinstance(data, dict) and data.get("method") == "RCSB author-residue heavy-atom contact review":
+        site = dict(data.get("site") or {})
+        compact_site = {
+            key: value
+            for key, value in site.items()
+            if key not in {"contacts", "protein_contacts", "hetero_contacts", "ligand_instances"}
+        }
+        compact_site["protein_contacts"] = list(site.get("protein_contacts") or [])[:12]
+        compact_site["hetero_contacts"] = list(site.get("hetero_contacts") or [])[:12]
+        compact = {
+            "ok": result.get("ok", True),
+            "tool": result.get("tool"),
+            "skill": result.get("skill"),
+            "summary": result.get("summary"),
+            "data": {
+                "method": data.get("method"),
+                "source_url": data.get("source_url"),
+                "retrieved_at": data.get("retrieved_at"),
+                "inputs": data.get("inputs"),
+                "entry": data.get("entry"),
+                "site": compact_site,
+                "outputs": data.get("outputs"),
+                "caveats": data.get("caveats"),
+            },
+            "viewer_coordinates_omitted": True,
+        }
+        return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
     if len(encoded) <= limit:
         return encoded
-    data = result.get("data")
     if isinstance(data, dict) and isinstance(data.get("activities"), list) and data.get("source") == "ChEMBL":
         compact_data = {
             key: value

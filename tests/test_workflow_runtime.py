@@ -175,6 +175,37 @@ class WorkflowRuntimeTests(unittest.TestCase):
         self.assertEqual(completed["status"], "completed")
         self.assertEqual(registry.calls[0][0], "variant_evidence_review")
 
+    def test_variant_structure_plan_locates_site_but_collects_only_after_approval(self):
+        registry = RecordingRegistry()
+        preflight = {
+            "ready": True,
+            "summary": "Located G12C in 6OIM author chain A:12.",
+            "entry": {"pdb_id": "6OIM"},
+            "site": {
+                "variant": "G12C",
+                "chain": "A",
+                "author_residue_number": "12",
+                "observed_residue": "CYS",
+                "structure_allele": "alternate",
+                "protein_contact_count": 5,
+                "hetero_contact_count": 2,
+                "contact_cutoff_angstrom": 4.5,
+            },
+        }
+        with patch("workflow_runtime.preflight_variant_structure", return_value=preflight):
+            run = self.manager.create_plan(
+                "protein-variant-structure-review",
+                {"pdb_id": "6oim", "chain": "A", "variant": "G12C", "contact_cutoff": 4.5},
+            )
+
+        self.assertEqual(run["status"], "pending_approval")
+        self.assertEqual(run["preflight"]["site"]["structure_allele"], "alternate")
+        self.assertEqual(registry.calls, [])
+
+        completed = self.manager.approve(run["id"], registry)
+        self.assertEqual(completed["status"], "completed")
+        self.assertEqual(registry.calls[0][0], "variant_structure_collect")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -27,6 +27,12 @@ class StructureError(ValueError):
 
 
 def parse_structure_text(raw: str, source_id: str = "local", fmt: str = "") -> dict[str, Any]:
+    atoms, source_format = parse_structure_atoms(raw, fmt)
+    return build_structure_from_atoms(atoms, source_id, source_format)
+
+
+def parse_structure_atoms(raw: str, fmt: str = "") -> tuple[list[dict[str, Any]], str]:
+    """Parse the first coordinate model without applying viewer sampling."""
     text = str(raw or "")
     if not text.strip():
         raise StructureError("Structure text is empty.")
@@ -39,7 +45,19 @@ def parse_structure_text(raw: str, source_id: str = "local", fmt: str = "") -> d
         source_format = "PDB"
     if not atoms:
         raise StructureError("No ATOM/HETATM coordinates were found in the structure.")
-    return _build_structure(atoms, source_id, source_format)
+    return atoms, source_format
+
+
+def build_structure_from_atoms(
+    atoms: list[dict[str, Any]],
+    source_id: str,
+    source_format: str,
+    priority_residues: set[tuple[str, str, str, bool]] | None = None,
+) -> dict[str, Any]:
+    """Build a viewer sample while retaining full-coordinate counts and sequences."""
+    if not atoms:
+        raise StructureError("No atoms were provided for the structure.")
+    return _build_structure(atoms, source_id, source_format, priority_residues)
 
 
 def _parse_pdb_atoms(text: str) -> list[dict[str, Any]]:
@@ -187,9 +205,14 @@ def _cif_first(values: list[str], field: dict[str, int], *names: str) -> str:
     return ""
 
 
-def _build_structure(atoms: list[dict[str, Any]], source_id: str, source_format: str) -> dict[str, Any]:
+def _build_structure(
+    atoms: list[dict[str, Any]],
+    source_id: str,
+    source_format: str,
+    priority_residues: set[tuple[str, str, str, bool]] | None = None,
+) -> dict[str, Any]:
     raw_count = len(atoms)
-    visual_atoms = _select_viewer_atoms(atoms, MAX_VIEWER_ATOMS)
+    visual_atoms = _select_viewer_atoms(atoms, MAX_VIEWER_ATOMS, priority_residues)
     chain_points: dict[str, list[dict[str, Any]]] = defaultdict(list)
     seen_residues: set[tuple[str, str]] = set()
     chain_sequences: dict[str, list[str]] = defaultdict(list)
@@ -238,9 +261,38 @@ def _build_structure(atoms: list[dict[str, Any]], source_id: str, source_format:
     }
 
 
-def _select_viewer_atoms(atoms: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+def _select_viewer_atoms(
+    atoms: list[dict[str, Any]],
+    limit: int,
+    priority_residues: set[tuple[str, str, str, bool]] | None = None,
+) -> list[dict[str, Any]]:
     if len(atoms) <= limit:
         selected = atoms
+    elif priority_residues:
+        priority = [
+            atom
+            for atom in atoms
+            if (atom["chain"], atom["resSeq"], atom["residue"], bool(atom["hetero"]))
+            in priority_residues
+        ]
+        priority_ids = {id(atom) for atom in priority}
+        backbone = [
+            atom
+            for atom in atoms
+            if id(atom) not in priority_ids and atom["name"].upper() in {"N", "CA", "C", "O"}
+        ]
+        remaining = [
+            atom
+            for atom in atoms
+            if id(atom) not in priority_ids and atom["name"].upper() not in {"N", "CA", "C", "O"}
+        ]
+        selected = priority[:limit]
+        capacity = limit - len(selected)
+        selected.extend(backbone[:capacity])
+        capacity = limit - len(selected)
+        if capacity:
+            stride = max(1, len(remaining) // capacity)
+            selected.extend(remaining[::stride][:capacity])
     else:
         backbone = [atom for atom in atoms if atom["name"].upper() in {"N", "CA", "C", "O"}]
         remaining = max(0, limit - len(backbone))
