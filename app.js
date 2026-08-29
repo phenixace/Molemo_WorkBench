@@ -858,6 +858,14 @@ function renderArtifacts() {
       } else if (artifact.type === "target-evidence-review") {
         card.classList.add("target-evidence-artifact");
         card.innerHTML = renderTargetEvidenceReview(title, artifact.data || {});
+      } else if (artifact.type === "chembl-bioactivity-preflight") {
+        card.classList.add("chembl-bioactivity-artifact");
+        card.innerHTML = renderChemblBioactivityPreflight(title, artifact.data || {});
+      } else if (artifact.type === "chembl-bioactivity-review") {
+        const data = artifact.data || {};
+        card.classList.add("chembl-bioactivity-artifact");
+        card.innerHTML = renderChemblBioactivityReview(title, data);
+        bindChemblBioactivityActions(card);
       } else if (artifact.type === "literature-evidence-map") {
         card.classList.add("literature-evidence-artifact");
         card.innerHTML = renderLiteratureEvidenceMap(title, artifact.data || {});
@@ -1045,6 +1053,128 @@ function renderTargetEvidencePreflight(title, data) {
     </div>
     <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || "Entities resolved. Review them before execution.")}</p>
   `;
+}
+
+function renderChemblBioactivityPreflight(title, data) {
+  const target = data.target || {};
+  const retrieval = data.retrieval || {};
+  const inputs = data.inputs || {};
+  const database = data.database || {};
+  const targetUrl = safeExternalUrl(target.url) ? target.url : "";
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(database.version || "ChEMBL")}</span></header>
+    <div class="chembl-target-line">
+      <span>Target</span>
+      <strong>${escapeHtml(target.pref_name || "n/a")}</strong>
+      <code>${escapeHtml([target.accession, target.target_chembl_id].filter(Boolean).join(" · "))}</code>
+    </div>
+    <div class="chembl-metrics">
+      ${[
+        ["Source matches", Number(retrieval.source_total_count || 0).toLocaleString("en-US")],
+        ["Preview activities", retrieval.reported_activities || 0],
+        ["Compounds", retrieval.reported_compounds || 0],
+        ["Confidence", "9 · direct"],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="chembl-filter-line">
+      <span>${escapeHtml(chemblAssayScopeLabel(inputs.assay_scope))}</span>
+      <span>pChEMBL ≥ ${escapeHtml(inputs.min_pchembl)}</span>
+      <span>Approved max ${escapeHtml(data.requested_max_activities || inputs.max_activities || 0)}</span>
+      <span>${escapeHtml(database.release_date || "release date unavailable")}</span>
+    </div>
+    <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "pChEMBL is not a probability or lead-quality score.")}</p>
+    ${targetUrl ? `<a class="source-link" href="${escapeHtml(targetUrl)}" target="_blank" rel="noreferrer">Open ChEMBL target</a>` : ""}
+  `;
+}
+
+function renderChemblBioactivityReview(title, data) {
+  const target = data.target || {};
+  const retrieval = data.retrieval || {};
+  const inputs = data.inputs || {};
+  const database = data.database || {};
+  const compounds = data.compounds || [];
+  const activities = data.activities || [];
+  const targetUrl = safeExternalUrl(target.url) ? target.url : "";
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(`${database.version || "ChEMBL"} · ${formatTimestamp(data.retrieved_at)}`)}</span></header>
+    <div class="chembl-target-line">
+      <span>Target</span>
+      <strong>${escapeHtml(target.pref_name || "n/a")}</strong>
+      <code>${escapeHtml([target.accession, target.target_chembl_id, target.organism].filter(Boolean).join(" · "))}</code>
+    </div>
+    <div class="chembl-metrics">
+      ${[
+        ["Activities", retrieval.reported_activities || activities.length],
+        ["Compounds", retrieval.reported_compounds || compounds.length],
+        ["Source matches", Number(retrieval.source_total_count || 0).toLocaleString("en-US")],
+        ["Confidence", "9 · direct"],
+        ["Min pChEMBL", inputs.min_pchembl],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="chembl-filter-line">
+      <span>${escapeHtml(chemblAssayScopeLabel(inputs.assay_scope))}</span>
+      <span>${retrieval.truncated ? "Bounded potency-ordered sample" : "Complete filtered set"}</span>
+      <span>${escapeHtml(database.release_date || "release date unavailable")}</span>
+    </div>
+    <section class="chembl-section">
+      <header><strong>Compounds</strong><span>grouped within retrieved evidence</span></header>
+      <div class="chembl-table-scroll">
+        <table class="chembl-compound-table">
+          <thead><tr><th>Rank</th><th>Compound</th><th>Max pChEMBL</th><th>Endpoints</th><th>Rows</th><th>Structure</th></tr></thead>
+          <tbody>${compounds.slice(0, 50).map((compound) => `<tr>
+            <td>${escapeHtml(compound.rank)}</td>
+            <th scope="row"><a href="${escapeHtml(safeExternalUrl(compound.url) || "#")}" target="_blank" rel="noreferrer">${escapeHtml(compound.name || compound.molecule_chembl_id)}</a><small>${escapeHtml(compound.molecule_chembl_id)}</small></th>
+            <td><strong>${escapeHtml(compound.max_pchembl)}</strong></td>
+            <td>${escapeHtml((compound.endpoint_types || []).join(", ") || "n/a")}</td>
+            <td>${escapeHtml(compound.retrieved_activity_count || 0)}</td>
+            <td><button class="secondary-button chembl-open-structure" type="button" data-smiles="${escapeHtml(compound.canonical_smiles || "")}" title="在结构视图打开">打开</button></td>
+          </tr>`).join("") || '<tr><td colspan="6">No compounds passed the approved filters.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+    <section class="chembl-section">
+      <header><strong>Activity evidence</strong><span>endpoint and assay context retained</span></header>
+      <div class="chembl-table-scroll">
+        <table class="chembl-activity-table">
+          <thead><tr><th>Rank</th><th>Compound</th><th>pChEMBL</th><th>Measurement</th><th>Assay</th><th>Format</th><th>Document</th></tr></thead>
+          <tbody>${activities.map((activity) => `<tr>
+            <td>${escapeHtml(activity.rank)}</td>
+            <th scope="row"><a href="${escapeHtml(safeExternalUrl(activity.molecule_url) || "#")}" target="_blank" rel="noreferrer">${escapeHtml(activity.molecule_name || activity.molecule_chembl_id)}</a><small>${escapeHtml(activity.molecule_chembl_id)}</small></th>
+            <td><strong>${escapeHtml(activity.pchembl_value)}</strong></td>
+            <td><span>${escapeHtml(activity.standard_type || "n/a")}</span><small>${escapeHtml([activity.standard_relation, activity.standard_value, activity.standard_units].filter(Boolean).join(" "))}</small></td>
+            <td><a href="${escapeHtml(safeExternalUrl(activity.assay_url) || "#")}" target="_blank" rel="noreferrer">${escapeHtml(activity.assay_chembl_id)}</a><small>${escapeHtml(activity.assay_type_label || activity.assay_type || "")}</small></td>
+            <td><span>${escapeHtml(activity.bao_label || activity.bao_format || "n/a")}</span><small title="${escapeHtml(activity.assay_description || "")}">${escapeHtml(activity.assay_description || "")}</small></td>
+            <td><span>${escapeHtml(activity.document_chembl_id || "n/a")}</span><small>${escapeHtml([activity.document_journal, activity.document_year].filter(Boolean).join(" · "))}</small></td>
+          </tr>`).join("") || '<tr><td colspan="7">No activity records passed the approved filters.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+    <div class="target-review-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[2] || "Confidence score 9 does not prove direct physical binding or assay quality.")}</p>
+      <div class="target-output-paths">${Object.entries(data.outputs || {}).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>
+      ${targetUrl ? `<a class="source-link" href="${escapeHtml(targetUrl)}" target="_blank" rel="noreferrer">Open ChEMBL target</a>` : ""}
+    </div>
+  `;
+}
+
+function chemblAssayScopeLabel(scope) {
+  return ({ binding: "Binding", functional: "Functional", binding_functional: "Binding + functional" })[scope] || "Binding + functional";
+}
+
+function bindChemblBioactivityActions(card) {
+  card.querySelectorAll(".chembl-open-structure").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const smiles = String(button.dataset.smiles || "");
+      if (!smiles) return;
+      button.disabled = true;
+      try {
+        await loadCustomMolecule(smiles);
+        switchTab("properties");
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
 }
 
 function renderFunctionalAnalysisPreflight(title, data) {
@@ -2451,6 +2581,7 @@ function workflowFieldDefault(templateId, field) {
   if (templateId === "gene-set-functional-analysis" && field.name === "genes") return "TP53, MDM2, ATM, CDKN1A";
   if (templateId === "target-evidence-review" && field.name === "disease") return "asthma";
   if (templateId === "target-evidence-review" && field.name === "candidates") return "IL4R, TSLP, IL6R, JAK1";
+  if (templateId === "target-ligand-bioactivity-review" && field.name === "accession") return sample.metadata?.accession || "P00533";
   if (templateId === "literature-evidence-review" && field.name === "query") return "(IL4R OR TSLP) AND asthma";
   if (templateId === "variant-evidence-review" && field.name === "variant") return "NM_000518.5:c.20A>T";
   if (templateId === "clinical-trial-landscape-review" && field.name === "condition") return "asthma";

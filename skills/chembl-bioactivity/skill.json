@@ -1,0 +1,41 @@
+{
+  "id": "chembl-bioactivity",
+  "title": "ChEMBL Bioactivity Evidence",
+  "kind": "retrieval",
+  "description": "Resolve a UniProt accession to an exact ChEMBL single-protein target and review confidence-9 small-molecule activities through a researcher-approved workflow.",
+  "tools": [
+    {
+      "name": "chembl_bioactivity_preflight",
+      "description": "Resolve a UniProt accession and preview bounded ChEMBL confidence-9 binding and/or functional activities without writing analysis outputs.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "accession": { "type": "string", "description": "Exact UniProt accession such as P00533." },
+          "assay_scope": { "type": "string", "enum": ["binding", "functional", "binding_functional"], "default": "binding_functional" },
+          "min_pchembl": { "type": "number", "minimum": 4, "maximum": 12, "default": 5 },
+          "max_activities": { "type": "integer", "minimum": 10, "maximum": 100, "default": 50 }
+        },
+        "required": ["accession"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "chembl_bioactivity_collect",
+      "description": "Collect and persist an approved ChEMBL target bioactivity review with activity, compound, report, manifest, and interpretation-boundary outputs.",
+      "handler": "scripts/handler.py:collect",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "accession": { "type": "string" },
+          "assay_scope": { "type": "string", "enum": ["binding", "functional", "binding_functional"] },
+          "min_pchembl": { "type": "number", "minimum": 4, "maximum": 12 },
+          "max_activities": { "type": "integer", "minimum": 10, "maximum": 100 }
+        },
+        "required": ["accession"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

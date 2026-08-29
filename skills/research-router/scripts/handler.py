@@ -7,6 +7,11 @@ from typing import Any
 
 
 LANES = (
+    (
+        "target-ligand bioactivity",
+        r"chembl|pchembl|bioactivit|potency|\bic50\b|\bki\b|\bkd\b|\bec50\b|"
+        r"靶点.{0,10}(?:小分子|配体|活性)|(?:小分子|配体).{0,10}靶点|活性证据",
+    ),
     ("molecular chemistry", r"smiles|molecule|compound|ligand|药|分子|化合物|配体|logp|tpsa"),
     (
         "protein family and domain analysis",
@@ -54,6 +59,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
     if not lanes:
         lanes = ["general life science"]
     suggested = []
+    if "target-ligand bioactivity" in lanes:
+        suggested.extend(["chembl_bioactivity_preflight", "workflow_create_plan"])
     if "molecular chemistry" in lanes:
         suggested.append("chem_analyze_molecule")
     if "protein structure and sequence" in lanes:

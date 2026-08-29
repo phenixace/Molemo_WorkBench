@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. For single-cell analyses, preserve the input format, selected raw-count layer, QC thresholds, retained cells and genes, normalization, feature selection, random seed, graph and clustering parameters, biological sample metadata, and any Scrublet batch key, thresholds, prediction count, and exclusion decision. UMAP geometry, Leiden clusters, Scrublet predictions, and cell-level marker rankings are exploratory; never name a cell type without external annotation evidence or treat cells as biological replicates. For gene-set functional analysis, preserve organism, exact inputs and mappings, reference coverage, FDR threshold, database versions, STRING confidence threshold, and unmapped identifiers. Reactome overrepresentation is not causal evidence, FDR is not a truth probability, STRING functional associations are not necessarily direct physical interactions, and genes are not biological replicates. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For ChEMBL bioactivity, preserve the exact UniProt and ChEMBL target, pChEMBL, endpoint, relation, value, unit, assay type and format, confidence score, document, filters, and retrieval bounds. Confidence score 9 supports direct single-protein target assignment but does not prove direct physical binding or assay quality; mixed IC50, Ki, Kd, EC50 and assay contexts are not interchangeable, and potency does not establish selectivity, mechanism, developability, safety, or efficacy. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. For single-cell analyses, preserve the input format, selected raw-count layer, QC thresholds, retained cells and genes, normalization, feature selection, random seed, graph and clustering parameters, biological sample metadata, and any Scrublet batch key, thresholds, prediction count, and exclusion decision. UMAP geometry, Leiden clusters, Scrublet predictions, and cell-level marker rankings are exploratory; never name a cell type without external annotation evidence or treat cells as biological replicates. For gene-set functional analysis, preserve organism, exact inputs and mappings, reference coverage, FDR threshold, database versions, STRING confidence threshold, and unmapped identifiers. Reactome overrepresentation is not causal evidence, FDR is not a truth probability, STRING functional associations are not necessarily direct physical interactions, and genes are not biological replicates. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -194,6 +194,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
     raw_lanes = route.get("lanes") or ["general life science"]
     lane_labels = {
         "target evidence and prioritization": "靶点证据与优先级",
+        "target-ligand bioactivity": "靶点-配体活性",
         "transcriptomics and expression": "转录组与表达",
         "single-cell transcriptomics": "单细胞转录组",
         "pathway and network biology": "通路与功能网络",
@@ -321,9 +322,7 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
     return selected
 
 
-def extract_alphafold_accession(message: str) -> str | None:
-    if not re.search(r"alphafold|pLDDT|predicted structure|预测结构|结构预测|预测蛋白", message, re.I):
-        return None
+def extract_strict_uniprot_accession(message: str) -> str | None:
     pattern = (
         r"\b((?:[OPQ][0-9][A-Z0-9]{3}[0-9]|"
         r"[A-NR-Z][0-9][A-Z][A-Z0-9]{2}[0-9]|"
@@ -331,6 +330,48 @@ def extract_alphafold_accession(message: str) -> str | None:
     )
     match = re.search(pattern, str(message or "").upper())
     return match.group(1) if match else None
+
+
+def extract_alphafold_accession(message: str) -> str | None:
+    if not re.search(r"alphafold|pLDDT|predicted structure|预测结构|结构预测|预测蛋白", message, re.I):
+        return None
+    return extract_strict_uniprot_accession(message)
+
+
+def extract_chembl_bioactivity_plan(message: str) -> dict[str, Any] | None:
+    if not re.search(
+        r"chembl|pchembl|bioactivit|potency|\bic50\b|\bki\b|\bkd\b|\bec50\b|"
+        r"靶点.{0,10}(?:小分子|配体|活性)|(?:小分子|配体).{0,10}靶点|活性证据",
+        message,
+        re.I,
+    ):
+        return None
+    accession = extract_strict_uniprot_accession(message)
+    if not accession:
+        return None
+    has_binding = bool(re.search(r"\bbinding\b|结合", message, re.I))
+    has_functional = bool(re.search(r"\bfunctional\b|功能(?:性)?(?:测定|实验|活性)?", message, re.I))
+    assay_scope = (
+        "binding_functional"
+        if has_binding == has_functional
+        else ("binding" if has_binding else "functional")
+    )
+    threshold_match = re.search(
+        r"pchembl\s*(?:>=|=>|≥|大于等于|至少|不低于)?\s*([0-9]+(?:\.[0-9]+)?)",
+        message,
+        re.I,
+    )
+    max_match = re.search(
+        r"(?:top|前|最多|保留)\s*([0-9]{1,3})\s*(?:条|个|records?|activities?|活性)?",
+        message,
+        re.I,
+    )
+    return {
+        "accession": accession,
+        "assay_scope": assay_scope,
+        "min_pchembl": float(threshold_match.group(1)) if threshold_match else 5.0,
+        "max_activities": int(max_match.group(1)) if max_match else 50,
+    }
 
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
@@ -341,6 +382,9 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     functional_analysis = extract_functional_analysis_plan(message)
     if functional_analysis:
         return "gene-set-functional-analysis", functional_analysis
+    chembl_bioactivity = extract_chembl_bioactivity_plan(message)
+    if chembl_bioactivity:
+        return "target-ligand-bioactivity-review", chembl_bioactivity
     hmmer_search = extract_hmmer_profile_plan(message)
     if hmmer_search:
         return "hmmer-profile-search", hmmer_search

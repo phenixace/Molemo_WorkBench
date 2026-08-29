@@ -155,6 +155,68 @@ def compact_tool_result(result: dict[str, Any], limit: int = 24000) -> str:
     if len(encoded) <= limit:
         return encoded
     data = result.get("data")
+    if isinstance(data, dict) and isinstance(data.get("activities"), list) and data.get("source") == "ChEMBL":
+        compact_data = {
+            key: value
+            for key, value in data.items()
+            if key not in {"activities", "compounds", "outputs"}
+        }
+        compact_data["activities"] = [
+            {
+                key: value
+                for key, value in activity.items()
+                if key in {
+                    "rank",
+                    "molecule_chembl_id",
+                    "molecule_name",
+                    "pchembl_value",
+                    "standard_type",
+                    "standard_relation",
+                    "standard_value",
+                    "standard_units",
+                    "assay_chembl_id",
+                    "assay_type_label",
+                    "bao_label",
+                    "document_chembl_id",
+                    "document_year",
+                    "molecule_url",
+                    "assay_url",
+                }
+            }
+            for activity in data["activities"][:12]
+            if isinstance(activity, dict)
+        ]
+        compact_data["compounds"] = [
+            {
+                key: value
+                for key, value in compound.items()
+                if key in {
+                    "rank",
+                    "molecule_chembl_id",
+                    "name",
+                    "max_pchembl",
+                    "min_pchembl",
+                    "retrieved_activity_count",
+                    "endpoint_types",
+                    "assay_types",
+                    "url",
+                }
+            }
+            for compound in data.get("compounds", [])[:12]
+            if isinstance(compound, dict)
+        ]
+        compact = {
+            "ok": result.get("ok", True),
+            "tool": result.get("tool"),
+            "skill": result.get("skill"),
+            "summary": result.get("summary"),
+            "data": compact_data,
+            "caveats": result.get("caveats") or [],
+            "artifacts_omitted": True,
+        }
+        encoded = json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+        if len(encoded) <= limit:
+            return encoded
     if isinstance(data, dict) and isinstance(data.get("papers"), list):
         compact_data = {
             key: value

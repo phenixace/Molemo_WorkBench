@@ -960,6 +960,231 @@ select:focus {
   gap: 9px;
 }
 
+.chembl-bioactivity-artifact {
+  width: 100%;
+  gap: 9px;
+}
+
+.chembl-target-line {
+  min-width: 0;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: 54px minmax(130px, 0.8fr) minmax(180px, 1.2fr);
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+}
+
+.chembl-target-line span,
+.chembl-metrics span {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.chembl-target-line strong {
+  font-size: 10px;
+}
+
+.chembl-target-line code {
+  min-width: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chembl-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.chembl-metrics > div {
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.chembl-metrics strong {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.chembl-filter-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 13px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.chembl-filter-line span + span::before {
+  content: "·";
+  margin-right: 13px;
+  color: var(--line-strong);
+}
+
+.chembl-section {
+  min-width: 0;
+}
+
+.chembl-section > header {
+  min-height: 29px;
+  padding: 4px 1px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chembl-section > header strong {
+  font-size: 10px;
+}
+
+.chembl-section > header span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.chembl-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-top: 0;
+}
+
+.chembl-compound-table,
+.chembl-activity-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 9px;
+}
+
+.chembl-compound-table {
+  min-width: 660px;
+}
+
+.chembl-activity-table {
+  min-width: 980px;
+}
+
+.chembl-compound-table th,
+.chembl-compound-table td,
+.chembl-activity-table th,
+.chembl-activity-table td {
+  min-width: 0;
+  height: 35px;
+  padding: 5px 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.chembl-compound-table th:last-child,
+.chembl-compound-table td:last-child,
+.chembl-activity-table th:last-child,
+.chembl-activity-table td:last-child {
+  border-right: 0;
+}
+
+.chembl-compound-table tbody tr:last-child > *,
+.chembl-activity-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.chembl-compound-table thead th,
+.chembl-activity-table thead th {
+  height: 28px;
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chembl-compound-table th:first-child,
+.chembl-compound-table td:first-child,
+.chembl-activity-table th:first-child,
+.chembl-activity-table td:first-child {
+  width: 38px;
+  text-align: center;
+}
+
+.chembl-compound-table th:nth-child(2) {
+  width: 170px;
+}
+
+.chembl-compound-table th:nth-child(3),
+.chembl-compound-table th:nth-child(5),
+.chembl-compound-table th:nth-child(6) {
+  width: 76px;
+}
+
+.chembl-activity-table th:nth-child(2) {
+  width: 150px;
+}
+
+.chembl-activity-table th:nth-child(3) {
+  width: 72px;
+}
+
+.chembl-activity-table th:nth-child(4) {
+  width: 120px;
+}
+
+.chembl-activity-table th:nth-child(5) {
+  width: 112px;
+}
+
+.chembl-activity-table th:nth-child(6) {
+  width: 220px;
+}
+
+.chembl-compound-table tbody th a,
+.chembl-activity-table tbody th a,
+.chembl-activity-table td a {
+  color: var(--ink);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.chembl-compound-table tbody th a:hover,
+.chembl-activity-table tbody th a:hover,
+.chembl-activity-table td a:hover {
+  text-decoration: underline;
+}
+
+.chembl-compound-table small,
+.chembl-activity-table small {
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chembl-open-structure {
+  min-height: 24px;
+  padding: 3px 7px;
+  font-size: 9px;
+}
+
 .functional-analysis-artifact {
   width: 100%;
   gap: 9px;
@@ -4669,6 +4894,7 @@ button:disabled {
   .target-review-heading,
   .target-detail-grid,
   .target-output-paths,
+  .chembl-metrics,
   .functional-preflight-summary,
   .functional-metrics,
   .variant-identity,
@@ -4679,6 +4905,24 @@ button:disabled {
   .trial-distributions,
   .trial-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chembl-target-line {
+    grid-template-columns: 50px minmax(0, 1fr);
+  }
+
+  .chembl-target-line code {
+    grid-column: 2;
+  }
+
+  .chembl-filter-line {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 8px;
+  }
+
+  .chembl-filter-line span + span::before {
+    content: none;
   }
 
   .functional-analysis-grid,

@@ -31,6 +31,11 @@ from functional_analysis import (
     parse_gene_terms,
     preflight_functional_analysis,
 )
+from chembl_bioactivity import (
+    ChemblBioactivityError,
+    normalize_chembl_inputs,
+    preflight_chembl_bioactivity,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -270,6 +275,47 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "Open Targets association score 仅用于证据排序，不是概率、置信度或因果结论。",
             "候选靶点按解析后的 Ensembl Gene ID 确认；同名或模糊实体应在审批前检查。",
             "临床先例、可成药性与安全注释需要结合适应症和实验验证解释。",
+        ],
+    },
+    "target-ligand-bioactivity-review": {
+        "title": "靶点-配体活性审阅",
+        "description": "按精确 UniProt 靶点收集 ChEMBL 小分子活性，并保留测定、端点与文献上下文。",
+        "fields": [
+            _field("accession", "UniProt accession", "text", required=True, placeholder="P00533"),
+            _field(
+                "assay_scope",
+                "测定范围",
+                "select",
+                required=True,
+                options=[
+                    {"value": "binding_functional", "label": "Binding + functional"},
+                    {"value": "binding", "label": "Binding"},
+                    {"value": "functional", "label": "Functional"},
+                ],
+            ),
+            _field(
+                "min_pchembl",
+                "最低 pChEMBL",
+                "number",
+                value=5,
+                min=4,
+                max=12,
+                step=0.25,
+            ),
+            _field(
+                "max_activities",
+                "最多保留活性记录",
+                "number",
+                value=50,
+                min=10,
+                max=100,
+            ),
+        ],
+        "assumptions": [
+            "UniProt accession 必须精确对应一个 ChEMBL SINGLE PROTEIN 靶点。",
+            "仅保留 ChEMBL 靶点置信分 9 且关系类型为 direct 的记录；这不证明直接物理结合或实验质量。",
+            "pChEMBL 不是概率或先导质量分；不同端点、测定格式和生物学上下文不能直接互换。",
+            "结果是有界、按活性排序的证据样本，不证明选择性、机制、ADME、安全性或临床疗效。",
         ],
     },
     "literature-evidence-review": {
@@ -733,6 +779,44 @@ def _target_evidence_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
         raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
 
 
+def _chembl_bioactivity_arguments(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        normalized = normalize_chembl_inputs(
+            accession=_require_text(inputs, "accession", "UniProt accession"),
+            assay_scope=inputs.get("assay_scope", "binding_functional"),
+            min_pchembl=inputs.get("min_pchembl", 5),
+            max_activities=inputs.get("max_activities", 50),
+        )
+    except ChemblBioactivityError as exc:
+        raise WorkflowError(str(exc), "invalid_workflow_inputs") from exc
+    arguments = {
+        "accession": normalized["accession"],
+        "assay_scope": normalized["assay_scope"],
+        "min_pchembl": normalized["min_pchembl"],
+        "max_activities": normalized["max_activities"],
+    }
+    inputs.update(arguments)
+    return arguments
+
+
+def _chembl_bioactivity_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    arguments = _chembl_bioactivity_arguments(inputs)
+    return [
+        _step(
+            "收集并保存 ChEMBL 靶点活性证据",
+            "chembl_bioactivity_collect",
+            arguments,
+        )
+    ]
+
+
+def _chembl_bioactivity_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_chembl_bioactivity(**_chembl_bioactivity_arguments(inputs))
+    except ChemblBioactivityError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _literature_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     query = _require_text(inputs, "query", "Literature query")
     try:
@@ -985,6 +1069,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "single-cell-exploratory-analysis": _single_cell_steps,
     "gene-set-functional-analysis": _functional_analysis_steps,
     "target-evidence-review": _target_evidence_steps,
+    "target-ligand-bioactivity-review": _chembl_bioactivity_steps,
     "literature-evidence-review": _literature_steps,
     "variant-evidence-review": _variant_evidence_steps,
     "clinical-trial-landscape-review": _clinical_trials_steps,
@@ -1001,6 +1086,7 @@ PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "single-cell-exploratory-analysis": _single_cell_preflight,
     "gene-set-functional-analysis": _functional_analysis_preflight,
     "target-evidence-review": _target_evidence_preflight,
+    "target-ligand-bioactivity-review": _chembl_bioactivity_preflight,
     "literature-evidence-review": _literature_preflight,
     "variant-evidence-review": _variant_evidence_preflight,
     "clinical-trial-landscape-review": _clinical_trials_preflight,
