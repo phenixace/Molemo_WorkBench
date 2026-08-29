@@ -1,0 +1,21 @@
+{
+  "id": "protein-analysis",
+  "title": "Protein Analysis",
+  "kind": "pipeline",
+  "description": "Clean FASTA input and calculate sequence-derived protein properties and visual tracks.",
+  "tools": [
+    {
+      "name": "protein_analyze_sequence",
+      "description": "Analyze a protein FASTA sequence and return length, molecular weight, pI, charge, GRAVY, helix propensity, hydrophobic fraction, composition, and a sequence artifact.",
+      "handler": "scripts/handler.py:analyze_protein",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "sequence": { "type": "string", "description": "Plain amino-acid sequence or FASTA text." }
+        },
+        "required": ["sequence"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Molemo WorkBench - Life Science Agent Platform</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23fffdf8'/%3E%3Cpath d='M18 24 34 34 46 22M34 34l-6 14' stroke='%23242321' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='18' cy='24' r='8' fill='%23147d72'/%3E%3Ccircle cx='46' cy='22' r='8' fill='%23b66a19'/%3E%3Ccircle cx='28' cy='48' r='8' fill='%23b2455c'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="molemo workspace">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div>
+            <h1>Molemo WorkBench</h1>
+            <p>前沿生命科学 Agent 平台</p>
+          </div>
+        </div>
+
+        <div class="status-strip">
+          <span class="status-dot"></span>
+          <span id="localStatusText">正在连接本地 Agent</span>
+        </div>
+
+        <section class="sidebar-section">
+          <div class="section-heading">
+            <span>示例工作区</span>
+            <button class="icon-button" id="resetWorkspace" title="重置演示" aria-label="重置演示">↻</button>
+          </div>
+          <div class="sample-list" id="sampleList"></div>
+        </section>
+
+        <section class="sidebar-section">
+          <div class="section-heading">
+            <span>导入</span>
+          </div>
+          <label class="input-label" for="structureInput">SMILES / FASTA</label>
+          <textarea id="structureInput" rows="5" spellcheck="false">CC(=O)OC1=CC=CC=C1C(=O)O</textarea>
+          <div class="import-actions">
+            <button class="secondary-button" id="loadSmiles">SMILES</button>
+            <button class="secondary-button" id="loadFasta">FASTA</button>
+          </div>
+        </section>
+
+        <section class="sidebar-section">
+          <div class="section-heading">
+          <span>Molemo Workspace</span>
+            <span class="section-count" id="workspaceFileCount">0 files</span>
+          </div>
+          <label class="file-drop" for="workspaceFiles">
+            <input id="workspaceFiles" type="file" multiple accept=".txt,.md,.csv,.tsv,.json,.jsonl,.yaml,.yml,.fa,.fasta,.faa,.fna,.smi,.smiles,.pdb,.cif,.mmcif" />
+            <span>选择 FASTA、SMILES、PDB 或表格文件</span>
+          </label>
+          <button class="secondary-button" id="saveWorkspaceFiles">导入本地工作区</button>
+          <div class="workspace-file-list" id="workspaceFileList"></div>
+        </section>
+
+        <section class="sidebar-section compact">
+          <div class="metric-row">
+            <span>工具调用</span>
+            <strong id="toolCallCount">0</strong>
+          </div>
+          <div class="metric-row">
+            <span>候选设计</span>
+            <strong id="candidateCount">0</strong>
+          </div>
+          <div class="metric-row">
+            <span>已加载 Skills</span>
+            <strong id="skillCount">0</strong>
+          </div>
+          <div class="metric-row">
+            <span>当前模式</span>
+            <strong id="runtimeModeLabel">Local</strong>
+          </div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div class="workspace-title">
+            <div>
+              <p class="eyebrow">LIFE SCIENCE AGENT PLATFORM</p>
+              <h2 id="activeTitle">Aspirin lead review</h2>
+            </div>
+            <span class="mode-pill" id="activeType">Molecule</span>
+          </div>
+          <div class="topbar-actions">
+            <div class="segmented-control" role="tablist" aria-label="视图模式">
+              <button class="segment is-active" data-mode="structure">结构</button>
+              <button class="segment" data-mode="design">设计</button>
+              <button class="segment" data-mode="risk">风险</button>
+            </div>
+            <button class="icon-button wide" id="apiSettings" title="API 设置" aria-label="API 设置">⚙ API</button>
+            <button class="primary-button" id="runDefaultPrompt">运行分析</button>
+          </div>
+        </header>
+
+        <section class="workbench" aria-label="Molemo scientific workspace">
+          <div class="viewer-panel">
+            <div class="panel-toolbar">
+              <div>
+                <span class="panel-kicker">VISUALIZER</span>
+                <strong id="viewerLabel">2D/3D structure canvas</strong>
+              </div>
+              <div class="tool-group">
+                <div class="viewer-style-control" role="tablist" aria-label="分子显示风格">
+                  <button class="viewer-style is-active" data-style="ballstick" title="Ball-and-stick" aria-label="Ball-and-stick">●—●</button>
+                  <button class="viewer-style" data-style="spacefill" title="Space fill" aria-label="Space fill">●</button>
+                  <button class="viewer-style" data-style="wire" title="Wire" aria-label="Wire">—</button>
+                </div>
+                <button class="icon-button" id="toggleMotion" title="暂停/继续旋转" aria-label="暂停或继续旋转">⏯</button>
+                <button class="icon-button" id="toggleLabels" title="显示/隐藏标签" aria-label="显示或隐藏标签">Aa</button>
+                <button class="icon-button" id="zoomIn" title="放大" aria-label="放大">＋</button>
+                <button class="icon-button" id="zoomOut" title="缩小" aria-label="缩小">−</button>
+              </div>
+            </div>
+            <canvas id="structureCanvas" width="960" height="620" aria-label="分子与蛋白质结构可视化"></canvas>
+            <div class="canvas-readout">
+              <div>
+                <span class="readout-label">selection</span>
+                <strong id="selectionReadout">Aspirin · anti-inflammatory scaffold</strong>
+              </div>
+              <div>
+                <span class="readout-label">confidence</span>
+                <strong id="confidenceReadout">local evidence</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="inspector-panel">
+            <div class="tabs" role="tablist" aria-label="检查器">
+              <button class="tab is-active" data-tab="properties">属性</button>
+              <button class="tab" data-tab="agent">Agent</button>
+              <button class="tab" data-tab="artifacts">产物</button>
+              <button class="tab" data-tab="designs">设计</button>
+              <button class="tab" data-tab="skills">Skills</button>
+            </div>
+
+            <div class="tab-panel is-active" id="propertiesPanel">
+              <div class="property-grid" id="propertyGrid"></div>
+              <div class="note-block">
+                <span>结构注释</span>
+                <p id="structureNotes"></p>
+              </div>
+              <div class="sequence-block" id="sequenceBlock"></div>
+            </div>
+
+            <div class="tab-panel" id="agentPanel">
+              <div class="runtime-card">
+                <div>
+                  <span>Agent runtime</span>
+                  <strong id="agentRuntimeState">Local scientific skill runtime</strong>
+                </div>
+                <span class="runtime-badge" id="apiBadge">API-ready</span>
+              </div>
+              <div class="tool-trace" id="toolTrace"></div>
+            </div>
+
+            <div class="tab-panel" id="artifactsPanel">
+              <div class="artifact-list" id="artifactList"></div>
+            </div>
+
+            <div class="tab-panel" id="designsPanel">
+              <div class="design-list" id="designList"></div>
+            </div>
+
+            <div class="tab-panel" id="skillsPanel">
+              <div class="skill-list" id="skillList"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="console-panel" aria-label="自然语言 Agent">
+          <div class="console-header">
+            <div>
+              <span class="panel-kicker">LOCAL-FIRST RESEARCH AGENT</span>
+              <strong>从研究问题调用本地 skills，并保留可检查的证据链</strong>
+            </div>
+            <button class="secondary-button" id="exportReport">导出 JSON</button>
+          </div>
+          <div class="prompt-chips" id="promptChips"></div>
+          <div class="chat-log" id="chatLog" aria-live="polite"></div>
+          <form class="command-bar" id="commandForm">
+            <input
+              id="commandInput"
+              type="text"
+              autocomplete="off"
+              placeholder="例如：优化这个分子的水溶性并解释风险"
+            />
+            <button class="primary-button" type="submit">发送</button>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="settings-dialog" id="settingsDialog">
+      <form method="dialog" class="settings-form">
+        <header>
+          <div>
+            <p class="eyebrow">API RUNTIME</p>
+            <h3>连接第三方 LLM</h3>
+          </div>
+          <button class="icon-button" value="close" aria-label="关闭">×</button>
+        </header>
+        <label class="check-row">
+          <input type="checkbox" id="useApiRuntime" />
+          <span>启用自带 OpenAI-compatible API</span>
+        </label>
+        <label class="input-label" for="apiEndpoint">Endpoint</label>
+        <input id="apiEndpoint" type="url" placeholder="https://provider.example/v1/chat/completions" />
+        <label class="input-label" for="apiModel">Model</label>
+        <input id="apiModel" type="text" value="your-model-name" />
+        <label class="input-label" for="apiKey">API Key</label>
+        <input id="apiKey" type="password" placeholder="仅保存在本页内存中" />
+        <label class="input-label" for="toolMode">Tool mode</label>
+        <select id="toolMode">
+          <option value="native">Native tool calling</option>
+          <option value="grounded">Grounded chat（兼容不支持 tools 的模型）</option>
+        </select>
+        <p class="settings-note">
+          Key 仅经本地服务转发给所选 provider，不写入文件。Native 模式允许模型选择 skills；Grounded 模式先在本地计算当前结构，再把必要结果发给模型。
+        </p>
+        <menu>
+          <button class="secondary-button" value="cancel">取消</button>
+          <button class="primary-button" id="saveSettings" value="default">保存</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>

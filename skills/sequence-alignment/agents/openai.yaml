@@ -1,0 +1,3 @@
+interface:
+  display_name: "Sequence Alignment"
+  short_description: "Align two protein sequences and inspect differences"

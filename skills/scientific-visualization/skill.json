@@ -1,0 +1,37 @@
+{
+  "id": "scientific-visualization",
+  "title": "Scientific Visualization",
+  "kind": "visualization",
+  "description": "Generate safe declarative artifacts for property charts and protein sequence tracks.",
+  "tools": [
+    {
+      "name": "visualization_property_chart",
+      "description": "Create a bar-chart artifact from named numeric molecular or protein properties.",
+      "handler": "scripts/handler.py:property_chart",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "properties": { "type": "object", "additionalProperties": { "type": "number" } },
+          "unit": { "type": "string" }
+        },
+        "required": ["title", "properties"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "visualization_sequence_track",
+      "description": "Create a residue-level hydropathy track artifact for a protein sequence.",
+      "handler": "scripts/handler.py:sequence_track",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "sequence": { "type": "string" }
+        },
+        "required": ["sequence"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

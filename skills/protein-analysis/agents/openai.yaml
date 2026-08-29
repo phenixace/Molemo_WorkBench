@@ -1,0 +1,3 @@
+interface:
+  display_name: "Protein Analysis"
+  short_description: "Analyze FASTA and sequence-derived properties"

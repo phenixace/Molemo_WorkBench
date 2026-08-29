@@ -1,0 +1,16 @@
+{
+  "name": "molemo-bench",
+  "version": "0.1.0",
+  "description": "Local-first molecular and protein research workflows with scientific visualization and traceable pipelines.",
+  "author": { "name": "phenixace" },
+  "license": "MIT",
+  "keywords": [
+    "life-science",
+    "molecular-ide",
+    "protein-design",
+    "scientific-visualization",
+    "agent-skills",
+    "benchmark"
+  ],
+  "skills": "./skills/"
+}

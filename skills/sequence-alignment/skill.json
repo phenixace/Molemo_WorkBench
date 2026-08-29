@@ -1,0 +1,24 @@
+{
+  "id": "sequence-alignment",
+  "title": "Sequence Alignment",
+  "kind": "pipeline",
+  "description": "Create a deterministic global pairwise protein alignment and alignment-viewer artifact.",
+  "tools": [
+    {
+      "name": "sequence_align",
+      "description": "Globally align two protein sequences and return aligned strings, score, identity, differences, and a sequence-alignment artifact.",
+      "handler": "scripts/handler.py:align_sequences",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "sequence_a": { "type": "string" },
+          "sequence_b": { "type": "string" },
+          "label_a": { "type": "string", "default": "Sequence A" },
+          "label_b": { "type": "string", "default": "Sequence B" }
+        },
+        "required": ["sequence_a", "sequence_b"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

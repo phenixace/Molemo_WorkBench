@@ -1,0 +1,3 @@
+interface:
+  display_name: "Workspace Inspector"
+  short_description: "Read supported files from the local workspace"

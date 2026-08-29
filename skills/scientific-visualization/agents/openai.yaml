@@ -1,0 +1,3 @@
+interface:
+  display_name: "Scientific Visualization"
+  short_description: "Render property charts and protein tracks"

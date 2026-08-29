@@ -1,0 +1,21 @@
+{
+  "id": "research-router",
+  "title": "Research Router",
+  "kind": "orchestration",
+  "description": "Classify a life-science question and select the smallest useful set of local skills.",
+  "tools": [
+    {
+      "name": "research_route",
+      "description": "Route a broad molecular or protein research question to relevant local analysis and visualization skills.",
+      "handler": "scripts/handler.py:route_question",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "The user's research question." }
+        },
+        "required": ["question"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

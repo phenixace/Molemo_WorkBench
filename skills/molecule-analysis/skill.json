@@ -1,0 +1,21 @@
+{
+  "id": "molecule-analysis",
+  "title": "Molecule Analysis",
+  "kind": "pipeline",
+  "description": "Parse SMILES with RDKit and calculate a viewer-ready molecular graph and core descriptors.",
+  "tools": [
+    {
+      "name": "chem_analyze_molecule",
+      "description": "Parse a SMILES string with RDKit and return atoms, bonds, rings, formula, molecular weight, logP, H-bond counts, TPSA, rotatable bonds, and a molecule-viewer artifact.",
+      "handler": "scripts/handler.py:analyze_molecule",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "smiles": { "type": "string", "description": "A SMILES string." }
+        },
+        "required": ["smiles"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Molecule Analysis"
+  short_description: "Parse SMILES and inspect RDKit descriptors"

@@ -1,0 +1,35 @@
+{
+  "id": "workspace-inspector",
+  "title": "Workspace Inspector",
+  "kind": "workspace",
+  "description": "List and read supported text-based scientific files inside the constrained local workspace.",
+  "tools": [
+    {
+      "name": "workspace_list_files",
+      "description": "List files in the local Molemo workspace, optionally filtering by a substring.",
+      "handler": "scripts/handler.py:list_files",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 500 }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "workspace_read_text",
+      "description": "Read a UTF-8 scientific text file inside the local Molemo workspace. Paths outside the workspace are rejected.",
+      "handler": "scripts/handler.py:read_text",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "max_bytes": { "type": "integer", "minimum": 1, "maximum": 524288 }
+        },
+        "required": ["path"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
