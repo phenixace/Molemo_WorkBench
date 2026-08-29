@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import threading
 import time
 import uuid
@@ -11,9 +12,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from transcriptomics import TranscriptomicsError, preflight_bulk_rnaseq
+
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_STORAGE_ROOT = ROOT / "workspace" / ".molemo" / "runs"
+DEFAULT_STORAGE_ROOT = Path(
+    os.environ.get("MOLEMO_WORKFLOW_STORAGE_ROOT") or ROOT / "workspace" / ".molemo" / "runs"
+)
 
 
 class WorkflowError(RuntimeError):
@@ -75,6 +80,39 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             _field("max_reads", "最多分析 reads", "number", value=10000, min=1, max=100000),
         ],
         "assumptions": ["输入为 Phred+33 编码的 FASTQ 文件。"],
+    },
+    "bulk-rnaseq-differential-expression": {
+        "title": "Bulk RNA-seq 差异表达",
+        "description": "预检 raw count matrix 与样本设计，批准后用 PyDESeq2 执行差异表达。",
+        "fields": [
+            _field(
+                "count_matrix_path",
+                "Raw count matrix",
+                "text",
+                required=True,
+                placeholder="examples/rnaseq_counts.csv",
+            ),
+            _field(
+                "metadata_path",
+                "Sample metadata",
+                "text",
+                required=True,
+                placeholder="examples/rnaseq_metadata.csv",
+            ),
+            _field("sample_column", "样本列", "text", value="sample"),
+            _field("condition_column", "条件列", "text", value="condition"),
+            _field("test_level", "Test level", "text", required=True, value="treated"),
+            _field("reference_level", "Reference level", "text", required=True, value="control"),
+            _field("batch_column", "批次列（可选）", "text", value=""),
+            _field("min_total_count", "最小基因总计数", "number", value=10, min=1),
+            _field("fdr_threshold", "FDR 阈值", "text", value="0.05"),
+            _field("lfc_threshold", "|log2 fold change| 阈值", "number", value=1.0, min=0, max=20, step=0.1),
+        ],
+        "assumptions": [
+            "输入是基因级非负整数 raw counts，不是 TPM、CPM 或 log expression。",
+            "样本 metadata 代表生物学重复，contrast 方向已经由研究者确认。",
+            "差异表达是关联性证据，需要结合实验设计与生物学验证。",
+        ],
     },
     "pairwise-alignment-review": {
         "title": "双序列比对",
@@ -198,6 +236,58 @@ def _fastq_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     return [_step("计算 FASTQ 质量指标", "ngs_fastq_qc", {"path": path, "max_reads": max_reads})]
 
 
+def _rnaseq_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    count_matrix_path = _require_text(inputs, "count_matrix_path", "Raw count matrix")
+    metadata_path = _require_text(inputs, "metadata_path", "Sample metadata")
+    sample_column = str(inputs.get("sample_column") or "sample").strip()
+    condition_column = str(inputs.get("condition_column") or "condition").strip()
+    test_level = _require_text(inputs, "test_level", "Test level")
+    reference_level = _require_text(inputs, "reference_level", "Reference level")
+    batch_column = str(inputs.get("batch_column") or "").strip()
+    try:
+        min_total_count = int(inputs.get("min_total_count", 10))
+        fdr_threshold = float(inputs.get("fdr_threshold", 0.05))
+        lfc_threshold = float(inputs.get("lfc_threshold", 1.0))
+    except (TypeError, ValueError) as exc:
+        raise WorkflowError("RNA-seq thresholds must be numeric.", "invalid_workflow_inputs") from exc
+    if min_total_count < 1:
+        raise WorkflowError("min_total_count must be at least 1.", "invalid_workflow_inputs")
+    if not 0 < fdr_threshold <= 1:
+        raise WorkflowError("fdr_threshold must be greater than 0 and at most 1.", "invalid_workflow_inputs")
+    if not 0 <= lfc_threshold <= 20:
+        raise WorkflowError("lfc_threshold must be between 0 and 20.", "invalid_workflow_inputs")
+    arguments = {
+        "count_matrix_path": count_matrix_path,
+        "metadata_path": metadata_path,
+        "sample_column": sample_column,
+        "condition_column": condition_column,
+        "test_level": test_level,
+        "reference_level": reference_level,
+        "batch_column": batch_column,
+        "min_total_count": min_total_count,
+        "fdr_threshold": fdr_threshold,
+        "lfc_threshold": lfc_threshold,
+    }
+    inputs.update(arguments)
+    return [_step("拟合 PyDESeq2 模型并生成可检查结果", "transcriptomics_run_de", arguments)]
+
+
+def _rnaseq_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_bulk_rnaseq(
+            count_matrix_path=inputs["count_matrix_path"],
+            metadata_path=inputs["metadata_path"],
+            sample_column=inputs["sample_column"],
+            condition_column=inputs["condition_column"],
+            test_level=inputs["test_level"],
+            reference_level=inputs["reference_level"],
+            batch_column=inputs["batch_column"],
+            min_total_count=inputs["min_total_count"],
+        )
+    except TranscriptomicsError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _alignment_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     sequence_a = _require_text(inputs, "sequence_a", "Sequence A")
     sequence_b = _require_text(inputs, "sequence_b", "Sequence B")
@@ -278,9 +368,14 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "protein-sequence-review": _protein_steps,
     "protein-structure-review": _structure_steps,
     "fastq-qc-review": _fastq_steps,
+    "bulk-rnaseq-differential-expression": _rnaseq_steps,
     "pairwise-alignment-review": _alignment_steps,
     "sequence-similarity-search": _sequence_search_steps,
     "database-record-review": _database_steps,
+}
+
+PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "bulk-rnaseq-differential-expression": _rnaseq_preflight,
 }
 
 
@@ -328,6 +423,8 @@ class WorkflowManager:
         allowed_inputs = {str(field["name"]) for field in template["fields"]}
         normalized_inputs = {key: value for key, value in dict(inputs or {}).items() if key in allowed_inputs}
         steps = builder(normalized_inputs)
+        preflight_builder = PREFLIGHTS.get(template_id)
+        preflight = preflight_builder(normalized_inputs) if preflight_builder else None
         now = _timestamp()
         run_id = uuid.uuid4().hex
         run = {
@@ -340,6 +437,7 @@ class WorkflowManager:
             "requires_approval": True,
             "inputs": normalized_inputs,
             "assumptions": list(template.get("assumptions") or []),
+            "preflight": preflight,
             "steps": steps,
             "trace": [],
             "artifacts": [],
@@ -534,6 +632,7 @@ def _plan_artifact(run: dict[str, Any]) -> dict[str, Any]:
             "objective": run["objective"],
             "status": run["status"],
             "requires_approval": True,
+            "preflight": copy.deepcopy(run.get("preflight")),
             "steps": [
                 {"id": step["id"], "title": step["title"], "tool": step["tool"], "status": step["status"]}
                 for step in run["steps"]

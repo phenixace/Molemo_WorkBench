@@ -12,6 +12,7 @@ LANES = (
     ("public biological databases", r"pubchem|uniprot|rcsb|database|accession|数据库|条目"),
     ("experimental protein structure", r"pdb|rcsb|mmcif|coordinate|atom-level|原子|坐标|三维结构"),
     ("sequencing quality control", r"fastq|phred|q20|q30|read quality|测序|质控|读长"),
+    ("transcriptomics and expression", r"rna-?seq|count matrix|differential expression|transcriptom|差异表达|转录组|表达矩阵"),
     ("sequence similarity search", r"blast|homolog|sequence search|同源|相似序列|序列搜索"),
     ("sequence comparison", r"align|alignment|identity|比对|相似度"),
     ("scientific visualization", r"plot|chart|visual|viewer|图|可视化|显示|结构"),
@@ -38,6 +39,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
         suggested.extend(["structure_fetch_pdb", "structure_parse_workspace"])
     if "sequencing quality control" in lanes:
         suggested.append("ngs_fastq_qc")
+    if "transcriptomics and expression" in lanes:
+        suggested.extend(["transcriptomics_preflight", "workflow_create_plan"])
     if "sequence similarity search" in lanes:
         suggested.append("workflow_create_plan")
     if "sequence comparison" in lanes:

@@ -744,6 +744,10 @@ function renderArtifacts() {
           </div>
           <p>相似性命中是相关性证据，不单独证明共享功能或生物活性。</p>
         `;
+      } else if (artifact.type === "rnaseq-preflight") {
+        card.innerHTML = renderRnaseqPreflight(title, artifact.data || {});
+      } else if (artifact.type === "transcriptomics-de") {
+        card.innerHTML = renderTranscriptomicsResult(title, artifact.data || {});
       } else if (artifact.type === "bar-chart") {
         const data = artifact.data || {};
         const values = data.values || [];
@@ -781,6 +785,128 @@ function renderArtifacts() {
     });
 }
 
+function renderRnaseqPreflight(title, data) {
+  const contrast = data.contrast || {};
+  return `
+    <header><strong>${title}</strong><span>input validation</span></header>
+    <div class="rnaseq-metrics">
+      ${[
+        ["Samples", data.samples || 0],
+        ["Genes", data.genes || 0],
+        ["Tested", data.genes_after_filter || 0],
+        ["Design", data.design_formula || "n/a"],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="rnaseq-design">
+      <code>${escapeHtml(`${contrast.test || "test"} vs ${contrast.reference || "reference"}`)}</code>
+      <span>${escapeHtml(data.count_matrix_path || "")}</span>
+      <span>${escapeHtml(data.metadata_path || "")}</span>
+    </div>
+    ${renderSampleQc(data.sample_qc || [])}
+    ${(data.warnings || []).map((warning) => `<p class="rnaseq-warning">${escapeHtml(warning)}</p>`).join("")}
+  `;
+}
+
+function renderTranscriptomicsResult(title, data) {
+  const contrast = data.contrast || {};
+  const pca = data.pca || {};
+  const pcaPoints = pca.points || [];
+  const conditions = Array.from(new Set(pcaPoints.map((point) => point.condition)));
+  const xValues = pcaPoints.map((point) => Number(point.pc1) || 0);
+  const yValues = pcaPoints.map((point) => Number(point.pc2) || 0);
+  const xMin = Math.min(...xValues, -1);
+  const xMax = Math.max(...xValues, 1);
+  const yMin = Math.min(...yValues, -1);
+  const yMax = Math.max(...yValues, 1);
+  const volcanoPoints = (data.volcano?.points || [])
+    .filter((point) => Number.isFinite(Number(point.log2_fold_change)))
+    .slice(0, 1000);
+  const volcanoX = Math.max(1, ...volcanoPoints.map((point) => Math.abs(Number(point.log2_fold_change))));
+  const volcanoY = Math.max(1, percentile(volcanoPoints.map((point) => Number(point.neg_log10_padj) || 0), 0.9));
+  const heatmap = data.heatmap || {};
+  const heatmapSamples = heatmap.samples || [];
+  const heatmapGenes = heatmap.genes || [];
+  const topGenes = (data.top_genes || []).slice(0, 10);
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(`${data.method || "PyDESeq2"} ${data.method_version || ""}`.trim())}</span></header>
+    <div class="rnaseq-metrics">
+      ${[
+        ["Samples", data.samples || 0],
+        ["Genes tested", data.genes_tested || 0],
+        ["Significant", data.significant_genes || 0],
+        ["Up / down", `${data.upregulated || 0} / ${data.downregulated || 0}`],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="rnaseq-design">
+      <code>${escapeHtml(data.design_formula || "~condition")}</code>
+      <span>${escapeHtml(`${contrast.test || "test"} vs ${contrast.reference || "reference"}`)}</span>
+      <span>${escapeHtml(`FDR ${data.thresholds?.fdr ?? "n/a"} · |log2FC| ${data.thresholds?.absolute_log2_fold_change ?? "n/a"}`)}</span>
+    </div>
+    ${renderSampleQc(data.sample_qc || [])}
+    <section class="rnaseq-section">
+      <header><strong>Sample PCA</strong><span>${escapeHtml(`PC1 ${pca.variance_explained?.[0] || 0}% · PC2 ${pca.variance_explained?.[1] || 0}%`)}</span></header>
+      <div class="rnaseq-legend">
+        ${conditions.map((condition, index) => `<span><i class="condition-${index % 6}"></i>${escapeHtml(condition)}</span>`).join("")}
+      </div>
+      <div class="pca-plot" aria-label="PCA of log normalized counts">
+        <span class="plot-axis plot-axis-x"></span><span class="plot-axis plot-axis-y"></span>
+        ${pcaPoints.map((point) => {
+          const conditionIndex = Math.max(0, conditions.indexOf(point.condition));
+          return `<i class="pca-point condition-${conditionIndex % 6}" title="${escapeHtml(`${point.sample} · ${point.condition} · PC1 ${point.pc1}, PC2 ${point.pc2}`)}" style="--x:${normalizePlot(point.pc1, xMin, xMax)}%;--y:${100 - normalizePlot(point.pc2, yMin, yMax)}%"></i>`;
+        }).join("")}
+      </div>
+    </section>
+    <section class="rnaseq-section">
+      <header><strong>Volcano</strong><span>${escapeHtml(`${data.volcano?.shown || 0} / ${data.volcano?.total || 0} genes`)}</span></header>
+      <div class="volcano-plot" aria-label="Differential-expression volcano plot">
+        <span class="plot-axis plot-axis-x"></span><span class="plot-axis plot-axis-y"></span>
+        ${volcanoPoints.map((point) => {
+          const status = ["up", "down"].includes(point.status) ? point.status : "not-significant";
+          const x = ((Number(point.log2_fold_change) + volcanoX) / (volcanoX * 2)) * 100;
+          const y = (Math.min(Number(point.neg_log10_padj) || 0, volcanoY) / volcanoY) * 100;
+          return `<i class="volcano-point ${status}" title="${escapeHtml(`${point.gene_id} · log2FC ${Number(point.log2_fold_change).toFixed(2)} · padj ${formatScientific(point.padj)}`)}" style="--x:${clamp(x, 1, 99)}%;--y:${100 - clamp(y, 1, 99)}%"></i>`;
+        }).join("")}
+      </div>
+      <div class="volcano-key"><span><i class="up"></i>Up</span><span><i class="down"></i>Down</span><span><i></i>Not significant</span></div>
+    </section>
+    <section class="rnaseq-section">
+      <header><strong>Top-gene heatmap</strong><span>${escapeHtml(heatmap.scale || "z-score")}</span></header>
+      <div class="heatmap-scroll">
+        <div class="heatmap-grid" style="--sample-count:${Math.max(1, heatmapSamples.length)}">
+          <span></span>${heatmapSamples.map((sample) => `<small title="${escapeHtml(sample)}">${escapeHtml(sample.slice(0, 4))}</small>`).join("")}
+          ${heatmapGenes.map((gene, rowIndex) => `
+            <strong title="${escapeHtml(gene)}">${escapeHtml(gene)}</strong>
+            ${(heatmap.values?.[rowIndex] || []).map((value) => `<i class="heat-cell" title="${escapeHtml(`${gene} · z ${value}`)}" style="--heat:${heatmapColor(value)}"></i>`).join("")}
+          `).join("")}
+        </div>
+      </div>
+    </section>
+    <section class="rnaseq-section">
+      <header><strong>Ranked genes</strong><span>adjusted p-value</span></header>
+      <div class="gene-table">
+        <div><b>Gene</b><b>log2FC</b><b>padj</b><b>Status</b></div>
+        ${topGenes.map((gene) => `<div><strong>${escapeHtml(gene.gene_id)}</strong><span>${escapeHtml(formatDecimal(gene.log2_fold_change, 2))}</span><span>${escapeHtml(formatScientific(gene.padj))}</span><span class="gene-status ${escapeHtml(gene.status)}">${escapeHtml(gene.status)}</span></div>`).join("")}
+      </div>
+    </section>
+    <div class="rnaseq-outputs">
+      <strong>Saved outputs</strong>
+      ${Object.values(data.outputs || {}).map((path) => `<code>${escapeHtml(path)}</code>`).join("")}
+    </div>
+    ${(data.warnings || []).length ? `<details class="rnaseq-notes"><summary>${escapeHtml(`${data.warnings.length} analysis note(s)`)}</summary>${data.warnings.map((warning) => `<p>${escapeHtml(warning)}</p>`).join("")}</details>` : ""}
+    <p>${escapeHtml(data.caveats?.[0] || "Differential expression requires study-design review and biological validation.")}</p>
+  `;
+}
+
+function renderSampleQc(rows) {
+  if (!rows.length) return "";
+  return `
+    <div class="sample-qc-table">
+      <div><b>Sample</b><b>Condition</b><b>Library</b><b>Detected</b></div>
+      ${rows.slice(0, 20).map((row) => `<div><strong title="${escapeHtml(row.sample)}">${escapeHtml(row.sample)}</strong><span>${escapeHtml(row.condition)}</span><span>${escapeHtml(Number(row.library_size || 0).toLocaleString())}</span><span>${escapeHtml(row.detected_genes || 0)}</span></div>`).join("")}
+    </div>
+  `;
+}
+
 function renderSkills() {
   els.skillList.innerHTML = "";
   if (!state.skills.length) {
@@ -810,10 +936,11 @@ function renderWorkflowRuns() {
 
   state.workflowRuns
     .slice()
-    .slice(0, 8)
+    .slice(0, 5)
     .forEach((run) => {
       const item = document.createElement("article");
       item.className = "workflow-run";
+      const preflight = run.preflight || null;
       const steps = (run.steps || [])
         .map(
           (step, index) => `
@@ -829,6 +956,7 @@ function renderWorkflowRuns() {
           <div><strong>${escapeHtml(run.title || "Guided workflow")}</strong><small>${escapeHtml(run.objective || run.description || "")}</small></div>
           <span class="workflow-status ${escapeHtml(run.status || "pending_approval")}">${escapeHtml(workflowStatusLabel(run.status))}</span>
         </header>
+        ${preflight ? `<div class="workflow-preflight"><strong>Preflight ready</strong><span>${escapeHtml(preflight.summary || "Inputs validated.")}</span><code>${escapeHtml(`${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`)}</code></div>` : ""}
         <ol>${steps}</ol>
         ${run.error ? `<p class="workflow-error">${escapeHtml(run.error)}</p>` : ""}
         ${
@@ -861,7 +989,7 @@ function workflowStatusLabel(status) {
 function renderWorkspaceFiles() {
   els.workspaceFileList.innerHTML = "";
   els.workspaceFileCount.textContent = `${state.workspaceFiles.length} files`;
-  state.workspaceFiles.slice(0, 5).forEach((file) => {
+  state.workspaceFiles.slice(0, 10).forEach((file) => {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "workspace-file";
@@ -991,6 +1119,7 @@ function createWorkflowControl(templateId, field) {
     control.type = field.type === "number" ? "number" : "text";
     if (field.min !== undefined) control.min = field.min;
     if (field.max !== undefined) control.max = field.max;
+    if (field.step !== undefined) control.step = field.step;
   }
   control.dataset.workflowField = field.name;
   control.required = Boolean(field.required);
@@ -1072,6 +1201,7 @@ async function approveWorkflow(runId) {
     upsertWorkflowRun(data.run);
     mergeAgentTrace(data.run.trace || []);
     mergeArtifacts(data.run.artifacts || []);
+    await refreshWorkspaceFiles();
     addSystemMessage(
       data.run.status === "completed"
         ? `“${data.run.title}”已完成，结果已进入可检查 artifacts。`
@@ -1554,10 +1684,15 @@ async function loadWorkbenchMetadata() {
     state.workspaceFiles = workspace.files || [];
     state.workflowTemplates = workflows.workflows || [];
     state.workflowRuns = runs.runs || [];
+    state.workflowRuns
+      .slice(0, 5)
+      .reverse()
+      .forEach((run) => mergeArtifacts(run.artifacts || []));
     els.localStatusText.textContent = `${health.skills || state.skills.length} skills · local agent ready`;
     renderSkills();
     renderWorkspaceFiles();
     renderWorkflowRuns();
+    renderArtifacts();
     renderMetrics();
   } catch (error) {
     els.localStatusText.textContent = "本地服务未启动";
@@ -2375,6 +2510,30 @@ function formatScientific(value) {
   if (!Number.isFinite(number)) return "n/a";
   if (number === 0) return "0";
   return number.toExponential(2).replace("e+", "e");
+}
+
+function formatDecimal(value, digits = 2) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : "n/a";
+}
+
+function normalizePlot(value, min, max) {
+  const range = Math.max(Number(max) - Number(min), 1e-9);
+  return clamp(((Number(value) - Number(min)) / range) * 84 + 8, 8, 92);
+}
+
+function percentile(values, proportion) {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return 0;
+  return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * proportion))];
+}
+
+function heatmapColor(value) {
+  const bounded = clamp(Number(value) || 0, -3, 3) / 3;
+  const base = bounded >= 0 ? [184, 74, 74] : [54, 120, 154];
+  const intensity = Math.abs(bounded);
+  const mixed = base.map((channel) => Math.round(250 + (channel - 250) * intensity));
+  return `rgb(${mixed.join(",")})`;
 }
 
 function escapeHtml(value) {

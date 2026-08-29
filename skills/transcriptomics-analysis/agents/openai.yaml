@@ -1,0 +1,3 @@
+interface:
+  display_name: "Bulk RNA-seq Analysis"
+  short_description: "Validate counts and run approved differential expression"

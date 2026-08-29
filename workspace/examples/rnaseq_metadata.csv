@@ -1,0 +1,9 @@
+sample,condition,batch
+control_1,control,A
+control_2,control,A
+control_3,control,B
+control_4,control,B
+treated_1,treated,A
+treated_2,treated,A
+treated_3,treated,B
+treated_4,treated,B

@@ -6,7 +6,7 @@
   "tools": [
     {
       "name": "research_route",
-      "description": "Route a broad molecular or protein research question to relevant local analysis and visualization skills.",
+      "description": "Route a broad life-science research question to relevant local analysis and visualization skills.",
       "handler": "scripts/handler.py:route_question",
       "input_schema": {
         "type": "object",

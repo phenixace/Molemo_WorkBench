@@ -240,6 +240,33 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a guided plan request without granting execution authority."""
+    table_paths = re.findall(r"([\w./-]+\.(?:csv|tsv))\b", message, re.I)
+    if len(table_paths) >= 2 and re.search(
+        r"rna-?seq|count matrix|differential expression|transcriptom|差异表达|转录组",
+        message,
+        re.I,
+    ):
+        count_path = next((path for path in table_paths if re.search(r"count|matrix", path, re.I)), table_paths[0])
+        metadata_path = next(
+            (path for path in table_paths if re.search(r"meta|sample|design", path, re.I)),
+            table_paths[1],
+        )
+        contrast = re.search(r"\b([A-Za-z][\w.-]*)\s+(?:vs\.?|versus)\s+([A-Za-z][\w.-]*)\b", message, re.I)
+        test_level = contrast.group(1) if contrast else "treated"
+        reference_level = contrast.group(2) if contrast else "control"
+        batch_match = re.search(r"(?:batch|批次)(?:\s+column|\s*列)?\s*[:：=]?\s*([A-Za-z_][A-Za-z0-9_]*)", message, re.I)
+        return "bulk-rnaseq-differential-expression", {
+            "count_matrix_path": count_path,
+            "metadata_path": metadata_path,
+            "sample_column": "sample",
+            "condition_column": "condition",
+            "test_level": test_level,
+            "reference_level": reference_level,
+            "batch_column": batch_match.group(1) if batch_match else "",
+            "min_total_count": 10,
+            "fdr_threshold": 0.05,
+            "lfc_threshold": 1.0,
+        }
     sequence_database = re.search(r"([\w./-]+\.(?:fa|fasta|faa|fna))\b", message, re.I)
     if sequence_database and re.search(r"\bblast[ pn]?\b|homolog|sequence search|同源|相似序列|序列搜索", message, re.I):
         query = str(context.get("sequence") or "").strip()

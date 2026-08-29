@@ -725,6 +725,38 @@ select:focus {
   font-size: 11px;
 }
 
+.workflow-preflight {
+  margin-top: 7px;
+  padding: 6px 7px;
+  border-left: 2px solid var(--green);
+  background: var(--green-soft);
+  display: grid;
+  gap: 2px;
+}
+
+.workflow-preflight strong,
+.workflow-preflight span,
+.workflow-preflight code {
+  overflow-wrap: anywhere;
+}
+
+.workflow-preflight strong {
+  color: var(--green);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.workflow-preflight span {
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.workflow-preflight code {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+}
+
 .workflow-status,
 .workflow-step-status {
   flex: 0 0 auto;
@@ -983,6 +1015,317 @@ select:focus {
 .artifact-card .search-empty {
   padding: 7px 2px;
   color: var(--muted);
+}
+
+.rnaseq-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.rnaseq-metrics > div {
+  min-width: 0;
+  padding: 6px 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.rnaseq-metrics span,
+.rnaseq-section header span {
+  display: block;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.rnaseq-metrics strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.rnaseq-design {
+  padding: 5px 0;
+  display: grid;
+  gap: 2px;
+  font-size: 9px;
+}
+
+.rnaseq-design code {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.rnaseq-design span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.sample-qc-table,
+.gene-table {
+  min-width: 0;
+  overflow-x: auto;
+  border-top: 1px solid var(--line);
+}
+
+.sample-qc-table > div,
+.gene-table > div {
+  min-width: 290px;
+  min-height: 25px;
+  display: grid;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  font-size: 8px;
+}
+
+.sample-qc-table > div {
+  grid-template-columns: minmax(72px, 1.3fr) minmax(58px, 1fr) minmax(50px, 0.8fr) minmax(42px, 0.7fr);
+}
+
+.sample-qc-table strong,
+.sample-qc-table span,
+.gene-table strong,
+.gene-table span,
+.gene-table b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rnaseq-warning,
+.artifact-card .rnaseq-warning {
+  padding: 5px 7px;
+  border-left: 2px solid var(--amber);
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-size: 9px;
+}
+
+.rnaseq-section {
+  min-width: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+}
+
+.rnaseq-section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rnaseq-section > header strong {
+  font-size: 10px;
+}
+
+.rnaseq-legend,
+.volcano-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.rnaseq-legend span,
+.volcano-key span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.rnaseq-legend i,
+.volcano-key i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9a9a94;
+}
+
+.condition-0 {
+  background: #176f68 !important;
+}
+
+.condition-1 {
+  background: #b06d27 !important;
+}
+
+.condition-2 {
+  background: #6f5d9a !important;
+}
+
+.condition-3 {
+  background: #3f7144 !important;
+}
+
+.condition-4 {
+  background: #9c4253 !important;
+}
+
+.condition-5 {
+  background: #36789a !important;
+}
+
+.pca-plot,
+.volcano-plot {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  overflow: hidden;
+  border-left: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  background:
+    linear-gradient(#eeeeea 1px, transparent 1px),
+    linear-gradient(90deg, #eeeeea 1px, transparent 1px),
+    var(--surface-subtle);
+  background-size: 32px 32px;
+}
+
+.plot-axis {
+  position: absolute;
+  z-index: 1;
+  background: var(--line-strong);
+  pointer-events: none;
+}
+
+.plot-axis-x {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+}
+
+.plot-axis-y {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+}
+
+.volcano-plot .plot-axis-x {
+  top: auto;
+  bottom: 0;
+}
+
+.pca-point,
+.volcano-point {
+  position: absolute;
+  z-index: 2;
+  left: var(--x);
+  top: var(--y);
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--surface);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.volcano-point {
+  width: 5px;
+  height: 5px;
+  border: 0;
+  background: #a4a49e;
+  opacity: 0.65;
+}
+
+.volcano-point.up,
+.volcano-key i.up {
+  background: var(--rose);
+  opacity: 0.9;
+}
+
+.volcano-point.down,
+.volcano-key i.down {
+  background: #36789a;
+  opacity: 0.9;
+}
+
+.heatmap-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.heatmap-grid {
+  min-width: calc(76px + var(--sample-count) * 18px);
+  display: grid;
+  grid-template-columns: 72px repeat(var(--sample-count), minmax(16px, 1fr));
+  gap: 1px;
+  align-items: center;
+}
+
+.heatmap-grid > small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.heatmap-grid > strong {
+  overflow: hidden;
+  padding-right: 4px;
+  font-family: var(--mono);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.heat-cell {
+  height: 13px;
+  background: var(--heat);
+}
+
+.gene-table > div {
+  grid-template-columns: minmax(68px, 1.2fr) minmax(42px, 0.7fr) minmax(64px, 1fr) minmax(42px, 0.7fr);
+}
+
+.gene-status.up {
+  color: var(--rose);
+}
+
+.gene-status.down {
+  color: #36789a;
+}
+
+.rnaseq-outputs {
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 3px;
+}
+
+.rnaseq-outputs strong {
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.rnaseq-outputs code {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+  overflow-wrap: anywhere;
+}
+
+.rnaseq-notes summary {
+  cursor: pointer;
+  color: var(--amber);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.rnaseq-notes p {
+  padding: 4px 0;
+  font-size: 9px;
 }
 
 .bar-chart {
@@ -1297,6 +1640,11 @@ select:focus {
   width: min(600px, calc(100vw - 24px));
 }
 
+.workflow-dialog .settings-form {
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
 .workflow-fields {
   display: grid;
   gap: 9px;
@@ -1382,6 +1730,12 @@ button:disabled {
   .sample-list {
     display: flex;
     overflow-x: auto;
+  }
+
+  .workspace-file-list {
+    max-height: 132px;
+    overflow-y: auto;
+    border-bottom: 1px solid var(--line);
   }
 
   .sample-button {

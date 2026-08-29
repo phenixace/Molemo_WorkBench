@@ -1,0 +1,51 @@
+{
+  "id": "transcriptomics-analysis",
+  "title": "Bulk RNA-seq Analysis",
+  "kind": "pipeline",
+  "description": "Validate raw count matrices and run researcher-approved bulk RNA-seq differential expression with PyDESeq2.",
+  "tools": [
+    {
+      "name": "transcriptomics_preflight",
+      "description": "Validate a workspace raw-count matrix, sample metadata, replication, contrast, batch design, count filter, and sample-level library metrics without fitting a model.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "count_matrix_path": { "type": "string", "description": "Workspace-relative raw count matrix in CSV or TSV format." },
+          "metadata_path": { "type": "string", "description": "Workspace-relative sample metadata in CSV or TSV format." },
+          "sample_column": { "type": "string", "default": "sample" },
+          "condition_column": { "type": "string", "default": "condition" },
+          "test_level": { "type": "string", "default": "treated" },
+          "reference_level": { "type": "string", "default": "control" },
+          "batch_column": { "type": "string", "default": "" },
+          "min_total_count": { "type": "integer", "minimum": 1, "maximum": 1000000000000, "default": 10 }
+        },
+        "required": ["count_matrix_path", "metadata_path", "test_level", "reference_level"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "transcriptomics_run_de",
+      "description": "Run bounded PyDESeq2 differential expression after approved input preflight and return PCA, volcano, heatmap, ranked genes, and persisted result files.",
+      "handler": "scripts/handler.py:run_differential_expression",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "count_matrix_path": { "type": "string" },
+          "metadata_path": { "type": "string" },
+          "sample_column": { "type": "string", "default": "sample" },
+          "condition_column": { "type": "string", "default": "condition" },
+          "test_level": { "type": "string" },
+          "reference_level": { "type": "string" },
+          "batch_column": { "type": "string", "default": "" },
+          "min_total_count": { "type": "integer", "minimum": 1, "maximum": 1000000000000, "default": 10 },
+          "fdr_threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "default": 0.05 },
+          "lfc_threshold": { "type": "number", "minimum": 0, "maximum": 20, "default": 1.0 }
+        },
+        "required": ["count_matrix_path", "metadata_path", "test_level", "reference_level"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
