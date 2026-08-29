@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. For single-cell analyses, preserve the raw-count input mode, QC thresholds, retained cells and genes, normalization, feature selection, random seed, graph and clustering parameters, and biological sample metadata. UMAP geometry, Leiden clusters, and cell-level marker rankings are exploratory; never name a cell type without external annotation evidence or treat cells as biological replicates. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -195,6 +195,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
     lane_labels = {
         "target evidence and prioritization": "靶点证据与优先级",
         "transcriptomics and expression": "转录组与表达",
+        "single-cell transcriptomics": "单细胞转录组",
         "sequence similarity search": "序列相似性搜索",
         "protein structure and sequence": "蛋白结构与序列",
         "protein family and domain analysis": "蛋白家族与结构域",
@@ -225,6 +226,11 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         reply = (
             f"当前问题被路由到 {lane}。{evidence_text} "
             "VCF 调用依赖上游 caller、FILTER、测序深度和 assay 误差模型；VAF 不是肿瘤比例或疗效指标，低频信号需要结合 LOD 与 read-level 证据复核。"
+        )
+    elif "single-cell transcriptomics" in raw_lanes:
+        reply = (
+            f"当前问题被路由到 {lane}。{evidence_text} "
+            "UMAP、Leiden cluster 与按细胞计算的 marker 排名都是探索性结果；细胞不是生物学重复，细胞类型命名和组间推断仍需样本信息、外部 marker 证据与 pseudobulk 复核。"
         )
     elif "protein family and domain analysis" in raw_lanes:
         reply = (
@@ -307,6 +313,9 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a guided plan request without granting execution authority."""
+    single_cell = extract_single_cell_plan(message)
+    if single_cell:
+        return "single-cell-exploratory-analysis", single_cell
     hmmer_search = extract_hmmer_profile_plan(message)
     if hmmer_search:
         return "hmmer-profile-search", hmmer_search
@@ -408,6 +417,41 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     if sample_type == "protein" and context.get("sequence"):
         return "protein-sequence-review", {"sequence": context["sequence"]}
     return None
+
+
+def extract_single_cell_plan(message: str) -> dict[str, Any] | None:
+    table_paths = re.findall(r"([\w./-]+\.(?:csv|tsv))\b", message, re.I)
+    if not table_paths or not re.search(
+        r"single[- ]?cell|scRNA-?seq|single cell RNA|单细胞|单细胞转录组|细胞聚类|Leiden|UMAP",
+        message,
+        re.I,
+    ):
+        return None
+    count_path = next(
+        (path for path in table_paths if re.search(r"count|matrix|expression|表达|计数", path, re.I)),
+        table_paths[0],
+    )
+    metadata_path = next(
+        (path for path in table_paths if path != count_path and re.search(r"meta|annot|cell|样本|注释", path, re.I)),
+        next((path for path in table_paths if path != count_path), ""),
+    )
+
+    def number(pattern: str, default: float) -> float:
+        match = re.search(r"(?:" + pattern + r")\s*[:：=]?\s*([0-9.]+)", message, re.I)
+        return float(match.group(1)) if match else default
+
+    return {
+        "count_matrix_path": count_path,
+        "metadata_path": metadata_path,
+        "cell_id_column": "cell_id",
+        "min_genes": int(number(r"min[_ -]?genes|每细胞最少(?:检测)?基因", 20)),
+        "min_cells": int(number(r"min[_ -]?cells|每基因最少(?:检测)?细胞", 3)),
+        "max_mito_percent": number(r"max(?:imum)?[_ -]?(?:mt|mito)(?:[_ -]?percent)?|线粒体(?:比例|计数)?上限", 20),
+        "n_top_genes": int(number(r"n[_ -]?top[_ -]?genes|高变基因(?:数)?", 2000)),
+        "n_neighbors": int(number(r"n[_ -]?neighbors|邻居数", 15)),
+        "leiden_resolution": number(r"(?:leiden[_ -]?)?resolution|分辨率", 1),
+        "marker_genes": int(number(r"marker[_ -]?genes|每群 marker(?: 数)?", 10)),
+    }
 
 
 def extract_hmmer_profile_plan(message: str) -> dict[str, Any] | None:

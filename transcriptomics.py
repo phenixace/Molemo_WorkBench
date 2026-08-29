@@ -23,6 +23,7 @@ from workspace_utils import MAX_UPLOAD_BYTES, WORKSPACE_ROOT, WorkspaceError, re
 ROOT = Path(__file__).resolve().parent
 RUNNER_PATH = ROOT / "tools" / "run_pydeseq2.py"
 PROJECT_RNASEQ_PYTHON = ROOT / ".molemo-tools" / "rnaseq" / "bin" / "python"
+PROJECT_TOOLS_PYTHON = ROOT / ".molemo-tools" / "bin" / "python"
 TABLE_SUFFIXES = {".csv", ".tsv"}
 MAX_GENES = 100_000
 MAX_SAMPLES = 100
@@ -51,6 +52,7 @@ def find_pydeseq2_python() -> Path | None:
     configured = str(os.environ.get("MOLEMO_RNASEQ_PYTHON") or "").strip()
     candidates = [Path(configured).expanduser()] if configured else []
     candidates.append(PROJECT_RNASEQ_PYTHON)
+    candidates.append(PROJECT_TOOLS_PYTHON)
     if importlib.util.find_spec("pydeseq2") is not None:
         candidates.append(Path(sys.executable))
     for candidate in candidates:

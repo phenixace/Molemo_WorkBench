@@ -756,6 +756,13 @@ function renderArtifacts() {
         card.innerHTML = renderRnaseqPreflight(title, artifact.data || {});
       } else if (artifact.type === "transcriptomics-de") {
         card.innerHTML = renderTranscriptomicsResult(title, artifact.data || {});
+      } else if (artifact.type === "single-cell-preflight") {
+        card.innerHTML = renderSingleCellPreflight(title, artifact.data || {});
+      } else if (artifact.type === "single-cell-analysis") {
+        const data = artifact.data || {};
+        card.classList.add("single-cell-analysis-artifact");
+        card.innerHTML = renderSingleCellAnalysis(title, data);
+        bindSingleCellControls(card, data);
       } else if (artifact.type === "target-evidence-preflight") {
         card.innerHTML = renderTargetEvidencePreflight(title, artifact.data || {});
       } else if (artifact.type === "target-evidence-review") {
@@ -1813,6 +1820,134 @@ function renderSampleQc(rows) {
   `;
 }
 
+const SINGLE_CELL_COLORS = ["#176f68", "#b06d27", "#6f5d9a", "#3f7144", "#9c4253", "#36789a", "#8b6c3f", "#58606d"];
+
+function renderSingleCellPreflight(title, data) {
+  const parameters = data.parameters || {};
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(`Scanpy ${data.toolchain?.scanpy_version || "unavailable"}`)}</span></header>
+    <div class="single-cell-input-line">
+      <span>Raw counts</span><code>${escapeHtml(data.count_matrix_path || "")}</code>
+      ${data.metadata_path ? `<small>${escapeHtml(data.metadata_path)}</small>` : ""}
+    </div>
+    <div class="single-cell-metrics">
+      ${[
+        ["Cells", Number(data.cells || 0).toLocaleString("en-US")],
+        ["Genes", Number(data.genes || 0).toLocaleString("en-US")],
+        ["Cells retained", Number(data.cells_after_filter || 0).toLocaleString("en-US")],
+        ["Genes retained", Number(data.genes_after_filter || 0).toLocaleString("en-US")],
+        ["Sparsity", `${data.sparsity_percent || 0}%`],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="single-cell-thresholds">
+      <span>≥ ${escapeHtml(parameters.min_genes || 0)} genes / cell</span>
+      <span>≥ ${escapeHtml(parameters.min_cells || 0)} cells / gene</span>
+      <span>MT ≤ ${escapeHtml(parameters.max_mito_percent ?? 100)}%</span>
+      <span>${escapeHtml(parameters.n_neighbors || 0)} neighbors</span>
+      <span>Leiden ${escapeHtml(parameters.leiden_resolution || 1)}</span>
+    </div>
+    ${(data.metadata?.categorical_columns || []).length ? `<div class="single-cell-metadata">${data.metadata.categorical_columns.map((field) => `<span><strong>${escapeHtml(field.column)}</strong>${escapeHtml(`${field.levels} levels`)}</span>`).join("")}</div>` : ""}
+    ${(data.warnings || []).map((warning) => `<p class="single-cell-warning">${escapeHtml(warning)}</p>`).join("")}
+  `;
+}
+
+function renderSingleCellAnalysis(title, data) {
+  const points = data.embedding?.points || [];
+  const qcPoints = data.qc?.points || [];
+  const xValues = points.map((point) => Number(point.umap_1) || 0);
+  const yValues = points.map((point) => Number(point.umap_2) || 0);
+  const xMin = Math.min(...xValues, -1);
+  const xMax = Math.max(...xValues, 1);
+  const yMin = Math.min(...yValues, -1);
+  const yMax = Math.max(...yValues, 1);
+  const qcX = qcPoints.map((point) => Number(point.total_counts) || 0);
+  const qcY = qcPoints.map((point) => Number(point.n_genes_by_counts) || 0);
+  const qcXMin = Math.min(...qcX, 0);
+  const qcXMax = Math.max(...qcX, 1);
+  const qcYMin = Math.min(...qcY, 0);
+  const qcYMax = Math.max(...qcY, 1);
+  const metadataFields = (data.metadata_fields || []).filter((field) => {
+    const levels = new Set(points.map((point) => String(point[field] ?? "")).filter(Boolean));
+    return levels.size > 1 && levels.size <= 30;
+  });
+  const colorKeys = ["cluster", ...metadataFields];
+  const markerPlot = data.marker_dotplot || {};
+  const markerGenes = (markerPlot.genes || []).slice(0, 24);
+  const markerClusters = markerPlot.clusters || [];
+  const markerValues = markerPlot.values || [];
+  const maximumMarkerMean = Math.max(1, ...markerValues.map((value) => Number(value.mean) || 0));
+  const topMarkers = (data.markers || []).slice(0, 40);
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(`${data.method || "Scanpy"} ${data.method_version || ""}`.trim())}</span></header>
+    <div class="single-cell-metrics">
+      ${[
+        ["Cells retained", `${Number(data.cells_retained || 0).toLocaleString("en-US")} / ${Number(data.cells_input || 0).toLocaleString("en-US")}`],
+        ["Genes retained", `${Number(data.genes_retained || 0).toLocaleString("en-US")} / ${Number(data.genes_input || 0).toLocaleString("en-US")}`],
+        ["HVG", Number(data.highly_variable_genes || 0).toLocaleString("en-US")],
+        ["Clusters", data.clusters || 0],
+        ["Seed", data.random_seed ?? 0],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="single-cell-method-line">
+      <span>Raw counts</span><i></i><span>QC</span><i></i><span>CP10k + log1p</span><i></i><span>HVG / PCA</span><i></i><span>Neighbors / UMAP / Leiden</span>
+    </div>
+    <section class="single-cell-section">
+      <header><div><strong>Cell embedding</strong><span>${escapeHtml(`UMAP · ${data.embedding?.shown || 0} / ${data.embedding?.total || 0} cells`)}</span></div><div class="single-cell-color-control" role="group" aria-label="Color cell embedding">${colorKeys.map((key, index) => `<button type="button" data-single-cell-color="${escapeHtml(key)}" class="${index === 0 ? "is-active" : ""}">${escapeHtml(key)}</button>`).join("")}</div></header>
+      <div class="single-cell-legend" aria-live="polite"></div>
+      <div class="single-cell-umap" aria-label="UMAP embedding of retained cells">
+        ${points.map((point, index) => `<i class="single-cell-umap-point" data-point-index="${index}" title="${escapeHtml(`${point.cell_id} · cluster ${point.cluster}`)}" style="--x:${normalizePlot(point.umap_1, xMin, xMax)}%;--y:${100 - normalizePlot(point.umap_2, yMin, yMax)}%;--point-color:${SINGLE_CELL_COLORS[Number(point.cluster || 0) % SINGLE_CELL_COLORS.length]}"></i>`).join("")}
+        <span class="single-cell-axis-x">UMAP 1</span><span class="single-cell-axis-y">UMAP 2</span>
+      </div>
+    </section>
+    <section class="single-cell-section single-cell-qc-section">
+      <header><div><strong>Cell QC</strong><span>${escapeHtml(`${data.qc?.shown || 0} / ${data.qc?.total || 0} cells`)}</span></div><div class="single-cell-qc-key"><span><i></i>Retained</span><span><i></i>Excluded</span></div></header>
+      <div class="single-cell-qc-plot" aria-label="Cell library size and detected genes">
+        ${qcPoints.map((point) => `<i class="${point.retained ? "retained" : "excluded"}" title="${escapeHtml(`${point.cell_id} · ${point.total_counts} counts · ${point.n_genes_by_counts} genes · MT ${formatDecimal(point.pct_counts_mt, 2)}%`)}" style="--x:${normalizePlot(point.total_counts, qcXMin, qcXMax)}%;--y:${100 - normalizePlot(point.n_genes_by_counts, qcYMin, qcYMax)}%"></i>`).join("")}
+        <span class="single-cell-axis-x">Total counts</span><span class="single-cell-axis-y">Detected genes</span>
+      </div>
+    </section>
+    <section class="single-cell-section">
+      <header><div><strong>Leiden clusters</strong><span>${escapeHtml(`resolution ${data.parameters?.leiden_resolution ?? "n/a"}`)}</span></div></header>
+      <div class="single-cell-cluster-table">
+        <div><b>Cluster</b><b>Cells</b><b>Share</b><b>Top markers</b></div>
+        ${(data.cluster_summary || []).map((cluster) => `<div><strong><i style="--cluster-color:${SINGLE_CELL_COLORS[Number(cluster.cluster || 0) % SINGLE_CELL_COLORS.length]}"></i>${escapeHtml(cluster.cluster)}</strong><span>${escapeHtml(cluster.cells)}</span><span>${escapeHtml(`${cluster.percent}%`)}</span><span title="${escapeHtml(cluster.top_markers || "")}">${escapeHtml(cluster.top_markers || "No marker ranking")}</span></div>`).join("")}
+      </div>
+    </section>
+    ${markerGenes.length ? `<section class="single-cell-section"><header><div><strong>Marker expression</strong><span>${escapeHtml(markerPlot.scale || "mean log1p CP10k")}</span></div></header><div class="single-cell-dotplot-scroll"><div class="single-cell-dotplot" style="--marker-count:${markerGenes.length}"><span></span>${markerGenes.map((gene) => `<b title="${escapeHtml(gene)}">${escapeHtml(gene)}</b>`).join("")}${markerClusters.map((cluster) => `<strong>${escapeHtml(cluster)}</strong>${markerGenes.map((gene) => { const value = markerValues.find((item) => String(item.cluster) === String(cluster) && item.gene === gene) || {}; const fraction = Number(value.fraction) || 0; const mean = Number(value.mean) || 0; return `<i title="${escapeHtml(`Cluster ${cluster} · ${gene} · ${formatDecimal(fraction * 100, 1)}% expressed · mean ${formatDecimal(mean, 2)}`)}" style="--dot-size:${4 + fraction * 13}px;--dot-color:${mixHex("#ddd9d0", "#176f68", mean / maximumMarkerMean)}"></i>`; }).join("")}`).join("")}</div></div></section>` : ""}
+    <section class="single-cell-section">
+      <header><div><strong>Cluster marker ranking</strong><span>Wilcoxon · cluster vs rest</span></div></header>
+      <div class="single-cell-marker-table">
+        <div><b>Cluster</b><b>Gene</b><b>logFC</b><b>adj. p</b><b>Detected</b></div>
+        ${topMarkers.map((marker) => `<div><strong>${escapeHtml(marker.cluster)}</strong><span>${escapeHtml(marker.gene)}</span><span>${escapeHtml(formatDecimal(marker.logfoldchange, 2))}</span><span>${escapeHtml(formatScientific(marker.pvalue_adj))}</span><span>${escapeHtml(`${formatDecimal(Number(marker.pct_cluster || 0) * 100, 1)}% / ${formatDecimal(Number(marker.pct_rest || 0) * 100, 1)}%`)}</span></div>`).join("")}
+      </div>
+    </section>
+    <div class="single-cell-outputs"><strong>Saved outputs</strong>${Object.values(data.outputs || {}).map((path) => `<code>${escapeHtml(path)}</code>`).join("")}</div>
+    ${(data.warnings || []).length ? `<details class="single-cell-notes"><summary>${escapeHtml(`${data.warnings.length} analysis note(s)`)}</summary>${data.warnings.map((warning) => `<p>${escapeHtml(warning)}</p>`).join("")}</details>` : ""}
+    <p class="evidence-caveat">${escapeHtml(data.caveats?.[0] || "Clusters and UMAP coordinates are exploratory and do not establish cell identity.")}</p>
+  `;
+}
+
+function bindSingleCellControls(card, data) {
+  const points = data.embedding?.points || [];
+  const buttons = Array.from(card.querySelectorAll("[data-single-cell-color]"));
+  const plotPoints = Array.from(card.querySelectorAll(".single-cell-umap-point"));
+  const legend = card.querySelector(".single-cell-legend");
+  function update(key) {
+    const categories = Array.from(new Set(points.map((point) => String(point[key] ?? "unknown")))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const colorByValue = new Map(categories.map((value, index) => [value, SINGLE_CELL_COLORS[index % SINGLE_CELL_COLORS.length]]));
+    plotPoints.forEach((element, index) => {
+      const point = points[index] || {};
+      const value = String(point[key] ?? "unknown");
+      element.style.setProperty("--point-color", colorByValue.get(value));
+      element.title = `${point.cell_id || "cell"} · ${key} ${value}`;
+    });
+    buttons.forEach((button) => button.classList.toggle("is-active", button.dataset.singleCellColor === key));
+    if (legend) legend.innerHTML = categories.map((value) => `<span><i style="--legend-color:${colorByValue.get(value)}"></i>${escapeHtml(value)}</span>`).join("");
+  }
+  buttons.forEach((button) => button.addEventListener("click", () => update(button.dataset.singleCellColor)));
+  update("cluster");
+}
+
 function renderSkills() {
   els.skillList.innerHTML = "";
   if (!state.skills.length) {
@@ -1893,6 +2028,8 @@ function renderWorkflowPreflight(preflight) {
     detail = `${preflight.vcf_path} · ${preflight.sample_count || 0} samples · ${preflight.record_count || 0} records`;
   } else if (preflight.hmm_path) {
     detail = `${preflight.hmm_path} · ${preflight.model_count || 0} models · ${preflight.sequence_count || 0} sequences`;
+  } else if (preflight.input_mode === "cell_by_gene_raw_counts") {
+    detail = `${preflight.count_matrix_path} · ${preflight.cells_after_filter || 0} cells · ${preflight.genes_after_filter || 0} genes`;
   } else if (preflight.design_formula || preflight.contrast) {
     detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
   }
@@ -2069,6 +2206,8 @@ function workflowFieldDefault(templateId, field) {
   if (templateId === "vcf-cohort-review" && field.name === "metadata_path") return "examples/ctdna_metadata.csv";
   if (templateId === "hmmer-profile-search" && field.name === "hmm_path") return "examples/ubiquitin_demo.hmm";
   if (templateId === "hmmer-profile-search" && field.name === "database_path") return "examples/hmmer_targets.faa";
+  if (templateId === "single-cell-exploratory-analysis" && field.name === "count_matrix_path") return "examples/single_cell_counts.csv";
+  if (templateId === "single-cell-exploratory-analysis" && field.name === "metadata_path") return "examples/single_cell_metadata.csv";
   if (field.name === "smiles") return sample.smiles || "";
   if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
   if (field.name === "pdb_id") return sample.pdbId || "";

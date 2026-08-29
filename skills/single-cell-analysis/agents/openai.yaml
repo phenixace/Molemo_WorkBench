@@ -1,0 +1,3 @@
+interface:
+  display_name: "Single-cell Analysis"
+  short_description: "Preflight approved Scanpy QC, UMAP, Leiden, and marker workflows."

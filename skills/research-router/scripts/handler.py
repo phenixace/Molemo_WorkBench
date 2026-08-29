@@ -24,6 +24,7 @@ LANES = (
     ("literature and study discovery", r"paper|publication|literature|pubmed|europe pmc|文献|论文|研究综述|证据地图"),
     ("experimental protein structure", r"pdb|rcsb|mmcif|coordinate|atom-level|原子|坐标|三维结构"),
     ("sequencing quality control", r"fastq|phred|q20|q30|read quality|测序|质控|读长"),
+    ("single-cell transcriptomics", r"single[- ]?cell|scrna-?seq|单细胞|细胞聚类|leiden|umap"),
     ("transcriptomics and expression", r"rna-?seq|count matrix|differential expression|transcriptom|差异表达|转录组|表达矩阵"),
     (
         "sequencing and cohort variants",
@@ -68,6 +69,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
         suggested.extend(["structure_fetch_pdb", "structure_parse_workspace"])
     if "sequencing quality control" in lanes:
         suggested.append("ngs_fastq_qc")
+    if "single-cell transcriptomics" in lanes:
+        suggested.extend(["single_cell_preflight", "workflow_create_plan"])
     if "transcriptomics and expression" in lanes:
         suggested.extend(["transcriptomics_preflight", "workflow_create_plan"])
     if "sequencing and cohort variants" in lanes:
