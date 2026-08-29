@@ -1,10 +1,10 @@
 import unittest
 
-from agent_runtime import extract_pubchem_query, local_intent_tools
-from bio_clients import parse_pubchem_payload, parse_rcsb_payload, parse_uniprot_payload
+from agent_runtime import extract_alphafold_accession, extract_pubchem_query, local_intent_tools
+from bio_clients import ExternalDataError, parse_alphafold_predictions, parse_pubchem_payload, parse_rcsb_payload, parse_uniprot_payload
 from ngs_qc import FastqError, analyze_fastq_text
 from skill_runtime import SkillRegistry
-from structure_io import parse_structure_text
+from structure_io import build_structure_sample, parse_structure_text, summarize_plddt
 
 
 PDB_TEXT = """\
@@ -33,6 +33,12 @@ _atom_site.pdbx_PDB_model_num
 ATOM 1 N N . ALA A 1 0.0 0.0 0.0 1
 ATOM 2 C CA . ALA A 1 1.4 0.0 0.0 1
 #
+"""
+
+ALPHAFOLD_PDB_TEXT = """\
+ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00 95.00           C
+ATOM      2  CA  GLY A   2       1.500   0.000   0.000  1.00 45.00           C
+END
 """
 
 FASTQ_TEXT = """\
@@ -105,6 +111,41 @@ class PublicDatabaseParsingTests(unittest.TestCase):
         self.assertEqual(result["pdb_id"], "1ABC")
         self.assertEqual(result["resolution_angstrom"], 1.8)
 
+    def test_alphafold_payload_selects_exact_accession_not_first_isoform(self):
+        result = parse_alphafold_predictions(
+            [
+                {
+                    "uniprotAccession": "P04637-9",
+                    "entryId": "AF-P04637-9-F1",
+                    "pdbUrl": "https://alphafold.ebi.ac.uk/files/AF-P04637-9-F1-model_v6.pdb",
+                },
+                {
+                    "uniprotAccession": "P04637",
+                    "entryId": "AF-P04637-F1",
+                    "pdbUrl": "https://alphafold.ebi.ac.uk/files/AF-P04637-F1-model_v6.pdb",
+                    "globalMetricValue": 75.06,
+                },
+            ],
+            "P04637",
+        )
+
+        self.assertEqual(result["entry_id"], "AF-P04637-F1")
+        self.assertEqual(result["mean_plddt"], 75.06)
+        self.assertEqual(result["coordinate_type"], "predicted")
+
+    def test_alphafold_payload_rejects_missing_exact_accession(self):
+        with self.assertRaises(ExternalDataError):
+            parse_alphafold_predictions(
+                [
+                    {
+                        "uniprotAccession": "P04637-9",
+                        "entryId": "AF-P04637-9-F1",
+                        "pdbUrl": "https://alphafold.ebi.ac.uk/files/AF-P04637-9-F1-model_v6.pdb",
+                    }
+                ],
+                "P04637",
+            )
+
 
 class StructureAndNgsTests(unittest.TestCase):
     @classmethod
@@ -120,6 +161,27 @@ class StructureAndNgsTests(unittest.TestCase):
         self.assertEqual(pdb["ligands"], ["LIG"])
         self.assertEqual(cif["atom_count"], 2)
         self.assertEqual(cif["sequence"], "A")
+
+    def test_alphafold_plddt_is_retained_and_labeled_as_prediction(self):
+        structure = parse_structure_text(ALPHAFOLD_PDB_TEXT, "AF-P04637-F1", "pdb")
+        structure["confidence"] = summarize_plddt(structure, 70.0)
+        sample = build_structure_sample(
+            structure,
+            "TP53 predicted structure",
+            {
+                "source": "AlphaFold Protein Structure Database",
+                "coordinate_type": "predicted",
+                "entry_id": "AF-P04637-F1",
+                "accession": "P04637",
+            },
+        )
+
+        self.assertEqual(structure["backbone"][0]["points"][0]["bfactor"], 95.0)
+        self.assertEqual(structure["confidence"]["counts"]["very_high"], 1)
+        self.assertEqual(structure["confidence"]["counts"]["very_low"], 1)
+        self.assertEqual(sample["metadata"]["coordinateType"], "predicted")
+        self.assertIn("mean pLDDT 70.00", sample["confidence"])
+        self.assertNotIn("experimental", sample["confidence"])
 
     def test_fastq_qc_reports_quality_and_composition(self):
         result = analyze_fastq_text(FASTQ_TEXT)
@@ -149,6 +211,10 @@ class StructureAndNgsTests(unittest.TestCase):
         names = [name for name, _ in selected]
         self.assertIn("structure_fetch_pdb", names)
         self.assertIn("ngs_fastq_qc", names)
+
+        alphafold = local_intent_tools("从 AlphaFold DB 加载 UniProt P04637 预测结构并按 pLDDT 显示")
+        self.assertEqual(extract_alphafold_accession("AlphaFold P04637"), "P04637")
+        self.assertIn("structure_fetch_alphafold", [name for name, _ in alphafold])
 
 
 if __name__ == "__main__":

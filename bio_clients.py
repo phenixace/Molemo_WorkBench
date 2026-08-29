@@ -15,6 +15,7 @@ from urllib.parse import quote, urlencode, urlparse
 
 
 ALLOWED_HOSTS = {
+    "alphafold.ebi.ac.uk",
     "api.platform.opentargets.org",
     "clinicaltrials.gov",
     "clinicaltables.nlm.nih.gov",
@@ -32,7 +33,7 @@ ALLOWED_HOSTS = {
 MAX_JSON_BYTES = 6 * 1024 * 1024
 MAX_JSON_REQUEST_BYTES = 256 * 1024
 MAX_STRUCTURE_BYTES = 24 * 1024 * 1024
-USER_AGENT = "Molemo-WorkBench/0.15 (public scientific database client)"
+USER_AGENT = "Molemo-WorkBench/0.16 (public scientific database client)"
 MAX_STRING_QUERY_BYTES = 16 * 1024
 _STRING_REQUEST_LOCK = threading.Lock()
 _STRING_LAST_REQUEST = 0.0
@@ -301,11 +302,82 @@ def parse_pubchem_payload(payload: dict[str, Any], query: str = "") -> dict[str,
 
 
 def lookup_uniprot(accession: str) -> dict[str, Any]:
+    cleaned = normalize_uniprot_accession(accession)
+    payload = get_json(f"https://rest.uniprot.org/uniprotkb/{quote(cleaned, safe='-')}.json")
+    return parse_uniprot_payload(payload, cleaned)
+
+
+def lookup_alphafold_prediction(accession: str) -> dict[str, Any]:
+    """Return the exact AlphaFold DB record for a UniProt accession."""
+    cleaned = normalize_uniprot_accession(accession)
+    payload = get_json_array(f"https://alphafold.ebi.ac.uk/api/prediction/{quote(cleaned, safe='-')}")
+    return parse_alphafold_predictions(payload, cleaned)
+
+
+def parse_alphafold_predictions(payload: list[Any], accession: str) -> dict[str, Any]:
+    cleaned = normalize_uniprot_accession(accession)
+    record = next(
+        (
+            item
+            for item in payload
+            if isinstance(item, dict)
+            and str(item.get("uniprotAccession") or "").strip().upper() == cleaned
+        ),
+        None,
+    )
+    if record is None:
+        raise ExternalDataError(f"AlphaFold DB did not return an exact model for {cleaned}.")
+    entry_id = str(record.get("entryId") or record.get("modelEntityId") or "").strip()
+    model_url = str(record.get("pdbUrl") or "").strip()
+    if not entry_id or not model_url:
+        raise ExternalDataError("AlphaFold DB returned a record without a downloadable PDB model.")
+    return {
+        "source": "AlphaFold Protein Structure Database",
+        "source_url": f"https://alphafold.ebi.ac.uk/entry/{quote(cleaned, safe='-')}",
+        "coordinate_type": "predicted",
+        "accession": cleaned,
+        "entry_id": entry_id,
+        "gene": record.get("gene"),
+        "organism": record.get("organismScientificName"),
+        "taxon_id": record.get("taxId"),
+        "sequence": record.get("uniprotSequence") or "",
+        "length": record.get("uniprotEnd"),
+        "reviewed": bool(record.get("isReviewed")),
+        "tool": record.get("toolUsed"),
+        "mean_plddt": record.get("globalMetricValue"),
+        "fraction_very_high": record.get("fractionPlddtVeryHigh"),
+        "fraction_confident": record.get("fractionPlddtConfident"),
+        "fraction_low": record.get("fractionPlddtLow"),
+        "fraction_very_low": record.get("fractionPlddtVeryLow"),
+        "latest_version": record.get("latestVersion"),
+        "all_versions": record.get("allVersions") or [],
+        "model_created_date": record.get("modelCreatedDate"),
+        "model_url": model_url,
+        "confidence_url": record.get("plddtDocUrl"),
+        "pae_url": record.get("paeDocUrl"),
+        "pae_image_url": record.get("paeImageUrl"),
+    }
+
+
+def fetch_alphafold_pdb_text(model_url: str) -> str:
+    """Fetch an AlphaFold PDB URL only when it matches the official file layout."""
+    parsed = urlparse(str(model_url or ""))
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != "alphafold.ebi.ac.uk"
+        or parsed.query
+        or parsed.fragment
+        or not re.fullmatch(r"/files/AF-[A-Z0-9-]+-F1-model_v\d+\.pdb", parsed.path, re.I)
+    ):
+        raise ExternalDataError("AlphaFold model URL did not match the approved official file path.")
+    return get_text(parsed.geturl())
+
+
+def normalize_uniprot_accession(accession: str) -> str:
     cleaned = str(accession or "").strip().upper()
     if not re.fullmatch(r"[A-Z0-9]{6,10}(?:-\d+)?", cleaned):
         raise ExternalDataError("UniProt accession must be a 6-10 character accession, optionally with an isoform suffix.")
-    payload = get_json(f"https://rest.uniprot.org/uniprotkb/{quote(cleaned, safe='-')}.json")
-    return parse_uniprot_payload(payload, cleaned)
+    return cleaned
 
 
 def parse_uniprot_payload(payload: dict[str, Any], accession: str = "") -> dict[str, Any]:

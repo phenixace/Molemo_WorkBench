@@ -1,11 +1,17 @@
-"""Experimental coordinate retrieval and parsing handlers."""
+"""Experimental and predicted protein coordinate handlers."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from bio_clients import fetch_rcsb_pdb_text, lookup_rcsb_entry, normalize_pdb_id
-from structure_io import build_structure_sample, parse_structure_text
+from bio_clients import (
+    fetch_alphafold_pdb_text,
+    fetch_rcsb_pdb_text,
+    lookup_alphafold_prediction,
+    lookup_rcsb_entry,
+    normalize_pdb_id,
+)
+from structure_io import build_structure_sample, parse_structure_text, summarize_plddt
 from workspace_utils import resolve_workspace_path
 
 
@@ -15,9 +21,51 @@ MAX_LOCAL_STRUCTURE_BYTES = 24 * 1024 * 1024
 def fetch_structure(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:
     pdb_id = normalize_pdb_id(str(arguments.get("pdb_id") or ""))
     metadata = lookup_rcsb_entry(pdb_id)
+    metadata["coordinate_type"] = "experimental"
     structure = parse_structure_text(fetch_rcsb_pdb_text(pdb_id), pdb_id, "pdb")
     sample = build_structure_sample(structure, str(metadata.get("title") or pdb_id), metadata)
     return _result(sample, metadata, "RCSB PDB Data API and coordinate archive")
+
+
+def fetch_alphafold_structure(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:
+    metadata = lookup_alphafold_prediction(str(arguments.get("accession") or ""))
+    structure = parse_structure_text(
+        fetch_alphafold_pdb_text(str(metadata["model_url"])),
+        str(metadata["entry_id"]),
+        "pdb",
+    )
+    structure["confidence"] = summarize_plddt(structure, metadata.get("mean_plddt"))
+    accession = str(metadata["accession"])
+    gene = str(metadata.get("gene") or "").strip()
+    title = f"{gene} ({accession}) predicted structure" if gene else f"{accession} predicted structure"
+    sample = build_structure_sample(structure, title, metadata)
+    confidence = structure["confidence"]
+    summary = (
+        f"Loaded AlphaFold DB model {structure['source_id']} for {accession}: "
+        f"{confidence['residue_count']} residues with mean pLDDT {confidence['mean_plddt']:.2f}."
+    )
+    return {
+        "summary": summary,
+        "data": {"structure": structure, "metadata": metadata, "confidence": confidence},
+        "evidence": [
+            {
+                "source": "AlphaFold Protein Structure Database",
+                "url": metadata["source_url"],
+            }
+        ],
+        "caveats": [
+            "pLDDT is local confidence; use PAE to review relative domain placement.",
+            "A predicted structure does not by itself establish binding, dynamics, or mechanism.",
+        ],
+        "artifacts": [
+            {
+                "id": f"protein-structure-{structure['source_id'].lower()}",
+                "type": "protein-structure",
+                "title": f"{structure['source_id'].upper()} predicted structure",
+                "data": sample,
+            }
+        ],
+    }
 
 
 def parse_workspace_structure(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:
@@ -34,7 +82,7 @@ def parse_workspace_structure(arguments: dict[str, Any], _context: dict[str, Any
         target.stem,
         target.suffix.lstrip("."),
     )
-    metadata = {"source": "local workspace", "path": relative}
+    metadata = {"source": "local workspace", "path": relative, "coordinate_type": "local"}
     sample = build_structure_sample(structure, target.stem, metadata)
     return _result(sample, metadata, "local PDB/mmCIF coordinate parser")
 

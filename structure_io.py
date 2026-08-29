@@ -67,6 +67,10 @@ def _parse_pdb_atoms(text: str) -> list[dict[str, Any]]:
             z = float(line[46:54])
         except ValueError:
             continue
+        try:
+            bfactor = float(line[60:66]) if len(line) >= 66 and line[60:66].strip() else None
+        except ValueError:
+            bfactor = None
         name = line[12:16].strip()
         element = line[76:78].strip().title() if len(line) >= 78 else ""
         if not element:
@@ -84,6 +88,7 @@ def _parse_pdb_atoms(text: str) -> list[dict[str, Any]]:
                 "chain": line[21:22].strip() or "_",
                 "resSeq": line[22:27].strip(),
                 "hetero": record == "HETATM",
+                "bfactor": bfactor,
             }
         )
     return atoms
@@ -143,6 +148,11 @@ def _parse_mmcif_atoms(text: str) -> list[dict[str, Any]]:
                 z = float(values[field["Cartn_z"]])
             except (ValueError, IndexError):
                 continue
+            try:
+                raw_bfactor = _cif_value(values, field, "B_iso_or_equiv")
+                bfactor = float(raw_bfactor) if raw_bfactor not in {"", ".", "?"} else None
+            except ValueError:
+                bfactor = None
             atoms.append(
                 {
                     "e": _cif_value(values, field, "type_symbol", "X").title(),
@@ -154,6 +164,7 @@ def _parse_mmcif_atoms(text: str) -> list[dict[str, Any]]:
                     "chain": _cif_first(values, field, "auth_asym_id", "label_asym_id") or "_",
                     "resSeq": _cif_first(values, field, "auth_seq_id", "label_seq_id"),
                     "hetero": group == "HETATM",
+                    "bfactor": bfactor,
                 }
             )
         break
@@ -202,6 +213,7 @@ def _build_structure(atoms: list[dict[str, Any]], source_id: str, source_format:
                 "aa": amino_acid,
                 "residue": atom["residue"],
                 "resSeq": atom["resSeq"],
+                "bfactor": atom.get("bfactor"),
             }
         )
     sequence = "".join("".join(chain_sequences[chain]) for chain in sorted(chain_sequences))
@@ -243,9 +255,60 @@ def _select_viewer_atoms(atoms: list[dict[str, Any]], limit: int) -> list[dict[s
             "chain": atom["chain"],
             "resSeq": atom["resSeq"],
             "hetero": atom["hetero"],
+            "bfactor": atom.get("bfactor"),
         }
         for atom in selected
     ]
+
+
+def summarize_plddt(structure: dict[str, Any], reported_mean: Any = None) -> dict[str, Any]:
+    """Summarize AlphaFold pLDDT from CA B-factors without reinterpreting generic structures."""
+    residues = []
+    for chain in structure.get("backbone") or []:
+        for point in chain.get("points") or []:
+            value = point.get("bfactor")
+            if value is None:
+                continue
+            score = max(0.0, min(100.0, float(value)))
+            residues.append(
+                {
+                    "chain": chain.get("chain") or "_",
+                    "resSeq": point.get("resSeq"),
+                    "aa": point.get("aa"),
+                    "plddt": round(score, 2),
+                    "category": _plddt_category(score),
+                }
+            )
+    if not residues:
+        raise StructureError("AlphaFold coordinates did not contain per-residue pLDDT values.")
+    counts = {name: 0 for name in ("very_high", "confident", "low", "very_low")}
+    for residue in residues:
+        counts[residue["category"]] += 1
+    total = len(residues)
+    calculated_mean = sum(item["plddt"] for item in residues) / total
+    try:
+        mean_plddt = float(reported_mean)
+    except (TypeError, ValueError):
+        mean_plddt = calculated_mean
+    return {
+        "metric": "pLDDT",
+        "mean_plddt": round(mean_plddt, 2),
+        "calculated_mean_plddt": round(calculated_mean, 2),
+        "residue_count": total,
+        "counts": counts,
+        "fractions": {name: round(count / total, 4) for name, count in counts.items()},
+        "residues": residues,
+    }
+
+
+def _plddt_category(score: float) -> str:
+    if score >= 90:
+        return "very_high"
+    if score >= 70:
+        return "confident"
+    if score >= 50:
+        return "low"
+    return "very_low"
 
 
 def build_structure_sample(
@@ -260,6 +323,9 @@ def build_structure_sample(
         base = None
     source_id = str(structure.get("source_id") or "local")
     chain_count = len(structure.get("chains") or [])
+    metadata_payload = dict(metadata or {})
+    coordinate_type = str(metadata_payload.get("coordinate_type") or ("experimental" if source_id != "local" else "local"))
+    confidence = structure.get("confidence") or {}
     properties = dict((base or {}).get("properties") or {})
     properties.update(
         {
@@ -269,6 +335,29 @@ def build_structure_sample(
             "Ligands": str(len(structure.get("ligands") or [])),
         }
     )
+    if coordinate_type == "predicted":
+        fractions = confidence.get("fractions") or {}
+        properties.update(
+            {
+                "Mean pLDDT": f"{float(confidence.get('mean_plddt') or 0):.2f}",
+                "Very high": f"{float(fractions.get('very_high') or 0) * 100:.1f}%",
+                "Low / very low": f"{(float(fractions.get('low') or 0) + float(fractions.get('very_low') or 0)) * 100:.1f}%",
+                "Model": str(metadata_payload.get("entry_id") or source_id),
+            }
+        )
+        notes = (
+            "AlphaFold DB predicted model colored by per-residue pLDDT. pLDDT describes local confidence; "
+            "review PAE before interpreting relative domain placement. Prediction does not establish ligand binding, dynamics, or mechanism."
+        )
+        selection = f"{source_id.upper()} · predicted monomer structure"
+        confidence_label = f"AlphaFold prediction · mean pLDDT {float(confidence.get('mean_plddt') or 0):.2f}"
+    else:
+        notes = (
+            "Coordinates were parsed locally from the first structural model. Viewer atoms may be sampled for large entries; "
+            "reported atom counts retain the full parsed total."
+        )
+        selection = f"{source_id.upper()} · atom-level protein structure"
+        confidence_label = "experimental coordinates" if coordinate_type == "experimental" else "parsed coordinates"
     return {
         "id": f"structure-{source_id.lower()}",
         "type": "protein",
@@ -278,12 +367,16 @@ def build_structure_sample(
         "formula": sequence,
         "sequence": sequence,
         "pdbId": source_id.upper() if len(source_id) == 4 else "",
-        "notes": "Coordinates were parsed locally from the first structural model. Viewer atoms may be sampled for large entries; reported atom counts retain the full parsed total.",
-        "selection": f"{source_id.upper()} · atom-level protein structure",
-        "confidence": "experimental coordinates" if source_id != "local" else "parsed coordinates",
+        "notes": notes,
+        "selection": selection,
+        "confidence": confidence_label,
         "properties": properties,
         "structure": structure,
-        "metadata": {"source": "coordinate_parser", **dict(metadata or {})},
+        "metadata": {
+            "source": "coordinate_parser",
+            **metadata_payload,
+            "coordinateType": coordinate_type,
+        },
         "prompts": [
             "总结这个结构的链组成和配体",
             "结合序列与结构提出需要验证的功能位点",

@@ -301,11 +301,19 @@ select:focus {
 
 .import-actions {
   margin-top: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .import-actions > button {
   flex: 1 1 0;
   min-width: 0;
+}
+
+.artifact-source-links {
+  margin-top: 6px;
+  display: flex;
+  gap: 12px;
 }
 
 .secondary-button,
@@ -4453,6 +4461,10 @@ select:focus {
 .workflow-field {
   display: grid;
   gap: 5px;
+}
+
+.workflow-field[hidden] {
+  display: none;
 }
 
 .workflow-field > span {

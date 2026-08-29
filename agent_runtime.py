@@ -278,6 +278,10 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
     if pdb:
         selected.append(("structure_fetch_pdb", {"pdb_id": pdb.group(1).upper()}))
 
+    alphafold_accession = extract_alphafold_accession(message)
+    if alphafold_accession:
+        selected.append(("structure_fetch_alphafold", {"accession": alphafold_accession}))
+
     uniprot = re.search(
         r"(?:uniprot(?:kb)?|accession|蛋白条目)\s*(?:id|编号)?\s*[:：#-]?\s*([a-z0-9]{6,10}(?:-\d+)?)\b",
         message,
@@ -315,6 +319,18 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
     if pubchem_query:
         selected.append(("database_lookup_pubchem", {"query": pubchem_query}))
     return selected
+
+
+def extract_alphafold_accession(message: str) -> str | None:
+    if not re.search(r"alphafold|pLDDT|predicted structure|预测结构|结构预测|预测蛋白", message, re.I):
+        return None
+    pattern = (
+        r"\b((?:[OPQ][0-9][A-Z0-9]{3}[0-9]|"
+        r"[A-NR-Z][0-9][A-Z][A-Z0-9]{2}[0-9]|"
+        r"[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){2})(?:-\d+)?)\b"
+    )
+    match = re.search(pattern, str(message or "").upper())
+    return match.group(1) if match else None
 
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
@@ -418,11 +434,23 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     if pdb:
         return "protein-structure-review", {"source": "rcsb", "pdb_id": pdb.group(1).upper()}
 
+    alphafold_accession = extract_alphafold_accession(message)
+    if alphafold_accession:
+        return "protein-structure-review", {
+            "source": "alphafold",
+            "uniprot_accession": alphafold_accession,
+        }
+
     sample_type = str(context.get("type") or "")
     if sample_type == "molecule" and context.get("smiles"):
         return "molecule-profile", {"smiles": context["smiles"]}
     if sample_type == "protein" and context.get("pdb_id"):
         return "protein-structure-review", {"source": "rcsb", "pdb_id": context["pdb_id"]}
+    if sample_type == "protein" and context.get("metadata", {}).get("coordinateType") == "predicted":
+        return "protein-structure-review", {
+            "source": "alphafold",
+            "uniprot_accession": context.get("metadata", {}).get("accession", ""),
+        }
     if sample_type == "protein" and context.get("sequence"):
         return "protein-sequence-review", {"sequence": context["sequence"]}
     return None

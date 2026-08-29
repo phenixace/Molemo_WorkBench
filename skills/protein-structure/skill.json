@@ -2,7 +2,7 @@
   "id": "protein-structure",
   "title": "Protein Structure",
   "kind": "visualization",
-  "description": "Fetch RCSB PDB entries or parse local PDB/mmCIF coordinates into atom-level protein structure artifacts.",
+  "description": "Fetch experimental RCSB entries, retrieve AlphaFold DB predictions, or parse local PDB/mmCIF coordinates into atom-level protein structure artifacts.",
   "tools": [
     {
       "name": "structure_fetch_pdb",
@@ -14,6 +14,19 @@
           "pdb_id": { "type": "string", "description": "Four-character PDB identifier such as 1L2Y." }
         },
         "required": ["pdb_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "structure_fetch_alphafold",
+      "description": "Fetch an AlphaFold DB predicted structure for an exact UniProt accession and return a pLDDT-colored viewer artifact.",
+      "handler": "scripts/handler.py:fetch_alphafold_structure",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "accession": { "type": "string", "description": "UniProt accession such as P04637, optionally including an isoform suffix." }
+        },
+        "required": ["accession"],
         "additionalProperties": false
       }
     },

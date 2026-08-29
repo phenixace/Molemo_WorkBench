@@ -290,6 +290,7 @@ function bindElements() {
     "loadSmiles",
     "loadFasta",
     "loadStructure",
+    "loadAlphaFold",
     "workspaceFiles",
     "saveWorkspaceFiles",
     "workspaceFileList",
@@ -371,6 +372,12 @@ function bindEvents() {
     const value = els.structureInput.value.trim();
     if (!value) return;
     loadProteinStructure(value);
+  });
+
+  els.loadAlphaFold.addEventListener("click", () => {
+    const value = els.structureInput.value.trim();
+    if (!value) return;
+    loadAlphaFoldStructure(value);
   });
 
   els.saveWorkspaceFiles.addEventListener("click", saveSelectedWorkspaceFiles);
@@ -533,13 +540,15 @@ function renderHeader() {
   els.activeType.style.color = sample.type === "protein" ? "var(--amber)" : "var(--teal)";
   const preset = VIEWER_PRESETS[state.viewerStyle] || VIEWER_PRESETS.ballstick;
   els.viewerLabel.textContent = sample.structure?.atoms?.length
-    ? `${preset.name} atom-level protein structure`
+    ? sample.metadata?.coordinateType === "predicted"
+      ? `${preset.name} AlphaFold prediction · pLDDT`
+      : `${preset.name} atom-level protein structure`
     : sample.type === "protein"
       ? "protein ribbon and residue field"
       : `${preset.name} molecular view`;
   els.selectionReadout.textContent = sample.selection;
   els.confidenceReadout.textContent = sample.confidence;
-  els.structureInput.value = sample.pdbId || sample.smiles || sample.sequence || "";
+  els.structureInput.value = sample.metadata?.accession || sample.pdbId || sample.smiles || sample.sequence || "";
 }
 
 function renderProperties() {
@@ -660,10 +669,16 @@ function renderArtifacts() {
       const title = escapeHtml(artifact.title || artifact.type || "Artifact");
       if (["molecule", "protein-sequence", "protein-structure"].includes(artifact.type)) {
         const sample = artifact.data || {};
+        const sourceUrl = safeExternalUrl(sample.metadata?.source_url);
+        const paeUrl = safeExternalUrl(sample.metadata?.pae_url);
         card.innerHTML = `
           <header><strong>${title}</strong><span>${escapeHtml(artifact.type)}</span></header>
           <p>${escapeHtml(sample.selection || sample.notes || "Viewer-ready scientific artifact")}</p>
           <button class="secondary-button artifact-open" type="button">在${artifact.type === "protein-sequence" ? "序列" : "结构"}视图打开</button>
+          ${sourceUrl || paeUrl ? `<div class="artifact-source-links">
+            ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">官方记录</a>` : ""}
+            ${paeUrl ? `<a class="source-link" href="${escapeHtml(paeUrl)}" target="_blank" rel="noreferrer">PAE</a>` : ""}
+          </div>` : ""}
         `;
         card.querySelector(".artifact-open").addEventListener("click", () => {
           if (!sample.type) return;
@@ -2311,12 +2326,27 @@ function renderWorkflowFields() {
   (template.fields || []).forEach((field) => {
     const wrapper = document.createElement("label");
     wrapper.className = "workflow-field";
+    wrapper.dataset.workflowFieldWrapper = field.name;
     const label = document.createElement("span");
     label.textContent = field.label || field.name;
     const control = createWorkflowControl(template.id, field);
     wrapper.append(label, control);
     els.workflowFields.appendChild(wrapper);
   });
+  if (template.id === "protein-structure-review") {
+    const source = els.workflowFields.querySelector('[data-workflow-field="source"]');
+    source?.addEventListener("change", updateStructureWorkflowFields);
+    updateStructureWorkflowFields();
+  }
+}
+
+function updateStructureWorkflowFields() {
+  const source = els.workflowFields.querySelector('[data-workflow-field="source"]')?.value || "rcsb";
+  const visibleField = { rcsb: "pdb_id", alphafold: "uniprot_accession", workspace: "path" }[source];
+  for (const name of ["pdb_id", "uniprot_accession", "path"]) {
+    const wrapper = els.workflowFields.querySelector(`[data-workflow-field-wrapper="${name}"]`);
+    if (wrapper) wrapper.hidden = name !== visibleField;
+  }
 }
 
 function createWorkflowControl(templateId, field) {
@@ -2366,11 +2396,15 @@ function workflowFieldDefault(templateId, field) {
   if (field.name === "smiles") return sample.smiles || "";
   if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
   if (field.name === "pdb_id") return sample.pdbId || "";
+  if (field.name === "uniprot_accession") return sample.metadata?.accession || "";
   if (field.name === "source") {
-    if (templateId === "protein-structure-review") return sample.metadata?.sourcePath ? "workspace" : "rcsb";
+    if (templateId === "protein-structure-review") {
+      if (sample.metadata?.coordinateType === "predicted") return "alphafold";
+      return sample.metadata?.sourcePath || sample.metadata?.path ? "workspace" : "rcsb";
+    }
     return field.options?.[0]?.value || field.value || "";
   }
-  if (field.name === "path") return sample.metadata?.sourcePath || "";
+  if (field.name === "path") return sample.metadata?.sourcePath || sample.metadata?.path || "";
   if (field.name === "query") return sample.metadata?.accession || sample.shortName || "";
   if (field.type === "select") return field.options?.[0]?.value || field.value || "";
   return field.value === undefined ? "" : String(field.value);
@@ -2836,6 +2870,15 @@ async function loadProteinStructure(value) {
     return;
   }
   addSystemMessage("请输入四位 PDB ID，或先导入 workspace 后填写 .pdb/.cif/.mmcif 文件名。");
+}
+
+async function loadAlphaFoldStructure(value) {
+  const cleaned = String(value || "").trim().toUpperCase();
+  if (!/^[A-Z0-9]{6,10}(?:-\d+)?$/.test(cleaned)) {
+    addSystemMessage("请输入 UniProt accession，例如 P04637。");
+    return;
+  }
+  await executeLocalTool("structure_fetch_alphafold", { accession: cleaned }, { openSample: true });
 }
 
 async function executeLocalTool(name, arguments, options = {}) {
@@ -3408,6 +3451,7 @@ function drawProteinStructure(sample, width, height) {
   const preset = VIEWER_PRESETS[state.viewerStyle] || VIEWER_PRESETS.ballstick;
   const scale = Math.min(width, height) * 0.38 * state.zoom;
   const chainColors = ["#147d72", "#b66a19", "#2f6fb0", "#b2455c", "#407a3b", "#6d4a88"];
+  const predicted = sample.metadata?.coordinateType === "predicted";
 
   ctx.save();
   ctx.lineCap = "round";
@@ -3418,15 +3462,25 @@ function drawProteinStructure(sample, width, height) {
       point,
     }));
     if (points.length < 2) return;
-    ctx.beginPath();
-    points.forEach((point, index) => {
-      if (index === 0) ctx.moveTo(point.x, point.y);
-      else ctx.lineTo(point.x, point.y);
-    });
-    ctx.strokeStyle = chainColors[chainIndex % chainColors.length];
     ctx.globalAlpha = state.viewerStyle === "spacefill" ? 0.35 : 0.82;
     ctx.lineWidth = state.viewerStyle === "wire" ? 2.2 : 5.5;
-    ctx.stroke();
+    if (predicted) {
+      for (let index = 1; index < points.length; index += 1) {
+        ctx.beginPath();
+        ctx.moveTo(points[index - 1].x, points[index - 1].y);
+        ctx.lineTo(points[index].x, points[index].y);
+        ctx.strokeStyle = plddtColor(points[index].point.bfactor);
+        ctx.stroke();
+      }
+    } else {
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        if (index === 0) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
+      });
+      ctx.strokeStyle = chainColors[chainIndex % chainColors.length];
+      ctx.stroke();
+    }
     ctx.globalAlpha = 1;
 
     if (state.showLabels && points.length) {
@@ -3449,7 +3503,9 @@ function drawProteinStructure(sample, width, height) {
       const hetero = point.atom.hetero;
       const radius = hetero ? 4.8 : state.viewerStyle === "spacefill" ? 3.8 : state.viewerStyle === "wire" ? 1.25 : 2.25;
       ctx.beginPath();
-      ctx.fillStyle = ELEMENT_COLORS[point.atom.e] || ELEMENT_COLORS.X;
+      ctx.fillStyle = predicted && !hetero
+        ? plddtColor(point.atom.bfactor)
+        : ELEMENT_COLORS[point.atom.e] || ELEMENT_COLORS.X;
       ctx.globalAlpha = hetero ? 0.98 : state.viewerStyle === "wire" ? 0.5 : 0.72;
       ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
       ctx.fill();
@@ -3461,7 +3517,15 @@ function drawProteinStructure(sample, width, height) {
     });
   ctx.globalAlpha = 1;
   ctx.restore();
-  drawLegend("molecule");
+  drawLegend(predicted ? "plddt" : "molecule");
+}
+
+function plddtColor(value) {
+  const score = Number(value);
+  if (score >= 90) return "#0053d6";
+  if (score >= 70) return "#65cbf3";
+  if (score >= 50) return "#ffdb13";
+  return "#ff7d45";
 }
 
 function normalizedStructureGeometry(sample) {
@@ -3547,7 +3611,14 @@ function drawLegend(type) {
           ["charged", "#2f6fb0"],
           ["polar", "#147d72"],
         ]
-      : [
+      : type === "plddt"
+        ? [
+            ["pLDDT > 90", "#0053d6"],
+            ["70–90", "#65cbf3"],
+            ["50–70", "#ffdb13"],
+            ["< 50", "#ff7d45"],
+          ]
+        : [
           ["C", ELEMENT_COLORS.C],
           ["O", ELEMENT_COLORS.O],
           ["N", ELEMENT_COLORS.N],

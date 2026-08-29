@@ -73,7 +73,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
     },
     "protein-structure-review": {
         "title": "蛋白结构审阅",
-        "description": "从 RCSB PDB 或本地 workspace 读取原子坐标。",
+        "description": "读取 RCSB 实验结构、AlphaFold DB 预测结构或本地原子坐标。",
         "fields": [
             _field(
                 "source",
@@ -82,13 +82,18 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 required=True,
                 options=[
                     {"value": "rcsb", "label": "RCSB PDB"},
+                    {"value": "alphafold", "label": "AlphaFold DB"},
                     {"value": "workspace", "label": "本地 workspace"},
                 ],
             ),
             _field("pdb_id", "PDB ID", "text", placeholder="1L2Y"),
+            _field("uniprot_accession", "UniProt accession", "text", placeholder="P04637"),
             _field("path", "Workspace 文件", "text", placeholder="examples/mini-protein.pdb"),
         ],
-        "assumptions": ["仅解析坐标文件的第一个模型。"],
+        "assumptions": [
+            "仅解析坐标文件的第一个模型。",
+            "RCSB 坐标是实验结构；AlphaFold 坐标是预测模型，pLDDT 只表示局部置信度。",
+        ],
     },
     "fastq-qc-review": {
         "title": "FASTQ 质量审阅",
@@ -535,11 +540,21 @@ def _structure_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
         pdb_id = _require_text(inputs, "pdb_id", "PDB ID").upper()
         inputs.update({"source": source, "pdb_id": pdb_id})
         return [_step("获取并解析 RCSB 原子坐标", "structure_fetch_pdb", {"pdb_id": pdb_id})]
+    if source == "alphafold":
+        accession = _require_text(inputs, "uniprot_accession", "UniProt accession").upper()
+        inputs.update({"source": source, "uniprot_accession": accession})
+        return [
+            _step(
+                "获取 AlphaFold 预测坐标与 pLDDT",
+                "structure_fetch_alphafold",
+                {"accession": accession},
+            )
+        ]
     if source == "workspace":
         path = _require_text(inputs, "path", "Workspace structure path")
         inputs.update({"source": source, "path": path})
         return [_step("解析本地原子坐标", "structure_parse_workspace", {"path": path})]
-    raise WorkflowError("Structure source must be rcsb or workspace.", "invalid_workflow_inputs")
+    raise WorkflowError("Structure source must be rcsb, alphafold, or workspace.", "invalid_workflow_inputs")
 
 
 def _fastq_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
