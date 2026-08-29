@@ -1,0 +1,3 @@
+interface:
+  display_name: "Target Evidence Review"
+  short_description: "Compare approved, source-linked target evidence"

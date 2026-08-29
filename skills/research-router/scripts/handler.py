@@ -10,6 +10,7 @@ LANES = (
     ("molecular chemistry", r"smiles|molecule|compound|ligand|药|分子|化合物|配体|logp|tpsa"),
     ("protein structure and sequence", r"protein|peptide|fasta|sequence|mutation|蛋白|多肽|序列|突变"),
     ("public biological databases", r"pubchem|uniprot|rcsb|database|accession|数据库|条目"),
+    ("target evidence and prioritization", r"target evidence|target priorit|disease association|靶点证据|靶点优先|疾病关联"),
     ("experimental protein structure", r"pdb|rcsb|mmcif|coordinate|atom-level|原子|坐标|三维结构"),
     ("sequencing quality control", r"fastq|phred|q20|q30|read quality|测序|质控|读长"),
     ("transcriptomics and expression", r"rna-?seq|count matrix|differential expression|transcriptom|差异表达|转录组|表达矩阵"),
@@ -35,6 +36,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
         suggested.append("protein_analyze_sequence")
     if "public biological databases" in lanes:
         suggested.extend(["database_lookup_pubchem", "database_lookup_uniprot"])
+    if "target evidence and prioritization" in lanes:
+        suggested.extend(["target_evidence_preflight", "workflow_create_plan"])
     if "experimental protein structure" in lanes:
         suggested.extend(["structure_fetch_pdb", "structure_parse_workspace"])
     if "sequencing quality control" in lanes:

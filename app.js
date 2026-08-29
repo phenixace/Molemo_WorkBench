@@ -602,6 +602,9 @@ function renderViewerStyles() {
 
 function switchTab(tab) {
   state.activeTab = tab;
+  const documentView = ["agent", "artifacts", "skills"].includes(tab);
+  document.querySelector(".workbench")?.classList.toggle("is-document-view", documentView);
+  document.querySelector(".workspace")?.classList.toggle("is-document-view", documentView);
   document.querySelectorAll(".tab").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.tab === tab);
   });
@@ -748,6 +751,11 @@ function renderArtifacts() {
         card.innerHTML = renderRnaseqPreflight(title, artifact.data || {});
       } else if (artifact.type === "transcriptomics-de") {
         card.innerHTML = renderTranscriptomicsResult(title, artifact.data || {});
+      } else if (artifact.type === "target-evidence-preflight") {
+        card.innerHTML = renderTargetEvidencePreflight(title, artifact.data || {});
+      } else if (artifact.type === "target-evidence-review") {
+        card.classList.add("target-evidence-artifact");
+        card.innerHTML = renderTargetEvidenceReview(title, artifact.data || {});
       } else if (artifact.type === "bar-chart") {
         const data = artifact.data || {};
         const values = data.values || [];
@@ -783,6 +791,115 @@ function renderArtifacts() {
       }
       els.artifactList.appendChild(card);
     });
+}
+
+function renderTargetEvidencePreflight(title, data) {
+  const disease = data.disease || {};
+  const targets = data.targets || [];
+  return `
+    <header><strong>${title}</strong><span>entity resolution</span></header>
+    <div class="target-preflight-entity">
+      <span>Disease</span>
+      <strong>${escapeHtml(disease.name || disease.query || "n/a")}</strong>
+      <code>${escapeHtml(disease.id || "")}</code>
+    </div>
+    <div class="target-resolved-list">
+      ${targets.map((target) => `
+        <div><span>${escapeHtml(target.query || target.symbol)}</span><strong>${escapeHtml(target.symbol || target.name)}</strong><code>${escapeHtml(target.id)}</code></div>
+      `).join("")}
+    </div>
+    <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || "Entities resolved. Review them before execution.")}</p>
+  `;
+}
+
+function renderTargetEvidenceReview(title, data) {
+  const disease = data.disease || {};
+  const candidates = data.candidates || [];
+  const lanes = data.evidence_lanes || [];
+  const sourceUrl = safeExternalUrl(data.source_url) ? data.source_url : "";
+  return `
+    <header>
+      <strong>${title}</strong>
+      <span>${escapeHtml(data.source || "Open Targets")}</span>
+    </header>
+    <div class="target-review-heading">
+      <div><span>Disease</span><strong>${escapeHtml(disease.name || "n/a")}</strong><code>${escapeHtml(disease.id || "")}</code></div>
+      <div><span>Candidates</span><strong>${escapeHtml(candidates.length)}</strong></div>
+      <div><span>Evidence scope</span><strong>${data.include_indirect ? "Ontology descendants" : "Direct disease"}</strong></div>
+      <div><span>Retrieved</span><strong>${escapeHtml(formatTimestamp(data.retrieved_at))}</strong></div>
+    </div>
+    <div class="target-evidence-scroll">
+      <table class="target-evidence-table">
+        <thead><tr>
+          <th scope="col">Rank</th>
+          <th scope="col">Target</th>
+          <th scope="col">Association</th>
+          ${lanes.map((lane) => `<th scope="col">${escapeHtml(lane.label)}</th>`).join("")}
+        </tr></thead>
+        <tbody>
+          ${candidates.map((candidate) => `<tr>
+            <td>${escapeHtml(candidate.rank)}</td>
+            <th scope="row"><a href="${escapeHtml(candidate.target_url)}" target="_blank" rel="noreferrer">${escapeHtml(candidate.symbol)}</a><small>${escapeHtml(candidate.name || "")}</small></th>
+            <td>${targetEvidenceScore(candidate.association_score, "association")}</td>
+            ${lanes.map((lane) => `<td>${targetEvidenceScore((candidate.datatype_score_map || {})[lane.id] || 0, lane.id)}</td>`).join("")}
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="target-evidence-details">
+      ${candidates.map((candidate, index) => renderTargetEvidenceDetail(candidate, index === 0)).join("")}
+    </div>
+    <div class="target-review-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "Association scores are ranking signals, not confidence values.")}</p>
+      <div class="target-output-paths">
+        ${Object.entries(data.outputs || {}).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}
+      </div>
+      ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open Targets source</a>` : ""}
+    </div>
+  `;
+}
+
+function targetEvidenceScore(value, lane) {
+  const score = clamp(Number(value) || 0, 0, 1);
+  const className = String(lane || "").replace(/[^a-z0-9_-]/gi, "");
+  return `<span class="target-score ${escapeHtml(className)}" style="--score:${score * 100}%"><i></i><b>${formatDecimal(score, 3)}</b></span>`;
+}
+
+function renderTargetEvidenceDetail(candidate, open) {
+  const modalities = (candidate.tractability?.approved_modalities || []).map(targetModalityLabel);
+  const drugs = candidate.drugs || [];
+  const pathways = candidate.pathways || [];
+  const safety = candidate.safety_liabilities || [];
+  const publications = candidate.publications || [];
+  return `
+    <details ${open ? "open" : ""}>
+      <summary><strong>${escapeHtml(candidate.symbol)}</strong><span>${drugs.length} clinical ${drugs.length === 1 ? "drug" : "drugs"} · ${modalities.length ? escapeHtml(modalities.join(", ")) : "no approved modality returned"}</span></summary>
+      <div class="target-detail-grid">
+        <section><span>Clinical precedence</span><p>${drugs.length ? drugs.map((drug) => `<a href="${escapeHtml(drug.url)}" target="_blank" rel="noreferrer">${escapeHtml(drug.name)}</a><small>${escapeHtml([drug.stage, drug.type].filter(Boolean).join(" · "))}</small>`).join("") : "No disease-specific clinical evidence returned."}</p></section>
+        <section><span>Pathways</span><p>${pathways.length ? pathways.map((pathway) => `<b>${escapeHtml(pathway.name)}</b>`).join("") : "No pathway annotation returned."}</p></section>
+        <section><span>Safety liabilities</span><p>${safety.length ? safety.map((item) => `<b>${escapeHtml(item.event)}</b>`).join("") : "No liability annotation returned."}</p></section>
+        <section><span>Publications</span><p>${publications.length ? publications.map((id) => publicationLink(id)).join("") : "No publication IDs in the bounded evidence sample."}</p></section>
+      </div>
+    </details>
+  `;
+}
+
+function targetModalityLabel(value) {
+  return ({ AB: "antibody", SM: "small molecule", PR: "other protein", OC: "oligonucleotide" })[value] || value;
+}
+
+function publicationLink(identifier) {
+  const id = String(identifier || "");
+  if (/^\d+$/.test(id)) {
+    return `<a href="https://pubmed.ncbi.nlm.nih.gov/${escapeHtml(id)}/" target="_blank" rel="noreferrer">PMID ${escapeHtml(id)}</a>`;
+  }
+  return `<b>${escapeHtml(id)}</b>`;
+}
+
+function formatTimestamp(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "n/a";
+  return date.toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function renderRnaseqPreflight(title, data) {
@@ -956,7 +1073,7 @@ function renderWorkflowRuns() {
           <div><strong>${escapeHtml(run.title || "Guided workflow")}</strong><small>${escapeHtml(run.objective || run.description || "")}</small></div>
           <span class="workflow-status ${escapeHtml(run.status || "pending_approval")}">${escapeHtml(workflowStatusLabel(run.status))}</span>
         </header>
-        ${preflight ? `<div class="workflow-preflight"><strong>Preflight ready</strong><span>${escapeHtml(preflight.summary || "Inputs validated.")}</span><code>${escapeHtml(`${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`)}</code></div>` : ""}
+        ${preflight ? renderWorkflowPreflight(preflight) : ""}
         <ol>${steps}</ol>
         ${run.error ? `<p class="workflow-error">${escapeHtml(run.error)}</p>` : ""}
         ${
@@ -969,6 +1086,16 @@ function renderWorkflowRuns() {
       item.querySelector(".workflow-cancel")?.addEventListener("click", () => cancelWorkflow(run.id));
       els.workflowList.appendChild(item);
     });
+}
+
+function renderWorkflowPreflight(preflight) {
+  let detail = "";
+  if (preflight.disease && preflight.targets) {
+    detail = `${preflight.disease.name} · ${(preflight.targets || []).map((target) => target.symbol).join(", ")}`;
+  } else if (preflight.design_formula || preflight.contrast) {
+    detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
+  }
+  return `<div class="workflow-preflight"><strong>Preflight ready</strong><span>${escapeHtml(preflight.summary || "Inputs validated.")}</span>${detail ? `<code>${escapeHtml(detail)}</code>` : ""}</div>`;
 }
 
 function workflowStatusLabel(status) {
@@ -1130,6 +1257,8 @@ function createWorkflowControl(templateId, field) {
 
 function workflowFieldDefault(templateId, field) {
   const sample = getActiveSample();
+  if (templateId === "target-evidence-review" && field.name === "disease") return "asthma";
+  if (templateId === "target-evidence-review" && field.name === "candidates") return "IL4R, TSLP, IL6R, JAK1";
   if (field.name === "smiles") return sample.smiles || "";
   if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
   if (field.name === "pdb_id") return sample.pdbId || "";
@@ -1139,6 +1268,7 @@ function workflowFieldDefault(templateId, field) {
   }
   if (field.name === "path") return sample.metadata?.sourcePath || "";
   if (field.name === "query") return sample.metadata?.accession || sample.shortName || "";
+  if (field.type === "select") return field.options?.[0]?.value || field.value || "";
   return field.value === undefined ? "" : String(field.value);
 }
 
@@ -2492,7 +2622,13 @@ function databaseRecordFields(data) {
 function safeExternalUrl(value) {
   try {
     const url = new URL(String(value || ""));
-    return url.protocol === "https:" && ["pubchem.ncbi.nlm.nih.gov", "www.uniprot.org", "www.rcsb.org"].includes(url.hostname);
+    return url.protocol === "https:" && [
+      "pubchem.ncbi.nlm.nih.gov",
+      "www.uniprot.org",
+      "www.rcsb.org",
+      "platform.opentargets.org",
+      "pubmed.ncbi.nlm.nih.gov",
+    ].includes(url.hostname);
   } catch {
     return false;
   }

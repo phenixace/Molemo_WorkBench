@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from agent_runtime import local_workflow_plan
 from skill_runtime import SkillRegistry
@@ -94,6 +95,31 @@ class WorkflowRuntimeTests(unittest.TestCase):
         self.assertEqual(request[0], "protein-sequence-review")
         self.assertIn("workflow_create_plan", registry.tools)
         self.assertFalse(any("approve" in name for name in registry.tools))
+
+    def test_target_evidence_plan_resolves_entities_but_executes_only_after_approval(self):
+        registry = RecordingRegistry()
+        preflight = {
+            "ready": True,
+            "summary": "Resolved asthma and 2 candidate targets.",
+            "disease": {"id": "MONDO_0004979", "name": "asthma"},
+            "targets": [
+                {"id": "ENSG00000077238", "symbol": "IL4R"},
+                {"id": "ENSG00000145777", "symbol": "TSLP"},
+            ],
+        }
+        with patch("workflow_runtime.resolve_target_review_inputs", return_value=preflight):
+            run = self.manager.create_plan(
+                "target-evidence-review",
+                {"disease": "asthma", "candidates": "IL4R, TSLP", "include_indirect": "false"},
+            )
+
+        self.assertEqual(run["status"], "pending_approval")
+        self.assertEqual(run["preflight"]["disease"]["id"], "MONDO_0004979")
+        self.assertEqual(registry.calls, [])
+
+        completed = self.manager.approve(run["id"], registry)
+        self.assertEqual(completed["status"], "completed")
+        self.assertEqual(registry.calls[0][0], "target_evidence_compare")
 
 
 if __name__ == "__main__":

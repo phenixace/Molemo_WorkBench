@@ -467,6 +467,18 @@ select:focus {
   gap: 10px;
 }
 
+.workbench.is-document-view {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.workbench.is-document-view .viewer-panel {
+  display: none;
+}
+
+.workbench.is-document-view .inspector-panel {
+  min-height: 0;
+}
+
 .viewer-panel,
 .inspector-panel,
 .console-panel {
@@ -872,6 +884,318 @@ select:focus {
 .skill-card {
   display: grid;
   gap: 6px;
+}
+
+.target-evidence-artifact {
+  gap: 9px;
+}
+
+.target-preflight-entity,
+.target-resolved-list > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 66px minmax(90px, 0.7fr) minmax(150px, 1.3fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 29px;
+  border-bottom: 1px solid var(--line);
+}
+
+.target-preflight-entity {
+  border-top: 1px solid var(--line);
+}
+
+.target-preflight-entity span,
+.target-resolved-list span,
+.target-review-heading span,
+.target-detail-grid section > span {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.target-preflight-entity strong,
+.target-resolved-list strong {
+  font-size: 10px;
+}
+
+.target-preflight-entity code,
+.target-resolved-list code {
+  min-width: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.target-review-heading {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.2fr) repeat(3, minmax(72px, 0.8fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.target-review-heading > div {
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.target-review-heading strong,
+.target-review-heading code {
+  display: block;
+  min-width: 0;
+  margin-top: 3px;
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.target-review-heading code {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+}
+
+.target-evidence-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+}
+
+.target-evidence-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 9px;
+}
+
+.target-evidence-table th,
+.target-evidence-table td {
+  height: 38px;
+  padding: 5px 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.target-evidence-table tr:last-child th,
+.target-evidence-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.target-evidence-table th:last-child,
+.target-evidence-table td:last-child {
+  border-right: 0;
+}
+
+.target-evidence-table thead th {
+  height: 29px;
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.target-evidence-table th:first-child,
+.target-evidence-table td:first-child {
+  width: 36px;
+  text-align: center;
+}
+
+.target-evidence-table th:nth-child(2) {
+  width: 116px;
+}
+
+.target-evidence-table tbody th a {
+  display: block;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.target-evidence-table tbody th a:hover,
+.target-detail-grid a:hover {
+  text-decoration: underline;
+}
+
+.target-evidence-table tbody th small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.target-score {
+  display: grid;
+  grid-template-columns: minmax(18px, 1fr) 29px;
+  align-items: center;
+  gap: 3px;
+}
+
+.target-score i {
+  position: relative;
+  height: 5px;
+  overflow: hidden;
+  background: #ecece8;
+}
+
+.target-score i::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--score);
+  background: #656560;
+}
+
+.target-score.genetic_association i::after {
+  background: var(--teal);
+}
+
+.target-score.clinical i::after,
+.target-score.known_drug i::after {
+  background: #3970a6;
+}
+
+.target-score.literature i::after,
+.target-score.affected_pathway i::after {
+  background: var(--amber);
+}
+
+.target-score.rna_expression i::after,
+.target-score.somatic_mutation i::after {
+  background: var(--rose);
+}
+
+.target-score.animal_model i::after {
+  background: var(--green);
+}
+
+.target-score b {
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.target-evidence-details {
+  border-top: 1px solid var(--line);
+}
+
+.target-evidence-details details {
+  border-bottom: 1px solid var(--line);
+}
+
+.target-evidence-details summary {
+  min-height: 32px;
+  padding: 6px 2px;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.target-evidence-details summary strong {
+  font-size: 10px;
+}
+
+.target-evidence-details summary span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.target-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.target-detail-grid section {
+  min-width: 0;
+  padding: 7px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.target-detail-grid section p {
+  min-height: 22px;
+  margin-top: 4px;
+  color: var(--carbon);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.target-detail-grid a,
+.target-detail-grid p > b {
+  display: block;
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.target-detail-grid small {
+  display: block;
+  margin: 1px 0 4px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.evidence-caveat,
+.artifact-card .evidence-caveat {
+  margin-top: 0;
+  padding: 6px 8px;
+  border-left: 2px solid var(--amber);
+  background: var(--amber-soft);
+  color: #6d4d21;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.target-review-footer {
+  display: grid;
+  gap: 6px;
+}
+
+.target-output-paths {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px 8px;
+}
+
+.target-output-paths span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.target-output-paths code {
+  display: block;
+  margin-top: 1px;
+  color: var(--carbon);
+  font-family: var(--mono);
+  font-size: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 .artifact-card header span,
@@ -1708,6 +2032,17 @@ button:disabled {
   .inspector-panel {
     min-height: 300px;
   }
+
+  .workspace.is-document-view .workbench {
+    grid-row: 2;
+    min-height: 560px;
+    height: calc(100vh - 82px);
+  }
+
+  .workspace.is-document-view .console-panel {
+    grid-row: 3;
+    min-height: 360px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -1802,6 +2137,12 @@ button:disabled {
 
   .record-grid,
   .qc-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .target-review-heading,
+  .target-detail-grid,
+  .target-output-paths {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

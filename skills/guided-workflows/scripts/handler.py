@@ -10,7 +10,7 @@ from workflow_runtime import WORKFLOW_MANAGER
 def list_templates(_arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:
     templates = WORKFLOW_MANAGER.catalog()
     return {
-        "summary": f"Found {len(templates)} researcher-approved workflow templates.",
+        "summary": f"当前有 {len(templates)} 个需要研究者审批的工作流模板。",
         "data": {"templates": templates},
     }
 
@@ -25,7 +25,7 @@ def create_plan(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str
         str(arguments.get("objective") or ""),
     )
     return {
-        "summary": f"Created {run['title']} plan with {len(run['steps'])} steps; researcher approval is required.",
+        "summary": f"已创建“{run['title']}”计划，共 {len(run['steps'])} 步；需研究者审批后执行。",
         "data": run,
         "artifacts": run["artifacts"],
     }
@@ -34,7 +34,7 @@ def create_plan(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str
 def get_run(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:
     run = WORKFLOW_MANAGER.get_run(str(arguments.get("run_id") or ""))
     return {
-        "summary": f"Workflow {run['title']} is {run['status']}.",
+        "summary": f"“{run['title']}”当前状态：{run['status']}。",
         "data": run,
         "artifacts": run.get("artifacts") or [],
     }

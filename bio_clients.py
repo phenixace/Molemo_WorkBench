@@ -11,14 +11,16 @@ from urllib.parse import quote, urlparse
 
 
 ALLOWED_HOSTS = {
+    "api.platform.opentargets.org",
     "pubchem.ncbi.nlm.nih.gov",
     "rest.uniprot.org",
     "data.rcsb.org",
     "files.rcsb.org",
 }
 MAX_JSON_BYTES = 6 * 1024 * 1024
+MAX_JSON_REQUEST_BYTES = 256 * 1024
 MAX_STRUCTURE_BYTES = 24 * 1024 * 1024
-USER_AGENT = "Molemo-WorkBench/0.3 (public scientific database client)"
+USER_AGENT = "Molemo-WorkBench/0.6 (public scientific database client)"
 
 
 class ExternalDataError(RuntimeError):
@@ -41,15 +43,43 @@ def get_text(url: str) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
+def post_json(url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """POST a bounded JSON request to an allow-listed scientific database."""
+    try:
+        body = json.dumps(payload, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ExternalDataError("The public database request could not be encoded as JSON.") from exc
+    if len(body) > MAX_JSON_REQUEST_BYTES:
+        raise ExternalDataError("Public database request exceeded the local size limit.")
+    raw = _request(url, "application/json", MAX_JSON_BYTES, method="POST", body=body)
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ExternalDataError("The public database returned invalid JSON.") from exc
+    if not isinstance(data, dict):
+        raise ExternalDataError("The public database returned an unexpected response shape.")
+    return data
+
+
 def _get(url: str, accept: str, max_bytes: int) -> bytes:
+    return _request(url, accept, max_bytes, method="GET")
+
+
+def _request(
+    url: str,
+    accept: str,
+    max_bytes: int,
+    *,
+    method: str,
+    body: bytes | None = None,
+) -> bytes:
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.hostname not in ALLOWED_HOSTS:
         raise ExternalDataError("External requests are restricted to approved scientific databases.")
-    request = urllib.request.Request(
-        url,
-        headers={"Accept": accept, "User-Agent": USER_AGENT},
-        method="GET",
-    )
+    headers = {"Accept": accept, "User-Agent": USER_AGENT}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             raw = response.read(max_bytes + 1)

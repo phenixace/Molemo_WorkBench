@@ -191,7 +191,15 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
     except SkillError as exc:
         evidence.append(f"Local analysis could not complete: {exc}")
 
-    lane = ", ".join(route.get("lanes") or ["general life science"])
+    raw_lanes = route.get("lanes") or ["general life science"]
+    lane_labels = {
+        "target evidence and prioritization": "靶点证据与优先级",
+        "transcriptomics and expression": "转录组与表达",
+        "sequence similarity search": "序列相似性搜索",
+        "protein structure and sequence": "蛋白结构与序列",
+        "molecular chemistry": "分子化学",
+    }
+    lane = ", ".join(lane_labels.get(item, item) for item in raw_lanes)
     evidence_text = " ".join(evidence) if evidence else "No structured molecule or protein is active yet."
     if plan_request:
         reply = (
@@ -240,6 +248,9 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
 
 def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a guided plan request without granting execution authority."""
+    target_review = extract_target_evidence_plan(message)
+    if target_review:
+        return "target-evidence-review", target_review
     table_paths = re.findall(r"([\w./-]+\.(?:csv|tsv))\b", message, re.I)
     if len(table_paths) >= 2 and re.search(
         r"rna-?seq|count matrix|differential expression|transcriptom|差异表达|转录组",
@@ -302,6 +313,56 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     if sample_type == "protein" and context.get("sequence"):
         return "protein-sequence-review", {"sequence": context["sequence"]}
     return None
+
+
+def extract_target_evidence_plan(message: str) -> dict[str, Any] | None:
+    if not re.search(
+        r"target\s+(?:evidence|prioriti[sz]ation)|disease\s+association|靶点(?:证据|优先|比较)|疾病关联",
+        message,
+        re.I,
+    ):
+        return None
+    disease = ""
+    patterns = [
+        r"(?:在|针对)\s*([^，。；,;]{1,80}?)(?:中|中的|进行|做)?\s*(?:的)?靶点",
+        r"(?:disease|indication)\s*[:：=]\s*([A-Za-z][A-Za-z0-9 _.-]{0,79})",
+        r"\bfor\s+([A-Za-z][A-Za-z0-9 _.-]{0,79}?)\s+target\s+(?:evidence|prioriti[sz]ation)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, message, re.I)
+        if match:
+            disease = match.group(1).strip(" .")
+            break
+    if not disease:
+        return None
+
+    candidate_segment = message
+    marker = re.search(r"(?:在|针对)\s*" + re.escape(disease), message, re.I)
+    if marker:
+        candidate_segment = message[: marker.start()]
+    elif re.search(r"\bfor\s+" + re.escape(disease), message, re.I):
+        candidate_segment = re.split(r"\bfor\s+" + re.escape(disease), message, maxsplit=1, flags=re.I)[0]
+    tokens = re.findall(r"\b(?:ENSG\d{11}|[A-Za-z][A-Za-z0-9.-]{1,31})\b", candidate_segment)
+    ignored = {
+        "and", "compare", "comparison", "evidence", "for", "prioritize", "prioritization",
+        "review", "target", "targets", "versus", "vs",
+    }
+    candidates = []
+    for token in tokens:
+        if token.casefold() in ignored:
+            continue
+        if not (token.upper().startswith("ENSG") or any(char.isdigit() for char in token) or token.isupper()):
+            continue
+        normalized = token.upper()
+        if normalized not in candidates:
+            candidates.append(normalized)
+    if not candidates or len(candidates) > 8:
+        return None
+    return {
+        "disease": disease,
+        "candidates": ", ".join(candidates),
+        "include_indirect": bool(re.search(r"indirect|descendant|下位疾病|间接证据", message, re.I)),
+    }
 
 
 def extract_pubchem_query(message: str) -> str:

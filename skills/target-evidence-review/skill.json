@@ -1,0 +1,39 @@
+{
+  "id": "target-evidence-review",
+  "title": "Target Evidence Review",
+  "kind": "retrieval",
+  "description": "Resolve a disease and candidate targets, then compare source-linked Open Targets evidence through a researcher-approved workflow.",
+  "tools": [
+    {
+      "name": "target_evidence_preflight",
+      "description": "Resolve one disease and up to eight candidate target symbols or Ensembl IDs in Open Targets without creating an analysis output.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "disease": { "type": "string", "description": "Disease name or EFO/MONDO identifier." },
+          "candidates": { "type": "string", "description": "One to eight target symbols or Ensembl IDs separated by commas, semicolons, or new lines." },
+          "include_indirect": { "type": "boolean", "default": false, "description": "Include evidence from ontology descendants." }
+        },
+        "required": ["disease", "candidates"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "target_evidence_compare",
+      "description": "Retrieve, normalize, rank, and persist an approved Open Targets comparison with evidence types, tractability, pathways, safety signals, drugs, publications, and provenance.",
+      "handler": "scripts/handler.py:compare",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "disease": { "type": "string" },
+          "candidates": { "type": "string" },
+          "include_indirect": { "type": "boolean", "default": false }
+        },
+        "required": ["disease", "candidates"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

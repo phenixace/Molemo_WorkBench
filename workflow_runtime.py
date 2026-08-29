@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from transcriptomics import TranscriptomicsError, preflight_bulk_rnaseq
+from target_evidence import TargetEvidenceError, resolve_target_review_inputs
 
 
 ROOT = Path(__file__).resolve().parent
@@ -112,6 +113,36 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "输入是基因级非负整数 raw counts，不是 TPM、CPM 或 log expression。",
             "样本 metadata 代表生物学重复，contrast 方向已经由研究者确认。",
             "差异表达是关联性证据，需要结合实验设计与生物学验证。",
+        ],
+    },
+    "target-evidence-review": {
+        "title": "靶点证据比较",
+        "description": "解析疾病与候选靶点，批准后比较 Open Targets 遗传、临床、表达与文献证据。",
+        "fields": [
+            _field("disease", "疾病名称 / ontology ID", "text", required=True, placeholder="asthma"),
+            _field(
+                "candidates",
+                "候选靶点（最多 8 个）",
+                "textarea",
+                required=True,
+                rows=4,
+                placeholder="IL4R, TSLP, IL6R, JAK1",
+            ),
+            _field(
+                "include_indirect",
+                "证据范围",
+                "select",
+                required=True,
+                options=[
+                    {"value": "false", "label": "仅当前疾病"},
+                    {"value": "true", "label": "包含 ontology descendants"},
+                ],
+            ),
+        ],
+        "assumptions": [
+            "Open Targets association score 仅用于证据排序，不是概率、置信度或因果结论。",
+            "候选靶点按解析后的 Ensembl Gene ID 确认；同名或模糊实体应在审批前检查。",
+            "临床先例、可成药性与安全注释需要结合适应症和实验验证解释。",
         ],
     },
     "pairwise-alignment-review": {
@@ -288,6 +319,38 @@ def _rnaseq_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
         raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
 
 
+def _target_evidence_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    disease = _require_text(inputs, "disease", "Disease")
+    candidates = _require_text(inputs, "candidates", "Candidate targets")
+    raw_indirect = inputs.get("include_indirect", False)
+    include_indirect = raw_indirect is True or str(raw_indirect).strip().lower() in {"1", "true", "yes"}
+    inputs.update(
+        {"disease": disease, "candidates": candidates, "include_indirect": include_indirect}
+    )
+    return [
+        _step(
+            "检索并整理候选靶点证据",
+            "target_evidence_compare",
+            {
+                "disease": disease,
+                "candidates": candidates,
+                "include_indirect": include_indirect,
+            },
+        )
+    ]
+
+
+def _target_evidence_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return resolve_target_review_inputs(
+            disease=inputs["disease"],
+            candidates=inputs["candidates"],
+            include_indirect=inputs["include_indirect"],
+        )
+    except TargetEvidenceError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _alignment_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     sequence_a = _require_text(inputs, "sequence_a", "Sequence A")
     sequence_b = _require_text(inputs, "sequence_b", "Sequence B")
@@ -369,6 +432,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "protein-structure-review": _structure_steps,
     "fastq-qc-review": _fastq_steps,
     "bulk-rnaseq-differential-expression": _rnaseq_steps,
+    "target-evidence-review": _target_evidence_steps,
     "pairwise-alignment-review": _alignment_steps,
     "sequence-similarity-search": _sequence_search_steps,
     "database-record-review": _database_steps,
@@ -376,6 +440,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
 
 PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "bulk-rnaseq-differential-expression": _rnaseq_preflight,
+    "target-evidence-review": _target_evidence_preflight,
 }
 
 
