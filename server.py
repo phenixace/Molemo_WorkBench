@@ -18,7 +18,7 @@ from workspace_utils import WorkspaceError, list_workspace_files, write_workspac
 
 ROOT = Path(__file__).resolve().parent
 REGISTRY = SkillRegistry()
-MAX_REQUEST_BYTES = 2 * 1024 * 1024
+MAX_REQUEST_BYTES = 24 * 1024 * 1024
 STATIC_FILES = {"index.html", "styles.css", "app.js"}
 
 
@@ -90,7 +90,7 @@ class MolemoHandler(BaseHTTPRequestHandler):
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0") or "0")
         if length > MAX_REQUEST_BYTES:
-            raise AgentError("Request body exceeds the local 2 MB limit.", "request_too_large", 413)
+            raise AgentError("Request body exceeds the local 24 MB limit.", "request_too_large", 413)
         raw = self.rfile.read(length)
         if not raw:
             return {}

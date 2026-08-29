@@ -21,7 +21,11 @@ research question
 
 `workspace_utils.py` confines file access to `workspace/`, limits text size and accepts only supported scientific text formats. Agent tools can list and read files; only an explicit UI upload can write them.
 
-The frontend renders typed artifacts rather than arbitrary model HTML. This keeps visual output reviewable and prevents provider responses from injecting executable UI.
+`bio_clients.py` is the outbound data boundary. It accepts only HTTPS requests to fixed PubChem, UniProt, RCSB Data API and RCSB coordinate hosts, applies response limits and normalizes source URLs.
+
+`structure_io.py` parses the first PDB/mmCIF model, derives chain sequences and ligands, and produces a bounded atom-level viewer representation. `ngs_qc.py` streams workspace FASTQ files and calculates Phred+33, Q20/Q30, GC, N, read-length and per-cycle statistics.
+
+The frontend renders typed artifacts rather than arbitrary model HTML. Its primary layout keeps the research conversation beside the active evidence viewer, with execution traces and artifacts in a compact inspector. This keeps visual output reviewable and prevents provider responses from injecting executable UI.
 
 ## Extending the workbench
 

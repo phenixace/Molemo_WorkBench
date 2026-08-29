@@ -1,0 +1,12 @@
+HEADER    MOLEMO BENCH FIXTURE
+ATOM      1  N   ALA A   1      -1.458   0.000   0.000  1.00 20.00           N
+ATOM      2  CA  ALA A   1       0.000   0.000   0.000  1.00 20.00           C
+ATOM      3  C   ALA A   1       0.600   1.410   0.000  1.00 20.00           C
+ATOM      4  O   ALA A   1       0.000   2.470   0.000  1.00 20.00           O
+ATOM      5  N   GLY A   2       1.830   1.430   0.000  1.00 20.00           N
+ATOM      6  CA  GLY A   2       2.520   2.710   0.000  1.00 20.00           C
+ATOM      7  C   GLY A   2       4.020   2.500   0.000  1.00 20.00           C
+ATOM      8  O   GLY A   2       4.560   1.410   0.000  1.00 20.00           O
+HETATM    9  C1  LIG A 101       2.500  -1.600   0.500  1.00 20.00           C
+HETATM   10  O1  LIG A 101       3.650  -1.750   0.500  1.00 20.00           O
+END

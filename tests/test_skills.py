@@ -12,10 +12,11 @@ class SkillRegistryTests(unittest.TestCase):
     def test_catalog_discovers_pipeline_visualization_and_workspace_skills(self):
         kinds = {skill["kind"] for skill in self.registry.catalog()}
 
-        self.assertGreaterEqual(len(self.registry.catalog()), 6)
+        self.assertGreaterEqual(len(self.registry.catalog()), 9)
         self.assertIn("pipeline", kinds)
         self.assertIn("visualization", kinds)
         self.assertIn("workspace", kinds)
+        self.assertIn("retrieval", kinds)
 
     def test_alignment_returns_viewer_artifact(self):
         result = self.registry.execute(

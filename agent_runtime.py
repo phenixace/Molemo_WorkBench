@@ -146,6 +146,14 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
     trace = [trace_from_result(route, {"question": message})]
     artifacts: list[dict[str, Any]] = []
     evidence: list[str] = []
+    for tool_name, arguments in local_intent_tools(message):
+        try:
+            result = registry.execute(tool_name, arguments)
+            trace.append(trace_from_result(result, arguments))
+            artifacts.extend(result.get("artifacts") or [])
+            evidence.append(str(result.get("summary") or f"{tool_name} completed."))
+        except SkillError as exc:
+            evidence.append(f"{tool_name} could not complete: {exc}")
     sample_type = str(context.get("type") or "")
     try:
         if sample_type == "molecule" and context.get("smiles"):
@@ -183,6 +191,43 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         "usage": {},
         "provider": {"model": "local-skill-runtime", "tool_mode": "local"},
     }
+
+
+def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
+    """Select explicit retrieval/QC tools when no external LLM is configured."""
+    selected: list[tuple[str, dict[str, Any]]] = []
+    pdb = re.search(r"(?:pdb|rcsb|structure|结构)\s*(?:id|编号|条目)?\s*[:：#-]?\s*([0-9][a-z0-9]{3})\b", message, re.I)
+    if pdb:
+        selected.append(("structure_fetch_pdb", {"pdb_id": pdb.group(1).upper()}))
+
+    uniprot = re.search(
+        r"(?:uniprot(?:kb)?|accession|蛋白条目)\s*(?:id|编号)?\s*[:：#-]?\s*([a-z0-9]{6,10}(?:-\d+)?)\b",
+        message,
+        re.I,
+    )
+    if uniprot:
+        selected.append(("database_lookup_uniprot", {"accession": uniprot.group(1).upper()}))
+
+    fastq = re.search(r"([\w./-]+\.(?:fastq|fq))\b", message, re.I)
+    if fastq and re.search(r"fastq|qc|quality|phred|q20|q30|质控|质量", message, re.I):
+        selected.append(("ngs_fastq_qc", {"path": fastq.group(1)}))
+
+    pubchem_query = extract_pubchem_query(message)
+    if pubchem_query:
+        selected.append(("database_lookup_pubchem", {"query": pubchem_query}))
+    return selected
+
+
+def extract_pubchem_query(message: str) -> str:
+    if not re.search(r"pubchem", message, re.I):
+        return ""
+    quoted = re.search(r"[\"']([^\"']{1,100})[\"']", message)
+    if quoted:
+        return quoted.group(1).strip()
+    words = re.findall(r"[A-Za-z0-9][A-Za-z0-9+_.-]*", message)
+    ignored = {"pubchem", "lookup", "search", "find", "compound", "cid", "for", "in", "the"}
+    candidates = [word for word in words if word.lower() not in ignored]
+    return candidates[-1][:100] if candidates else ""
 
 
 def preload_context_tool(context: dict[str, Any], registry: SkillRegistry):

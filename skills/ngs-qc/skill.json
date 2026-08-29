@@ -1,0 +1,22 @@
+{
+  "id": "ngs-qc",
+  "title": "NGS Quality Control",
+  "kind": "pipeline",
+  "description": "Stream a workspace FASTQ file and create reviewable read, base-quality, GC, and per-cycle QC metrics.",
+  "tools": [
+    {
+      "name": "ngs_fastq_qc",
+      "description": "Analyze a workspace FASTQ file using Phred+33 scores and return read counts, lengths, GC, N rate, Q20/Q30, per-cycle quality, base composition, and a QC artifact.",
+      "handler": "scripts/handler.py:fastq_qc",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Workspace-relative .fastq or .fq path." },
+          "max_reads": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 10000 }
+        },
+        "required": ["path"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -10,14 +10,14 @@ Molemo WorkBench 的目标不是复制某个专用模型，而是实现同一类
 | Small-molecule structure | Implemented | RDKit SMILES graph, rings, bond order and core descriptors |
 | Protein sequence analysis | Implemented | FASTA cleaning and sequence-derived properties |
 | Sequence alignment viewer | Implemented | Deterministic pairwise global alignment |
-| Scientific artifacts | Implemented | Molecule, protein sequence, alignment, bar chart and hydropathy track |
-| Local file workspace | Implemented | Explicit text upload; read-only access for Agent; path constrained |
+| Scientific artifacts | Implemented | Molecule, protein sequence/structure, alignment, database record, FASTQ QC, bar chart and hydropathy track |
+| Local file workspace | Implemented | Explicit uploads up to 20 MB; read-only access for Agent; path constrained |
 | Reviewable execution record | Implemented | Tool arguments, status, timing, summary, chat and artifacts |
-| Process benchmark | Implemented | Deterministic v0 suite for tool correctness and artifacts |
-| Atom-level protein structures | Partial | Current protein canvas is sequence-derived; PDB/mmCIF viewer is next |
-| Public biological databases | Planned | Registry supports new skills; RCSB, UniProt and PubChem are not bundled yet |
+| Process benchmark | Implemented | Deterministic v0.2 suite for tool correctness and artifacts |
+| Atom-level protein structures | Implemented | RCSB PDB retrieval and local PDB/mmCIF first-model parsing; rendering is sampled above 12,000 atoms |
+| Public biological databases | Implemented | Source-linked PubChem, UniProtKB and RCSB retrieval through fixed official hosts |
 | BLAST/HMMER workflows | Planned | Pairwise local alignment only |
-| NGS analysis workbench | Planned | No FASTQ QC, sample sheet, bulk RNA-seq or single-cell pipeline yet |
+| NGS analysis workbench | Partial | Local FASTQ QC implemented; no sample sheet, alignment, bulk RNA-seq or single-cell pipeline yet |
 | Pathology slide viewer | Planned | No WSI/DICOM viewer |
 | Experimental validation and procurement | Planned | Can discuss validation, but does not call vendors or lab systems |
 

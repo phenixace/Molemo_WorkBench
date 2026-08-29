@@ -1,0 +1,34 @@
+{
+  "id": "protein-structure",
+  "title": "Protein Structure",
+  "kind": "visualization",
+  "description": "Fetch RCSB PDB entries or parse local PDB/mmCIF coordinates into atom-level protein structure artifacts.",
+  "tools": [
+    {
+      "name": "structure_fetch_pdb",
+      "description": "Fetch entry metadata and PDB coordinates from RCSB for a four-character PDB identifier, then return an atom-level viewer artifact.",
+      "handler": "scripts/handler.py:fetch_structure",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "pdb_id": { "type": "string", "description": "Four-character PDB identifier such as 1L2Y." }
+        },
+        "required": ["pdb_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "structure_parse_workspace",
+      "description": "Parse a PDB or mmCIF coordinate file inside the constrained Molemo workspace and return an atom-level viewer artifact.",
+      "handler": "scripts/handler.py:parse_workspace_structure",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Workspace-relative .pdb, .cif, or .mmcif path." }
+        },
+        "required": ["path"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

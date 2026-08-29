@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 WORKSPACE_ROOT = ROOT / "workspace"
 MAX_TEXT_BYTES = 512 * 1024
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 TEXT_SUFFIXES = {
     ".txt",
     ".md",
@@ -26,6 +27,8 @@ TEXT_SUFFIXES = {
     ".pdb",
     ".cif",
     ".mmcif",
+    ".fastq",
+    ".fq",
 }
 
 
@@ -94,8 +97,8 @@ def read_workspace_text(relative_path: str, max_bytes: int = 64 * 1024) -> dict[
 
 def write_workspace_text(relative_path: str, content: str) -> dict[str, object]:
     encoded = str(content).encode("utf-8")
-    if len(encoded) > MAX_TEXT_BYTES:
-        raise WorkspaceError(f"Text files are limited to {MAX_TEXT_BYTES} bytes.")
+    if len(encoded) > MAX_UPLOAD_BYTES:
+        raise WorkspaceError(f"Workspace uploads are limited to {MAX_UPLOAD_BYTES} bytes.")
     target = resolve_workspace_path(relative_path)
     if target.suffix.lower() not in TEXT_SUFFIXES:
         raise WorkspaceError(f"Unsupported text file type: {target.suffix or 'unknown'}")

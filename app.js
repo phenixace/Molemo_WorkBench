@@ -250,6 +250,7 @@ const els = {};
 let canvas;
 let ctx;
 let rafId;
+const structureGeometryCache = new WeakMap();
 
 document.addEventListener("DOMContentLoaded", () => {
   bindElements();
@@ -285,6 +286,7 @@ function bindElements() {
     "resetWorkspace",
     "loadSmiles",
     "loadFasta",
+    "loadStructure",
     "workspaceFiles",
     "saveWorkspaceFiles",
     "workspaceFileList",
@@ -354,6 +356,12 @@ function bindEvents() {
     const value = els.structureInput.value.trim();
     if (!value) return;
     loadCustomProtein(value);
+  });
+
+  els.loadStructure.addEventListener("click", () => {
+    const value = els.structureInput.value.trim();
+    if (!value) return;
+    loadProteinStructure(value);
   });
 
   els.saveWorkspaceFiles.addEventListener("click", saveSelectedWorkspaceFiles);
@@ -510,11 +518,14 @@ function renderHeader() {
   els.activeType.style.background = sample.type === "protein" ? "var(--amber-soft)" : "var(--teal-soft)";
   els.activeType.style.color = sample.type === "protein" ? "var(--amber)" : "var(--teal)";
   const preset = VIEWER_PRESETS[state.viewerStyle] || VIEWER_PRESETS.ballstick;
-  els.viewerLabel.textContent =
-    sample.type === "protein" ? "protein ribbon and residue field" : `${preset.name} molecular view`;
+  els.viewerLabel.textContent = sample.structure?.atoms?.length
+    ? `${preset.name} atom-level protein structure`
+    : sample.type === "protein"
+      ? "protein ribbon and residue field"
+      : `${preset.name} molecular view`;
   els.selectionReadout.textContent = sample.selection;
   els.confidenceReadout.textContent = sample.confidence;
-  els.structureInput.value = sample.smiles || sample.sequence || "";
+  els.structureInput.value = sample.pdbId || sample.smiles || sample.sequence || "";
 }
 
 function renderProperties() {
@@ -529,9 +540,10 @@ function renderProperties() {
   els.structureNotes.textContent = sample.notes;
 
   if (sample.type === "protein") {
+    const sequence = sample.sequence || "";
     els.sequenceBlock.innerHTML = `
       <span>Sequence</span>
-      <div class="sequence-text">${formatSequence(sample.sequence)}</div>
+      <div class="sequence-text">${formatSequence(sequence)}${sequence.length > 2000 ? " …" : ""}</div>
     `;
     els.sequenceBlock.style.display = "block";
   } else {
@@ -629,12 +641,12 @@ function renderArtifacts() {
       const card = document.createElement("article");
       card.className = "artifact-card";
       const title = escapeHtml(artifact.title || artifact.type || "Artifact");
-      if (artifact.type === "molecule" || artifact.type === "protein-sequence") {
+      if (["molecule", "protein-sequence", "protein-structure"].includes(artifact.type)) {
         const sample = artifact.data || {};
         card.innerHTML = `
           <header><strong>${title}</strong><span>${escapeHtml(artifact.type)}</span></header>
           <p>${escapeHtml(sample.selection || sample.notes || "Viewer-ready scientific artifact")}</p>
-          <button class="secondary-button artifact-open" type="button">在结构视图打开</button>
+          <button class="secondary-button artifact-open" type="button">在${artifact.type === "protein-sequence" ? "序列" : "结构"}视图打开</button>
         `;
         card.querySelector(".artifact-open").addEventListener("click", () => {
           if (!sample.type) return;
@@ -642,6 +654,36 @@ function renderArtifacts() {
           selectSample(sample.id, { keepDesigns: true });
           switchTab("properties");
         });
+      } else if (artifact.type === "database-record") {
+        const data = artifact.data || {};
+        const fields = databaseRecordFields(data);
+        card.innerHTML = `
+          <header><strong>${title}</strong><span>${escapeHtml(data.source || "database")}</span></header>
+          <div class="record-grid">
+            ${fields.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+          </div>
+          ${safeExternalUrl(data.source_url) ? `<a class="source-link" href="${escapeHtml(data.source_url)}" target="_blank" rel="noreferrer">打开官方记录</a>` : ""}
+        `;
+      } else if (artifact.type === "fastq-qc") {
+        const data = artifact.data || {};
+        const quality = data.per_cycle_quality || [];
+        const minQuality = Math.min(...quality, 0);
+        const maxQuality = Math.max(...quality, 40);
+        card.innerHTML = `
+          <header><strong>${title}</strong><span>${escapeHtml(data.sampled ? "sampled" : "complete")}</span></header>
+          <div class="qc-metrics">
+            ${[
+              ["Reads", data.reads_analyzed],
+              ["Mean Q", data.mean_quality],
+              ["Q30", `${data.q30_percent}%`],
+              ["GC", `${data.gc_percent}%`],
+            ].map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+          </div>
+          <div class="cycle-chart" aria-label="Mean quality by sequencing cycle">
+            ${quality.map((value, index) => `<i title="Cycle ${index + 1}: Q${value}" style="height:${clamp(((Number(value) - minQuality) / Math.max(1, maxQuality - minQuality)) * 100, 3, 100)}%"></i>`).join("")}
+          </div>
+          <p>${escapeHtml(`${data.mean_read_length} bp mean length · Q20 ${data.q20_percent}% · N ${data.n_percent}% · ${data.quality_encoding}`)}</p>
+        `;
       } else if (artifact.type === "sequence-alignment") {
         const data = artifact.data || {};
         card.innerHTML = `
@@ -716,7 +758,15 @@ function renderWorkspaceFiles() {
     row.type = "button";
     row.className = "workspace-file";
     row.innerHTML = `<span>${escapeHtml(file.path)}</span><small>${escapeHtml(formatBytes(file.size))}</small>`;
-    row.addEventListener("click", () => runAgent(`读取 workspace 文件 ${file.path}，判断内容并建议下一步分析`));
+    row.addEventListener("click", () => {
+      if (/\.(pdb|cif|mmcif)$/i.test(file.path)) {
+        executeLocalTool("structure_parse_workspace", { path: file.path }, { openSample: true });
+      } else if (/\.(fastq|fq)$/i.test(file.path)) {
+        executeLocalTool("ngs_fastq_qc", { path: file.path }, { openArtifacts: true });
+      } else {
+        runAgent(`读取 workspace 文件 ${file.path}，判断内容并建议下一步分析`);
+      }
+    });
     els.workspaceFileList.appendChild(row);
   });
 }
@@ -1121,6 +1171,55 @@ async function loadCustomProtein(sequence) {
   addSystemMessage("本地序列管线不可用。运行 server.py 后可启用真实 FASTA 统计。");
 }
 
+async function loadProteinStructure(value) {
+  const cleaned = String(value || "").trim();
+  if (/^[0-9][A-Za-z0-9]{3}$/.test(cleaned)) {
+    await executeLocalTool("structure_fetch_pdb", { pdb_id: cleaned.toUpperCase() }, { openSample: true });
+    return;
+  }
+  if (/\.(pdb|cif|mmcif)$/i.test(cleaned)) {
+    await executeLocalTool("structure_parse_workspace", { path: cleaned }, { openSample: true });
+    return;
+  }
+  addSystemMessage("请输入四位 PDB ID，或先导入 workspace 后填写 .pdb/.cif/.mmcif 文件名。");
+}
+
+async function executeLocalTool(name, arguments, options = {}) {
+  addToolCall(name, arguments, "正在执行本地 scientific skill…");
+  try {
+    const response = await fetch(pipelineEndpoint("/api/tools/call"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, arguments }),
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || `HTTP ${response.status}`);
+    const latest = state.toolCalls[state.toolCalls.length - 1];
+    latest.summary = result.summary || "Skill completed.";
+    latest.status = "completed";
+    latest.durationMs = result.duration_ms || 0;
+    mergeArtifacts(result.artifacts || []);
+    const sampleArtifact = (result.artifacts || []).find((artifact) => artifact.data?.type);
+    if (options.openSample && sampleArtifact) {
+      upsertCustomSample(sampleArtifact.data);
+      selectSample(sampleArtifact.data.id, { keepDesigns: true });
+      switchTab("properties");
+    } else if (options.openArtifacts || result.artifacts?.length) {
+      switchTab("artifacts");
+    }
+    addSystemMessage(result.summary || `${name} 已完成。`);
+    renderAll();
+    return result;
+  } catch (error) {
+    const latest = state.toolCalls[state.toolCalls.length - 1];
+    latest.status = "error";
+    latest.summary = error.message;
+    addSystemMessage(`${name} 失败：${error.message}`);
+    renderAll();
+    return null;
+  }
+}
+
 async function fetchPipelineSample(kind, payload) {
   try {
     const response = await fetch(pipelineEndpoint(`/api/${kind}`), {
@@ -1175,8 +1274,8 @@ async function saveSelectedWorkspaceFiles() {
   }
   let saved = 0;
   for (const file of files) {
-    if (file.size > 512 * 1024) {
-      addSystemMessage(`${file.name} 超过首版 512 KB 文本限制，未导入。`);
+    if (file.size > 20 * 1024 * 1024) {
+      addSystemMessage(`${file.name} 超过 20 MB workspace 上传限制，未导入。`);
       continue;
     }
     try {
@@ -1371,7 +1470,8 @@ function drawScene() {
   ctx.clearRect(0, 0, width, height);
 
   drawGridOverlay(width, height);
-  if (sample.type === "protein") drawProtein(sample, width, height);
+  if (sample.structure?.atoms?.length) drawProteinStructure(sample, width, height);
+  else if (sample.type === "protein") drawProtein(sample, width, height);
   else drawMolecule(sample, width, height);
 }
 
@@ -1632,6 +1732,101 @@ function drawProtein(sample, width, height) {
   drawLegend(sample.type);
 }
 
+function drawProteinStructure(sample, width, height) {
+  const geometry = normalizedStructureGeometry(sample);
+  const preset = VIEWER_PRESETS[state.viewerStyle] || VIEWER_PRESETS.ballstick;
+  const scale = Math.min(width, height) * 0.38 * state.zoom;
+  const chainColors = ["#147d72", "#b66a19", "#2f6fb0", "#b2455c", "#407a3b", "#6d4a88"];
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  geometry.backbone.forEach((chain, chainIndex) => {
+    const points = chain.points.map((point) => ({
+      ...project(point.x, point.y, point.z, width, height, scale),
+      point,
+    }));
+    if (points.length < 2) return;
+    ctx.beginPath();
+    points.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.strokeStyle = chainColors[chainIndex % chainColors.length];
+    ctx.globalAlpha = state.viewerStyle === "spacefill" ? 0.35 : 0.82;
+    ctx.lineWidth = state.viewerStyle === "wire" ? 2.2 : 5.5;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    if (state.showLabels && points.length) {
+      const step = Math.max(10, Math.floor(points.length / 8));
+      points.filter((_, index) => index % step === 0).forEach((point) => {
+        drawLabel(`${chain.chain}:${point.point.aa}${point.point.resSeq}`, point.x, point.y, 3);
+      });
+    }
+  });
+
+  const projectedAtoms = geometry.atoms.map((atom) => ({
+    ...project(atom.x, atom.y, atom.z, width, height, scale),
+    atom,
+  }));
+  const stride = state.viewerStyle === "wire" ? Math.max(1, Math.ceil(projectedAtoms.length / 4000)) : 1;
+  projectedAtoms
+    .filter((point, index) => point.atom.hetero || index % stride === 0)
+    .sort((a, b) => a.z - b.z)
+    .forEach((point) => {
+      const hetero = point.atom.hetero;
+      const radius = hetero ? 4.8 : state.viewerStyle === "spacefill" ? 3.8 : state.viewerStyle === "wire" ? 1.25 : 2.25;
+      ctx.beginPath();
+      ctx.fillStyle = ELEMENT_COLORS[point.atom.e] || ELEMENT_COLORS.X;
+      ctx.globalAlpha = hetero ? 0.98 : state.viewerStyle === "wire" ? 0.5 : 0.72;
+      ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      if (hetero) {
+        ctx.strokeStyle = "rgba(255,255,255,0.8)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    });
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  drawLegend("molecule");
+}
+
+function normalizedStructureGeometry(sample) {
+  if (structureGeometryCache.has(sample)) return structureGeometryCache.get(sample);
+  const atoms = sample.structure?.atoms || [];
+  const xs = atoms.map((atom) => Number(atom.x));
+  const ys = atoms.map((atom) => Number(atom.y));
+  const zs = atoms.map((atom) => Number(atom.z));
+  const center = {
+    x: (Math.min(...xs) + Math.max(...xs)) / 2,
+    y: (Math.min(...ys) + Math.max(...ys)) / 2,
+    z: (Math.min(...zs) + Math.max(...zs)) / 2,
+  };
+  const span = Math.max(
+    Math.max(...xs) - Math.min(...xs),
+    Math.max(...ys) - Math.min(...ys),
+    Math.max(...zs) - Math.min(...zs),
+    1,
+  );
+  const normalizePoint = (point) => ({
+    ...point,
+    x: ((Number(point.x) - center.x) * 2) / span,
+    y: ((Number(point.y) - center.y) * 2) / span,
+    z: ((Number(point.z) - center.z) * 2) / span,
+  });
+  const geometry = {
+    atoms: atoms.map(normalizePoint),
+    backbone: (sample.structure?.backbone || []).map((chain) => ({
+      chain: chain.chain,
+      points: (chain.points || []).map(normalizePoint),
+    })),
+  };
+  structureGeometryCache.set(sample, geometry);
+  return geometry;
+}
+
 function proteinResidues(sequence) {
   const residues = [];
   const length = Math.max(sequence.length, 1);
@@ -1835,7 +2030,37 @@ function getActiveSample() {
 }
 
 function formatSequence(sequence) {
-  return escapeHtml(sequence.replace(/(.{10})/g, "$1 ").trim());
+  return escapeHtml(String(sequence || "").slice(0, 2000).replace(/(.{10})/g, "$1 ").trim());
+}
+
+function databaseRecordFields(data) {
+  if (data.source === "PubChem") {
+    return [
+      ["CID", data.cid],
+      ["Formula", data.formula],
+      ["MW", data.molecular_weight],
+      ["XLogP", data.xlogp],
+      ["HBA / HBD", `${data.hba ?? "–"} / ${data.hbd ?? "–"}`],
+      ["TPSA", data.tpsa],
+    ].filter(([, value]) => value !== undefined && value !== null && value !== "");
+  }
+  return [
+    ["Accession", data.accession],
+    ["Protein", data.protein_name],
+    ["Organism", data.organism],
+    ["Length", data.length ? `${data.length} aa` : ""],
+    ["Reviewed", data.reviewed ? "Yes" : "No"],
+    ["PDB links", (data.pdb_ids || []).slice(0, 6).join(", ") || "None"],
+  ].filter(([, value]) => value !== undefined && value !== null && value !== "");
+}
+
+function safeExternalUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return url.protocol === "https:" && ["pubchem.ncbi.nlm.nih.gov", "www.uniprot.org", "www.rcsb.org"].includes(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function formatBytes(bytes) {

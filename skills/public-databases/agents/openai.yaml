@@ -1,0 +1,3 @@
+interface:
+  display_name: "Public Databases"
+  short_description: "Retrieve PubChem and UniProt records"

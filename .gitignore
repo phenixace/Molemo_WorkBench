@@ -5,3 +5,5 @@ __pycache__/
 reports/
 workspace/*
 !workspace/.gitkeep
+!workspace/examples/
+!workspace/examples/**

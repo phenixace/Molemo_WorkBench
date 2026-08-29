@@ -115,7 +115,7 @@ def run_benchmark(tasks_path: Path = DEFAULT_TASKS) -> dict[str, Any]:
         "failure_rate": round((total - passed_count) / total, 4) if total else 0,
     }
     return {
-        "benchmark": "Molemo_Bench v0",
+        "benchmark": "Molemo_Bench v0.2",
         "tasks": total,
         "passed": passed_count,
         "metrics": metrics,
@@ -124,7 +124,7 @@ def run_benchmark(tasks_path: Path = DEFAULT_TASKS) -> dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run Molemo_Bench v0 against the local skill registry.")
+    parser = argparse.ArgumentParser(description="Run Molemo_Bench v0.2 against the local skill registry.")
     parser.add_argument("--tasks", type=Path, default=DEFAULT_TASKS)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()

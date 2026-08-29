@@ -1,0 +1,3 @@
+interface:
+  display_name: "NGS Quality Control"
+  short_description: "Inspect FASTQ read and quality distributions"

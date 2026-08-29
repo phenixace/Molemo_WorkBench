@@ -1,0 +1,34 @@
+{
+  "id": "public-databases",
+  "title": "Public Databases",
+  "kind": "retrieval",
+  "description": "Retrieve source-linked compound and protein records from the official PubChem and UniProt APIs.",
+  "tools": [
+    {
+      "name": "database_lookup_pubchem",
+      "description": "Look up a named compound or identifier in PubChem and return source-linked properties plus a locally parsed molecular structure artifact when SMILES is available.",
+      "handler": "scripts/handler.py:lookup_compound",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Compound name, CID-compatible name, or registry identifier." }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "database_lookup_uniprot",
+      "description": "Retrieve an accession from UniProtKB and return its protein name, organism, sequence, function annotations, PDB cross-references, and a sequence artifact.",
+      "handler": "scripts/handler.py:lookup_protein",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "accession": { "type": "string", "description": "UniProt accession such as P69905." }
+        },
+        "required": ["accession"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
