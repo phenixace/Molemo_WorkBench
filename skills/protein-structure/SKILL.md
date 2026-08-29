@@ -9,4 +9,6 @@ Use `structure_fetch_pdb` for a four-character PDB identifier, `structure_fetch_
 
 AlphaFold coordinates are predictions. Interpret B-factor values as pLDDT only for models retrieved through `structure_fetch_alphafold`: scores above 90 are very high local confidence, 70–90 confident, 50–70 low, and below 50 very low. pLDDT does not establish relative domain placement; direct the researcher to PAE for that question.
 
+The AlphaFold artifact includes a directional PAE matrix when the official bounded JSON is available. Rows represent the scored residue and columns the residue used for alignment; lower Å values indicate greater confidence in their relative position. The matrix may be mean-downsampled into contiguous residue bins for display and must not be converted into automatic domain, interaction, or mechanism claims.
+
 The parser reads the first model, removes water, preserves protein and ligand atoms, derives chain sequences from C-alpha residues, and returns an atom-level viewer artifact. Large structures may be sampled for rendering while retaining the full parsed atom count.

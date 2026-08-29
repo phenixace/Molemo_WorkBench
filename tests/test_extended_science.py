@@ -1,10 +1,24 @@
 import unittest
+from unittest.mock import patch
 
 from agent_runtime import extract_alphafold_accession, extract_pubchem_query, local_intent_tools
-from bio_clients import ExternalDataError, parse_alphafold_predictions, parse_pubchem_payload, parse_rcsb_payload, parse_uniprot_payload
+from bio_clients import (
+    ExternalDataError,
+    fetch_alphafold_pae_payload,
+    parse_alphafold_predictions,
+    parse_pubchem_payload,
+    parse_rcsb_payload,
+    parse_uniprot_payload,
+)
 from ngs_qc import FastqError, analyze_fastq_text
-from skill_runtime import SkillRegistry
-from structure_io import build_structure_sample, parse_structure_text, summarize_plddt
+from skill_runtime import SkillRegistry, compact_tool_result
+from structure_io import (
+    StructureError,
+    build_structure_sample,
+    parse_alphafold_pae,
+    parse_structure_text,
+    summarize_plddt,
+)
 
 
 PDB_TEXT = """\
@@ -146,6 +160,16 @@ class PublicDatabaseParsingTests(unittest.TestCase):
                 "P04637",
             )
 
+    def test_alphafold_pae_download_accepts_only_official_versioned_path(self):
+        url = "https://alphafold.ebi.ac.uk/files/AF-P04637-F1-predicted_aligned_error_v6.json"
+        with patch("bio_clients.get_json_array", return_value=[{"predicted_aligned_error": [[0]]}]) as get:
+            payload = fetch_alphafold_pae_payload(url)
+
+        self.assertEqual(payload[0]["predicted_aligned_error"], [[0]])
+        get.assert_called_once_with(url)
+        with self.assertRaises(ExternalDataError):
+            fetch_alphafold_pae_payload("https://example.org/AF-P04637-F1-predicted_aligned_error_v6.json")
+
 
 class StructureAndNgsTests(unittest.TestCase):
     @classmethod
@@ -183,6 +207,46 @@ class StructureAndNgsTests(unittest.TestCase):
         self.assertIn("mean pLDDT 70.00", sample["confidence"])
         self.assertNotIn("experimental", sample["confidence"])
 
+    def test_alphafold_pae_preserves_direction_and_residue_axes(self):
+        matrix = [
+            [0, 1, 8, 9],
+            [2, 0, 7, 8],
+            [15, 14, 0, 1],
+            [16, 15, 2, 0],
+        ]
+        pae = parse_alphafold_pae(
+            [{"predicted_aligned_error": matrix, "max_predicted_aligned_error": 31.75}],
+            expected_residues=4,
+        )
+
+        self.assertEqual(pae["matrix"], matrix)
+        self.assertNotEqual(pae["matrix"][0][1], pae["matrix"][1][0])
+        self.assertEqual(pae["orientation"]["rows"], "scored residue")
+        self.assertEqual(pae["orientation"]["columns"], "aligned residue")
+        self.assertEqual(pae["max_error"], 31.75)
+
+    def test_alphafold_pae_downsamples_by_residue_blocks(self):
+        matrix = [[float(row + column) for column in range(40)] for row in range(40)]
+        pae = parse_alphafold_pae(
+            [{"predicted_aligned_error": matrix, "max_predicted_aligned_error": 78}],
+            expected_residues=40,
+            max_bins=32,
+        )
+
+        self.assertTrue(pae["downsampled"])
+        self.assertEqual(pae["bin_size"], 2)
+        self.assertEqual(pae["matrix_size"], 20)
+        self.assertEqual(pae["matrix"][0][0], 1.0)
+
+    def test_alphafold_pae_rejects_shape_and_residue_mismatch(self):
+        with self.assertRaises(StructureError):
+            parse_alphafold_pae([{"predicted_aligned_error": [[0, 1], [1]]}])
+        with self.assertRaises(StructureError):
+            parse_alphafold_pae(
+                [{"predicted_aligned_error": [[0, 1], [1, 0]]}],
+                expected_residues=3,
+            )
+
     def test_fastq_qc_reports_quality_and_composition(self):
         result = analyze_fastq_text(FASTQ_TEXT)
 
@@ -204,6 +268,51 @@ class StructureAndNgsTests(unittest.TestCase):
         self.assertEqual(structure["data"]["structure"]["sequence"], "AG")
         self.assertEqual(fastq["artifacts"][0]["type"], "fastq-qc")
         self.assertEqual(fastq["data"]["reads_analyzed"], 3)
+
+    def test_alphafold_structure_survives_optional_pae_failure(self):
+        handler = self.registry.tools["structure_fetch_alphafold"].handler
+        metadata = {
+            "source": "AlphaFold Protein Structure Database",
+            "source_url": "https://alphafold.ebi.ac.uk/entry/P04637",
+            "coordinate_type": "predicted",
+            "accession": "P04637",
+            "entry_id": "AF-P04637-F1",
+            "gene": "TP53",
+            "mean_plddt": 70,
+            "model_url": "https://alphafold.ebi.ac.uk/files/AF-P04637-F1-model_v6.pdb",
+            "pae_url": "https://alphafold.ebi.ac.uk/files/AF-P04637-F1-predicted_aligned_error_v6.json",
+        }
+        with patch.dict(
+            handler.__globals__,
+            {
+                "lookup_alphafold_prediction": lambda _accession: metadata,
+                "fetch_alphafold_pdb_text": lambda _url: ALPHAFOLD_PDB_TEXT,
+                "fetch_alphafold_pae_payload": lambda _url: (_ for _ in ()).throw(
+                    ExternalDataError("temporary PAE failure")
+                ),
+            },
+        ):
+            result = handler({"accession": "P04637"}, {})
+
+        sample = result["artifacts"][0]["data"]
+        self.assertEqual(result["data"]["structure"]["atom_count"], 2)
+        self.assertFalse(sample["metadata"]["paeAvailable"])
+        self.assertTrue(any("temporary PAE failure" in caveat for caveat in result["caveats"]))
+
+    def test_pae_matrix_is_not_forwarded_into_model_tool_context(self):
+        result = {
+            "ok": True,
+            "tool": "structure_fetch_alphafold",
+            "skill": "protein-structure",
+            "summary": "AlphaFold structure with PAE loaded.",
+            "data": {"structure": {"pae": {"matrix": [[12.5] * 80 for _ in range(80)]}}},
+            "artifacts": [{"type": "protein-structure", "data": {"pae": "viewer artifact"}}],
+        }
+
+        compact = compact_tool_result(result)
+
+        self.assertIn('"truncated":true', compact)
+        self.assertNotIn('"matrix"', compact)
 
     def test_local_agent_intent_extractors_select_new_tools(self):
         self.assertEqual(extract_pubchem_query("lookup PubChem caffeine"), "caffeine")

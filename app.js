@@ -221,6 +221,8 @@ const state = {
   activeMode: "structure",
   activeTab: "properties",
   viewerStyle: "ballstick",
+  structureEvidenceMode: "structure",
+  paeHover: null,
   showLabels: true,
   isAnimating: true,
   angleX: -0.24,
@@ -253,6 +255,7 @@ let canvas;
 let ctx;
 let rafId;
 const structureGeometryCache = new WeakMap();
+const paeCanvasCache = new WeakMap();
 
 document.addEventListener("DOMContentLoaded", () => {
   bindElements();
@@ -291,6 +294,8 @@ function bindElements() {
     "loadFasta",
     "loadStructure",
     "loadAlphaFold",
+    "structureEvidenceModes",
+    "viewerStyleControls",
     "workspaceFiles",
     "saveWorkspaceFiles",
     "workspaceFileList",
@@ -416,6 +421,15 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll(".viewer-evidence").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.structureEvidenceMode = button.dataset.evidenceMode;
+      state.paeHover = null;
+      renderStructureEvidenceModes();
+      renderHeader();
+    });
+  });
+
   document.querySelectorAll(".tab").forEach((button) => {
     button.addEventListener("click", () => switchTab(button.dataset.tab));
   });
@@ -452,6 +466,10 @@ function bindEvents() {
   els.createWorkflowPlan.addEventListener("click", createWorkflowPlan);
 
   canvas.addEventListener("pointerdown", (event) => {
+    if (isPaeMode()) {
+      updatePaeHover(event);
+      return;
+    }
     state.pointer.down = true;
     state.pointer.x = event.clientX;
     state.pointer.y = event.clientY;
@@ -459,6 +477,10 @@ function bindEvents() {
   });
 
   canvas.addEventListener("pointermove", (event) => {
+    if (isPaeMode()) {
+      updatePaeHover(event);
+      return;
+    }
     if (!state.pointer.down) return;
     const dx = event.clientX - state.pointer.x;
     const dy = event.clientY - state.pointer.y;
@@ -469,13 +491,21 @@ function bindEvents() {
   });
 
   canvas.addEventListener("pointerup", (event) => {
+    if (isPaeMode()) return;
     state.pointer.down = false;
-    canvas.releasePointerCapture(event.pointerId);
+    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+  });
+
+  canvas.addEventListener("pointerleave", () => {
+    if (!isPaeMode()) return;
+    state.paeHover = null;
+    renderHeader();
   });
 
   canvas.addEventListener(
     "wheel",
     (event) => {
+      if (isPaeMode()) return;
       event.preventDefault();
       state.zoom = clamp(state.zoom - event.deltaY * 0.001, 0.58, 1.8);
     },
@@ -507,6 +537,8 @@ function selectSample(id, options = {}) {
   if (!sample) return;
   state.activeId = id;
   state.zoom = 1;
+  state.structureEvidenceMode = "structure";
+  state.paeHover = null;
   state.angleX = sample.type === "protein" ? -0.38 : -0.24;
   state.angleY = sample.type === "protein" ? 0.18 : 0.42;
   if (!options.keepDesigns) state.candidates = initialCandidates(sample);
@@ -530,6 +562,7 @@ function renderAll() {
   renderRuntime();
   renderSegments();
   renderViewerStyles();
+  renderStructureEvidenceModes();
 }
 
 function renderHeader() {
@@ -539,6 +572,18 @@ function renderHeader() {
   els.activeType.style.background = sample.type === "protein" ? "var(--amber-soft)" : "var(--teal-soft)";
   els.activeType.style.color = sample.type === "protein" ? "var(--amber)" : "var(--teal)";
   const preset = VIEWER_PRESETS[state.viewerStyle] || VIEWER_PRESETS.ballstick;
+  if (isPaeMode(sample)) {
+    const pae = sample.structure.pae;
+    els.viewerLabel.textContent = "AlphaFold predicted aligned error";
+    if (state.paeHover) {
+      const hover = state.paeHover;
+      els.selectionReadout.textContent = `${formatPaeRange(hover.rowStart, hover.rowEnd)} scored · ${formatPaeRange(hover.columnStart, hover.columnEnd)} aligned · ${hover.value.toFixed(2)} Å`;
+      els.confidenceReadout.textContent = `PAE ${hover.value.toFixed(2)} Å · max ${Number(pae.max_error).toFixed(2)} Å`;
+    } else {
+      els.selectionReadout.textContent = `${pae.residue_count} residues · ${pae.matrix_size} × ${pae.matrix_size} display bins`;
+      els.confidenceReadout.textContent = `PAE 0–${Number(pae.max_error).toFixed(2)} Å · AlphaFold DB`;
+    }
+  } else {
   els.viewerLabel.textContent = sample.structure?.atoms?.length
     ? sample.metadata?.coordinateType === "predicted"
       ? `${preset.name} AlphaFold prediction · pLDDT`
@@ -548,6 +593,7 @@ function renderHeader() {
       : `${preset.name} molecular view`;
   els.selectionReadout.textContent = sample.selection;
   els.confidenceReadout.textContent = sample.confidence;
+  }
   els.structureInput.value = sample.metadata?.accession || sample.pdbId || sample.smiles || sample.sequence || "";
 }
 
@@ -607,6 +653,30 @@ function renderViewerStyles() {
   document.querySelectorAll(".viewer-style").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.style === state.viewerStyle);
   });
+}
+
+function renderStructureEvidenceModes() {
+  const sample = getActiveSample();
+  const hasPae = Boolean(sample.structure?.pae?.matrix?.length);
+  if (!hasPae) state.structureEvidenceMode = "structure";
+  els.structureEvidenceModes.hidden = !hasPae;
+  document.querySelectorAll(".viewer-evidence").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.evidenceMode === state.structureEvidenceMode);
+  });
+  const paeMode = hasPae && state.structureEvidenceMode === "pae";
+  els.viewerStyleControls.hidden = paeMode;
+  for (const control of [els.toggleMotion, els.toggleLabels, els.zoomIn, els.zoomOut]) {
+    control.hidden = paeMode;
+  }
+  canvas.classList.toggle("is-pae", paeMode);
+}
+
+function isPaeMode(sample = getActiveSample()) {
+  return state.structureEvidenceMode === "pae" && Boolean(sample.structure?.pae?.matrix?.length);
+}
+
+function formatPaeRange(start, end) {
+  return start === end ? `residue ${start}` : `residues ${start}–${end}`;
 }
 
 function switchTab(tab) {
@@ -3170,7 +3240,7 @@ function resizeCanvas() {
 }
 
 function drawLoop() {
-  if (state.isAnimating && !state.pointer.down) {
+  if (state.isAnimating && !state.pointer.down && !isPaeMode()) {
     state.angleY += 0.004;
   }
   drawScene();
@@ -3183,10 +3253,150 @@ function drawScene() {
   const height = canvas.clientHeight;
   ctx.clearRect(0, 0, width, height);
 
+  if (isPaeMode(sample)) {
+    drawPaeMatrix(sample, width, height);
+    return;
+  }
   drawGridOverlay(width, height);
   if (sample.structure?.atoms?.length) drawProteinStructure(sample, width, height);
   else if (sample.type === "protein") drawProtein(sample, width, height);
   else drawMolecule(sample, width, height);
+}
+
+function drawPaeMatrix(sample, width, height) {
+  const pae = sample.structure?.pae;
+  if (!pae?.matrix?.length) return;
+  const plot = paePlotGeometry(width, height);
+  const image = cachedPaeCanvas(sample);
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(image, plot.x, plot.y, plot.size, plot.size);
+  ctx.strokeStyle = "#888178";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(plot.x + 0.5, plot.y + 0.5, plot.size - 1, plot.size - 1);
+
+  const middleResidue = Math.ceil(Number(pae.residue_count) / 2);
+  const middle = plot.x + plot.size / 2;
+  ctx.fillStyle = "#625d56";
+  ctx.font = "11px ui-sans-serif, system-ui";
+  ctx.textAlign = "left";
+  ctx.fillText("Scored residue ↓", plot.x, Math.max(13, plot.y - 10));
+  ctx.fillText("1", plot.x, plot.y + plot.size + 17);
+  ctx.textAlign = "center";
+  ctx.fillText(String(middleResidue), middle, plot.y + plot.size + 17);
+  ctx.fillText("Aligned residue →", middle, plot.y + plot.size + 35);
+  ctx.textAlign = "right";
+  ctx.fillText(String(pae.residue_count), plot.x + plot.size, plot.y + plot.size + 17);
+
+  drawPaeColorScale(plot, Number(pae.max_error));
+  if (state.paeHover) {
+    const cell = plot.size / Number(pae.matrix_size);
+    ctx.strokeStyle = "#20201e";
+    ctx.lineWidth = Math.max(1, Math.min(3, cell));
+    ctx.strokeRect(
+      plot.x + state.paeHover.column * cell,
+      plot.y + state.paeHover.row * cell,
+      Math.max(1, cell),
+      Math.max(1, cell),
+    );
+  }
+  ctx.restore();
+}
+
+function paePlotGeometry(width, height) {
+  const compact = width < 520 || height < 390;
+  const margins = compact
+    ? { top: 32, right: 18, bottom: 52, left: 18 }
+    : { top: 42, right: 110, bottom: 54, left: 44 };
+  const size = Math.max(96, Math.min(width - margins.left - margins.right, height - margins.top - margins.bottom));
+  const x = margins.left + Math.max(0, (width - margins.left - margins.right - size) / 2);
+  const y = margins.top + Math.max(0, (height - margins.top - margins.bottom - size) / 2);
+  return { x, y, size, compact, width, height };
+}
+
+function cachedPaeCanvas(sample) {
+  if (paeCanvasCache.has(sample)) return paeCanvasCache.get(sample);
+  const pae = sample.structure.pae;
+  const matrix = pae.matrix;
+  const size = matrix.length;
+  const offscreen = document.createElement("canvas");
+  offscreen.width = size;
+  offscreen.height = size;
+  const offscreenContext = offscreen.getContext("2d");
+  const pixels = offscreenContext.createImageData(size, size);
+  const maximum = Math.max(1, Number(pae.max_error));
+  for (let row = 0; row < size; row += 1) {
+    for (let column = 0; column < size; column += 1) {
+      const color = paeRgb(Number(matrix[row][column]), maximum);
+      const index = (row * size + column) * 4;
+      pixels.data[index] = color[0];
+      pixels.data[index + 1] = color[1];
+      pixels.data[index + 2] = color[2];
+      pixels.data[index + 3] = 255;
+    }
+  }
+  offscreenContext.putImageData(pixels, 0, 0);
+  paeCanvasCache.set(sample, offscreen);
+  return offscreen;
+}
+
+function paeRgb(value, maximum) {
+  const t = clamp(Number(value) / Math.max(1, maximum), 0, 1);
+  const low = [10, 91, 76];
+  const high = [241, 246, 218];
+  return low.map((channel, index) => Math.round(channel + (high[index] - channel) * t));
+}
+
+function drawPaeColorScale(plot, maximum) {
+  const width = plot.compact ? Math.min(116, plot.size * 0.42) : 82;
+  const height = 8;
+  const x = plot.compact ? plot.x + plot.size - width : plot.x + plot.size + 20;
+  const y = plot.compact ? Math.max(16, plot.y - 19) : plot.y + 4;
+  for (let index = 0; index < width; index += 1) {
+    const color = paeRgb(index, Math.max(1, width - 1));
+    ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+    ctx.fillRect(x + index, y, 1, height);
+  }
+  ctx.strokeStyle = "#9b958b";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, width - 1, height - 1);
+  ctx.fillStyle = "#625d56";
+  ctx.font = "10px ui-sans-serif, system-ui";
+  ctx.textAlign = "left";
+  ctx.fillText("0 Å", x, y + 20);
+  ctx.textAlign = "right";
+  ctx.fillText(`${maximum.toFixed(2)} Å`, x + width, y + 20);
+}
+
+function updatePaeHover(event) {
+  const sample = getActiveSample();
+  const pae = sample.structure?.pae;
+  if (!pae?.matrix?.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const plot = paePlotGeometry(canvas.clientWidth, canvas.clientHeight);
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  if (x < plot.x || x >= plot.x + plot.size || y < plot.y || y >= plot.y + plot.size) {
+    if (state.paeHover) {
+      state.paeHover = null;
+      renderHeader();
+    }
+    return;
+  }
+  const size = Number(pae.matrix_size);
+  const column = clamp(Math.floor(((x - plot.x) / plot.size) * size), 0, size - 1);
+  const row = clamp(Math.floor(((y - plot.y) / plot.size) * size), 0, size - 1);
+  const binSize = Number(pae.bin_size || 1);
+  state.paeHover = {
+    row,
+    column,
+    rowStart: row * binSize + 1,
+    rowEnd: Math.min(Number(pae.residue_count), (row + 1) * binSize),
+    columnStart: column * binSize + 1,
+    columnEnd: Math.min(Number(pae.residue_count), (column + 1) * binSize),
+    value: Number(pae.matrix[row][column]),
+  };
+  renderHeader();
 }
 
 function drawGridOverlay(width, height) {

@@ -33,7 +33,7 @@ ALLOWED_HOSTS = {
 MAX_JSON_BYTES = 6 * 1024 * 1024
 MAX_JSON_REQUEST_BYTES = 256 * 1024
 MAX_STRUCTURE_BYTES = 24 * 1024 * 1024
-USER_AGENT = "Molemo-WorkBench/0.16 (public scientific database client)"
+USER_AGENT = "Molemo-WorkBench/0.17 (public scientific database client)"
 MAX_STRING_QUERY_BYTES = 16 * 1024
 _STRING_REQUEST_LOCK = threading.Lock()
 _STRING_LAST_REQUEST = 0.0
@@ -371,6 +371,24 @@ def fetch_alphafold_pdb_text(model_url: str) -> str:
     ):
         raise ExternalDataError("AlphaFold model URL did not match the approved official file path.")
     return get_text(parsed.geturl())
+
+
+def fetch_alphafold_pae_payload(pae_url: str) -> list[Any]:
+    """Fetch AlphaFold PAE JSON only from an official versioned file path."""
+    parsed = urlparse(str(pae_url or ""))
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != "alphafold.ebi.ac.uk"
+        or parsed.query
+        or parsed.fragment
+        or not re.fullmatch(
+            r"/files/AF-[A-Z0-9-]+-F1-predicted_aligned_error_v\d+\.json",
+            parsed.path,
+            re.I,
+        )
+    ):
+        raise ExternalDataError("AlphaFold PAE URL did not match the approved official file path.")
+    return get_json_array(parsed.geturl())
 
 
 def normalize_uniprot_accession(accession: str) -> str:

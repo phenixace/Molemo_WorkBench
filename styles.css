@@ -322,6 +322,7 @@ select:focus {
 .segment,
 .tab,
 .viewer-style,
+.viewer-evidence,
 .chip {
   min-height: 32px;
   border: 1px solid var(--line);
@@ -345,6 +346,7 @@ select:focus {
 .secondary-button:hover,
 .icon-button:hover,
 .viewer-style:hover,
+.viewer-evidence:hover,
 .chip:hover {
   border-color: var(--line-strong);
   background: var(--surface-subtle);
@@ -561,6 +563,32 @@ select:focus {
   gap: 2px;
 }
 
+.viewer-evidence-control {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
+  border-right: 1px solid var(--line);
+}
+
+.viewer-evidence {
+  min-height: 29px;
+  padding: 0 8px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.viewer-evidence.is-active {
+  border-color: var(--line);
+  background: var(--surface-subtle);
+}
+
+.viewer-evidence-control[hidden],
+.viewer-style-control[hidden],
+.icon-button[hidden] {
+  display: none;
+}
+
 .viewer-style {
   width: 29px;
   min-height: 29px;
@@ -581,6 +609,10 @@ select:focus {
   display: block;
   touch-action: none;
   background: #fbfbfa;
+}
+
+#structureCanvas.is-pae {
+  cursor: crosshair;
 }
 
 .canvas-readout {
@@ -4602,6 +4634,10 @@ button:disabled {
     align-items: start;
     flex-direction: column;
     min-height: 78px;
+  }
+
+  .viewer-panel {
+    grid-template-rows: 78px minmax(250px, 1fr) 76px;
   }
 
   .tool-group {

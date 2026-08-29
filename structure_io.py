@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import shlex
 from collections import defaultdict
 from typing import Any
@@ -17,6 +18,8 @@ AA3_TO1 = {
     "MSE": "M", "SEC": "C", "PYL": "K",
 }
 MAX_VIEWER_ATOMS = 12000
+MAX_PAE_BINS = 384
+MAX_PAE_CELLS = 2_000_000
 
 
 class StructureError(ValueError):
@@ -311,6 +314,88 @@ def _plddt_category(score: float) -> str:
     return "very_low"
 
 
+def parse_alphafold_pae(
+    payload: list[Any],
+    expected_residues: int | None = None,
+    max_bins: int = MAX_PAE_BINS,
+) -> dict[str, Any]:
+    """Validate and downsample an AlphaFold predicted-aligned-error matrix."""
+    if len(payload) != 1 or not isinstance(payload[0], dict):
+        raise StructureError("AlphaFold PAE response must contain exactly one matrix record.")
+    matrix = payload[0].get("predicted_aligned_error")
+    if not isinstance(matrix, list) or not matrix:
+        raise StructureError("AlphaFold PAE response did not contain a matrix.")
+    residue_count = len(matrix)
+    if expected_residues and residue_count != int(expected_residues):
+        raise StructureError(
+            f"AlphaFold PAE matrix has {residue_count} residues; expected {int(expected_residues)}."
+        )
+    if residue_count * residue_count > MAX_PAE_CELLS:
+        raise StructureError("AlphaFold PAE matrix exceeds the local analysis cell limit.")
+    if not 32 <= int(max_bins) <= MAX_PAE_BINS:
+        raise StructureError(f"PAE max_bins must be between 32 and {MAX_PAE_BINS}.")
+
+    normalized: list[list[float]] = []
+    observed_max = 0.0
+    for row in matrix:
+        if not isinstance(row, list) or len(row) != residue_count:
+            raise StructureError("AlphaFold PAE matrix must be square.")
+        normalized_row = []
+        for value in row:
+            if isinstance(value, bool):
+                raise StructureError("AlphaFold PAE matrix contains a non-numeric value.")
+            try:
+                score = float(value)
+            except (TypeError, ValueError) as exc:
+                raise StructureError("AlphaFold PAE matrix contains a non-numeric value.") from exc
+            if not math.isfinite(score) or score < 0 or score > 100:
+                raise StructureError("AlphaFold PAE values must be finite and between 0 and 100 Å.")
+            observed_max = max(observed_max, score)
+            normalized_row.append(score)
+        normalized.append(normalized_row)
+
+    bin_size = max(1, math.ceil(residue_count / int(max_bins)))
+    display_size = math.ceil(residue_count / bin_size)
+    display_matrix: list[list[float]] = []
+    for row_start in range(0, residue_count, bin_size):
+        row_end = min(residue_count, row_start + bin_size)
+        display_row = []
+        for column_start in range(0, residue_count, bin_size):
+            column_end = min(residue_count, column_start + bin_size)
+            total = 0.0
+            count = 0
+            for row_index in range(row_start, row_end):
+                values = normalized[row_index][column_start:column_end]
+                total += sum(values)
+                count += len(values)
+            display_row.append(round(total / max(1, count), 2))
+        display_matrix.append(display_row)
+
+    reported_max = payload[0].get("max_predicted_aligned_error")
+    try:
+        max_error = float(reported_max)
+    except (TypeError, ValueError):
+        max_error = observed_max
+    if not math.isfinite(max_error) or max_error <= 0 or max_error > 100:
+        max_error = observed_max or 1.0
+    else:
+        max_error = max(max_error, observed_max)
+    return {
+        "metric": "predicted aligned error",
+        "unit": "Å",
+        "residue_count": residue_count,
+        "matrix_size": display_size,
+        "bin_size": bin_size,
+        "downsampled": bin_size > 1,
+        "max_error": round(max_error, 2),
+        "matrix": display_matrix,
+        "orientation": {
+            "rows": "scored residue",
+            "columns": "aligned residue",
+        },
+    }
+
+
 def build_structure_sample(
     structure: dict[str, Any],
     title: str = "Protein structure",
@@ -337,6 +422,7 @@ def build_structure_sample(
     )
     if coordinate_type == "predicted":
         fractions = confidence.get("fractions") or {}
+        pae = structure.get("pae") or {}
         properties.update(
             {
                 "Mean pLDDT": f"{float(confidence.get('mean_plddt') or 0):.2f}",
@@ -345,9 +431,11 @@ def build_structure_sample(
                 "Model": str(metadata_payload.get("entry_id") or source_id),
             }
         )
+        if pae:
+            properties["PAE"] = f"{int(pae.get('residue_count') or 0)} × {int(pae.get('residue_count') or 0)}"
         notes = (
             "AlphaFold DB predicted model colored by per-residue pLDDT. pLDDT describes local confidence; "
-            "review PAE before interpreting relative domain placement. Prediction does not establish ligand binding, dynamics, or mechanism."
+            "review the PAE matrix before interpreting relative domain placement. Prediction does not establish ligand binding, dynamics, or mechanism."
         )
         selection = f"{source_id.upper()} · predicted monomer structure"
         confidence_label = f"AlphaFold prediction · mean pLDDT {float(confidence.get('mean_plddt') or 0):.2f}"
@@ -376,6 +464,7 @@ def build_structure_sample(
             "source": "coordinate_parser",
             **metadata_payload,
             "coordinateType": coordinate_type,
+            "paeAvailable": bool(structure.get("pae")),
         },
         "prompts": [
             "总结这个结构的链组成和配体",

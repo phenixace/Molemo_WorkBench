@@ -2,7 +2,7 @@
 
 Molemo WorkBench 把生命科学问题连接到可检查的本地证据。用户可以接入自己的 OpenAI-compatible 模型；模型负责理解问题和选择工具，分子解析、蛋白序列计算、文件读取、管线执行与可视化则在本机通过注册 skills 完成。每次运行保留工具参数、状态、摘要和 artifact，使结论能够被回看、导出和评测。
 
-当前仓库是这一主线的可运行参考实现，也是 `Molemo_Bench v0.16`。它借鉴了 Rosalind Workbench 将问题、计划、工具、viewer 和证据放在同一工作区的产品范式，但不依赖 GPT-Rosalind，也不与 OpenAI Rosalind 项目关联。前端采用克制的研究会话与证据双栏；进入运行、结果或工具页后，右侧切换为整高文档视图，不把科学工作流做成展示型仪表盘。
+当前仓库是这一主线的可运行参考实现，也是 `Molemo_Bench v0.17`。它借鉴了 Rosalind Workbench 将问题、计划、工具、viewer 和证据放在同一工作区的产品范式，但不依赖 GPT-Rosalind，也不与 OpenAI Rosalind 项目关联。前端采用克制的研究会话与证据双栏；进入运行、结果或工具页后，右侧切换为整高文档视图，不把科学工作流做成展示型仪表盘。
 
 ## 运行
 
@@ -35,9 +35,9 @@ API key 只在当前页面内存与单次本地请求中使用，不保存到文
 2. 单步任务可直接调用结构化科学工具；多步任务先生成具体计划。
 3. 研究者在“运行”页检查输入、工具和步骤，明确批准后才开始执行。
 4. RDKit、NCBI BLAST+、HMMER、PyDESeq2、Scanpy/Leiden、Reactome、STRING、VCF 4.x 解析、序列算法、Europe PMC、ClinVar、Ensembl、gnomAD、其他公共数据库或受控 workspace 按计划生成来源明确的结果。
-5. 前端把结果呈现为人类基因集通路/网络、文献 evidence map、临床试验版图或单项 posted-results 文档、多样本 VCF 变异景观与轨迹、HMMER domain architecture、单细胞 UMAP/QC/marker 文档、靶点证据矩阵、变异证据文档、分子结构、RCSB 实验结构、按 pLDDT 着色的 AlphaFold 预测结构、序列、BLAST 命中与比对、FASTQ QC、PCA、volcano、heatmap 或性质图 artifact。
+5. 前端把结果呈现为人类基因集通路/网络、文献 evidence map、临床试验版图或单项 posted-results 文档、多样本 VCF 变异景观与轨迹、HMMER domain architecture、单细胞 UMAP/QC/marker 文档、靶点证据矩阵、变异证据文档、分子结构、RCSB 实验结构、可切换 pLDDT 三维模型与 PAE 矩阵的 AlphaFold 预测结构、序列、BLAST 命中与比对、FASTQ QC、PCA、volcano、heatmap 或性质图 artifact。
 6. 工具 trace、计划状态、结论、候选设计和 artifact 可导出为 JSON。
-7. `Molemo_Bench v0.16` 对工具正确性、审批边界、trace 完整性和 artifact 生成进行回归评测。
+7. `Molemo_Bench v0.17` 对工具正确性、审批边界、trace 完整性和 artifact 生成进行回归评测。
 
 当前包含 20 个 skills、38 个工具和十七类 guided workflow：研究路由、人类基因集功能分析、文献证据审阅、临床试验版图、单项临床试验结果审阅、多样本 VCF 队列审阅、HMMER profile 搜索、单细胞 RNA-seq 探索分析、靶点证据比较、人类变异证据审阅、分子分析、蛋白分析、双序列比对、本地 BLASTP/BLASTN、bulk RNA-seq 差异表达、科学可视化、受控 workspace、公共数据库检索、RCSB/AlphaFold DB 与本地 PDB/mmCIF 结构、FASTQ 质量控制。
 
@@ -69,6 +69,8 @@ python -m unittest discover -s tests -v
 基准任务位于 `benchmarks/tasks.jsonl`。它是对 Molemo 工具链的过程评测，不代表模型在完整生命科学研究中的总体能力。
 
 ## 能力边界
+
+AlphaFold 结构可在同一 viewer 内切换 pLDDT 三维模型与方向化 PAE 矩阵；矩阵按连续残基区间有界降采样，悬停或触摸返回 scored/aligned 残基范围和 Å 误差。该视图帮助检查相对位置置信度，不自动划分结构域或推断相互作用。
 
 当前版本已覆盖中心化 Chat、第三方模型接入、研究者审批、本地科学工具、人类基因集 Reactome/STRING 功能分析、可引用文献 evidence map、ClinicalTrials.gov 临床试验版图与单项 posted-results 审阅、processed 多样本 VCF 技术审阅、HMMER profile-to-sequence domain 搜索、CSV/AnnData/10x single-cell raw counts 的 QC、可选 Scrublet、UMAP、Leiden 与 marker 探索、候选靶点证据比较、单个简单人类变异的多源证据审阅、分子 viewer、RCSB 实验坐标、AlphaFold DB 预测坐标与 pLDDT、公共数据库检索、序列与比对、本地 FASTA 数据库上的 BLASTP/BLASTN、FASTQ QC、raw-count bulk RNA-seq 差异表达、受控文件工作区和可审计运行记录。guided workflow 当前同步执行十七类固定模板，不是任意 shell 管线。AlphaFold pLDDT 只表达局部置信度，跨结构域关系仍需查看 PAE，预测结构也不单独证明结合、动力学或机制；没有坐标来源时显示的蛋白序列图仍是序列启发式视图。其余边界包括：基因集功能分析尚不覆盖任意物种、自定义背景、GSEA、调控网络或因果机制推断；单细胞能力尚不覆盖 ambient RNA、批次整合、自动 cell typing、trajectory、donor-aware pseudobulk 或 raw-read quantification；HMMER 尚不覆盖 `hmmscan`、profile 构建、Pfam/InterPro 下载或远程大库编排；VCF 能力不覆盖 BCF/VCF.gz、raw-read calling、CNV/SV、matched-normal 判定、临床解释或报告；临床试验结果能力不执行个体数据重分析、跨试验比较、风险偏倚分级、监管结论或 meta-analysis；单变异能力尚不覆盖 haplotype、家系共分离或临床 ACMG/AMP 判定；此外仍未实现远程或大规模 BLAST 数据库、病理切片和实验采购。
 

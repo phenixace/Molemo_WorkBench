@@ -19,7 +19,7 @@
     },
     {
       "name": "structure_fetch_alphafold",
-      "description": "Fetch an AlphaFold DB predicted structure for an exact UniProt accession and return a pLDDT-colored viewer artifact.",
+      "description": "Fetch an AlphaFold DB predicted structure for an exact UniProt accession and return a viewer artifact with pLDDT-colored coordinates and a directional PAE matrix when available.",
       "handler": "scripts/handler.py:fetch_alphafold_structure",
       "input_schema": {
         "type": "object",

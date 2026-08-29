@@ -112,7 +112,11 @@
                 <strong id="viewerLabel">结构查看器</strong>
               </div>
               <div class="tool-group">
-                <div class="viewer-style-control" role="tablist" aria-label="分子显示风格">
+                <div class="viewer-evidence-control" id="structureEvidenceModes" role="tablist" aria-label="预测结构证据视图" hidden>
+                  <button class="viewer-evidence is-active" data-evidence-mode="structure" type="button">3D</button>
+                  <button class="viewer-evidence" data-evidence-mode="pae" type="button">PAE</button>
+                </div>
+                <div class="viewer-style-control" id="viewerStyleControls" role="tablist" aria-label="分子显示风格">
                   <button class="viewer-style is-active" data-style="ballstick" title="Ball-and-stick" aria-label="Ball-and-stick">●—●</button>
                   <button class="viewer-style" data-style="spacefill" title="Space fill" aria-label="Space fill">●</button>
                   <button class="viewer-style" data-style="wire" title="Wire" aria-label="Wire">—</button>
