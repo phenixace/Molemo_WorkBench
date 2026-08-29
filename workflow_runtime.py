@@ -14,6 +14,7 @@ from typing import Any, Callable
 
 from transcriptomics import TranscriptomicsError, preflight_bulk_rnaseq
 from target_evidence import TargetEvidenceError, resolve_target_review_inputs
+from literature_review import LiteratureReviewError, preflight_literature_review
 
 
 ROOT = Path(__file__).resolve().parent
@@ -143,6 +144,48 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "Open Targets association score 仅用于证据排序，不是概率、置信度或因果结论。",
             "候选靶点按解析后的 Ensembl Gene ID 确认；同名或模糊实体应在审批前检查。",
             "临床先例、可成药性与安全注释需要结合适应症和实验验证解释。",
+        ],
+    },
+    "literature-evidence-review": {
+        "title": "文献证据审阅",
+        "description": "用明确检索式收集 Europe PMC 论文元数据与摘要，形成可追溯 evidence map。",
+        "fields": [
+            _field(
+                "query",
+                "Europe PMC 检索式",
+                "textarea",
+                required=True,
+                rows=4,
+                placeholder="(IL4R OR TSLP) AND asthma",
+            ),
+            _field("start_year", "起始年份（可选）", "number", value=2020, min=1900),
+            _field("end_year", "结束年份（可选）", "number", value=datetime.now(timezone.utc).year, min=1900),
+            _field("max_results", "最多收集论文", "number", value=15, min=1, max=25),
+            _field(
+                "include_preprints",
+                "预印本",
+                "select",
+                required=True,
+                options=[
+                    {"value": "false", "label": "排除预印本"},
+                    {"value": "true", "label": "包含预印本"},
+                ],
+            ),
+            _field(
+                "require_abstract",
+                "摘要",
+                "select",
+                required=True,
+                options=[
+                    {"value": "true", "label": "仅保留有摘要记录"},
+                    {"value": "false", "label": "允许无摘要记录"},
+                ],
+            ),
+        ],
+        "assumptions": [
+            "Europe PMC relevance 仅表示检索排序，不代表研究质量或证据确定性。",
+            "当前 evidence map 基于元数据与摘要，不等同于全文系统综述或风险偏倚评价。",
+            "引用次数仅作书目信息展示，不参与排序或证据评级。",
         ],
     },
     "pairwise-alignment-review": {
@@ -351,6 +394,41 @@ def _target_evidence_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
         raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
 
 
+def _literature_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    query = _require_text(inputs, "query", "Literature query")
+    try:
+        start_year = int(inputs["start_year"]) if str(inputs.get("start_year") or "").strip() else None
+        end_year = int(inputs["end_year"]) if str(inputs.get("end_year") or "").strip() else None
+        max_results = int(inputs.get("max_results") or 15)
+    except (TypeError, ValueError) as exc:
+        raise WorkflowError("Literature years and result limit must be integers.", "invalid_workflow_inputs") from exc
+    include_preprints = _workflow_boolean(inputs.get("include_preprints", False))
+    require_abstract = _workflow_boolean(inputs.get("require_abstract", True))
+    arguments = {
+        "query": query,
+        "start_year": start_year,
+        "end_year": end_year,
+        "max_results": max_results,
+        "include_preprints": include_preprints,
+        "require_abstract": require_abstract,
+    }
+    inputs.update(arguments)
+    return [_step("收集并整理文献证据地图", "literature_review_collect", arguments)]
+
+
+def _literature_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_literature_review(**inputs)
+    except LiteratureReviewError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
+def _workflow_boolean(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().casefold() in {"1", "true", "yes", "y"}
+
+
 def _alignment_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     sequence_a = _require_text(inputs, "sequence_a", "Sequence A")
     sequence_b = _require_text(inputs, "sequence_b", "Sequence B")
@@ -433,6 +511,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "fastq-qc-review": _fastq_steps,
     "bulk-rnaseq-differential-expression": _rnaseq_steps,
     "target-evidence-review": _target_evidence_steps,
+    "literature-evidence-review": _literature_steps,
     "pairwise-alignment-review": _alignment_steps,
     "sequence-similarity-search": _sequence_search_steps,
     "database-record-review": _database_steps,
@@ -441,6 +520,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
 PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "bulk-rnaseq-differential-expression": _rnaseq_preflight,
     "target-evidence-review": _target_evidence_preflight,
+    "literature-evidence-review": _literature_preflight,
 }
 
 

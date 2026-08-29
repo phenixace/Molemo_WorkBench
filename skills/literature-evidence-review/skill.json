@@ -1,0 +1,45 @@
+{
+  "id": "literature-evidence-review",
+  "title": "Literature Evidence Review",
+  "kind": "retrieval",
+  "description": "Search Europe PMC with an explicit bounded strategy and return source-linked publication metadata and abstracts for evidence synthesis.",
+  "tools": [
+    {
+      "name": "literature_search_preview",
+      "description": "Search Europe PMC for up to ten publications and return exact query provenance, source relevance order, identifiers, publication types, and bounded abstracts. Cite PMID, PMCID, DOI, or Europe PMC URL when synthesizing.",
+      "handler": "scripts/handler.py:preview",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Europe PMC free-text or fielded query, preferably in English." },
+          "start_year": { "type": "integer", "minimum": 1900, "description": "Optional first publication year." },
+          "end_year": { "type": "integer", "minimum": 1900, "description": "Optional last publication year." },
+          "max_results": { "type": "integer", "minimum": 1, "maximum": 10, "default": 8 },
+          "include_preprints": { "type": "boolean", "default": false },
+          "require_abstract": { "type": "boolean", "default": true }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "literature_review_collect",
+      "description": "Collect and persist an approved Europe PMC evidence map with up to 25 source-ordered publications, abstracts, identifiers, filters, manifest, and interpretation limits.",
+      "handler": "scripts/handler.py:collect",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "start_year": { "type": "integer", "minimum": 1900 },
+          "end_year": { "type": "integer", "minimum": 1900 },
+          "max_results": { "type": "integer", "minimum": 1, "maximum": 25, "default": 15 },
+          "include_preprints": { "type": "boolean", "default": false },
+          "require_abstract": { "type": "boolean", "default": true }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

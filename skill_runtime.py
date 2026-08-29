@@ -150,10 +150,55 @@ class SkillRegistry:
         return result
 
 
-def compact_tool_result(result: dict[str, Any], limit: int = 12000) -> str:
+def compact_tool_result(result: dict[str, Any], limit: int = 24000) -> str:
     encoded = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
     if len(encoded) <= limit:
         return encoded
+    data = result.get("data")
+    if isinstance(data, dict) and isinstance(data.get("papers"), list):
+        compact_data = {
+            key: value
+            for key, value in data.items()
+            if key not in {"papers", "outputs"}
+        }
+        compact_data["papers"] = [
+            {
+                key: value
+                for key, value in paper.items()
+                if key in {
+                    "rank",
+                    "id",
+                    "pmid",
+                    "pmcid",
+                    "doi",
+                    "title",
+                    "authors",
+                    "journal",
+                    "year",
+                    "publication_types",
+                    "study_type",
+                    "abstract",
+                    "preprint",
+                    "url",
+                }
+            }
+            for paper in data["papers"][:8]
+            if isinstance(paper, dict)
+        ]
+        for paper in compact_data["papers"]:
+            paper["abstract"] = str(paper.get("abstract") or "")[:1400]
+        compact = {
+            "ok": result.get("ok", True),
+            "tool": result.get("tool"),
+            "skill": result.get("skill"),
+            "summary": result.get("summary"),
+            "data": compact_data,
+            "caveats": result.get("caveats") or [],
+            "artifacts_omitted": True,
+        }
+        encoded = json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+        if len(encoded) <= limit:
+            return encoded
     compact = {
         "ok": result.get("ok", True),
         "tool": result.get("tool"),

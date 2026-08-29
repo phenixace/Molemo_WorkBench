@@ -756,6 +756,9 @@ function renderArtifacts() {
       } else if (artifact.type === "target-evidence-review") {
         card.classList.add("target-evidence-artifact");
         card.innerHTML = renderTargetEvidenceReview(title, artifact.data || {});
+      } else if (artifact.type === "literature-evidence-map") {
+        card.classList.add("literature-evidence-artifact");
+        card.innerHTML = renderLiteratureEvidenceMap(title, artifact.data || {});
       } else if (artifact.type === "bar-chart") {
         const data = artifact.data || {};
         const values = data.values || [];
@@ -900,6 +903,89 @@ function formatTimestamp(value) {
   const date = new Date(value || "");
   if (Number.isNaN(date.getTime())) return "n/a";
   return date.toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function renderLiteratureEvidenceMap(title, data) {
+  const papers = data.papers || [];
+  const typeCounts = data.study_type_counts || [];
+  const yearCounts = data.year_counts || [];
+  const sourceUrl = safeExternalUrl(data.search_url) ? data.search_url : "";
+  return `
+    <header>
+      <strong>${title}</strong>
+      <span>${escapeHtml(data.source || "Europe PMC")}</span>
+    </header>
+    <div class="literature-query">
+      <span>Approved query</span>
+      <code>${escapeHtml(data.exact_query || data.query || "")}</code>
+    </div>
+    <div class="literature-metrics">
+      ${[
+        ["Matches", Number(data.hit_count || 0).toLocaleString("en-US")],
+        ["Mapped", data.returned_count || papers.length],
+        ["With abstract", data.abstract_count || 0],
+        ["Open access", data.open_access_count || 0],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="literature-filters">
+      <span>${escapeHtml([data.start_year, data.end_year].filter(Boolean).join("–") || "All years")}</span>
+      <span>${data.include_preprints ? "Preprints included" : "Preprints excluded"}</span>
+      <span>${data.require_abstract ? "Abstract required" : "Abstract optional"}</span>
+      <span>${escapeHtml(data.sort || "Source relevance")}</span>
+    </div>
+    <div class="literature-map">
+      <section>
+        <header><strong>Study types</strong><span>source metadata</span></header>
+        <div class="literature-type-list">
+          ${typeCounts.map((item) => `<div><span>${escapeHtml(item.label)}</span><b>${escapeHtml(item.count)}</b></div>`).join("") || "<p>No publication types returned.</p>"}
+        </div>
+      </section>
+      <section>
+        <header><strong>Publication years</strong><span>mapped set</span></header>
+        <div class="literature-year-list">
+          ${yearCounts.slice(0, 10).map((item) => `<span><b>${escapeHtml(item.year)}</b><i style="--count:${Math.max(1, Number(item.count || 0))}"></i><small>${escapeHtml(item.count)}</small></span>`).join("") || "<p>No year metadata returned.</p>"}
+        </div>
+      </section>
+    </div>
+    <div class="literature-papers">
+      ${papers.map((paper) => renderLiteraturePaper(paper, false)).join("")}
+    </div>
+    <div class="literature-review-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "Source relevance does not establish study quality.")}</p>
+      ${Object.keys(data.outputs || {}).length ? `<div class="target-output-paths">${Object.entries(data.outputs).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>` : ""}
+      ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open approved query in Europe PMC</a>` : ""}
+    </div>
+  `;
+}
+
+function renderLiteraturePaper(paper, open) {
+  const paperUrl = safeExternalUrl(paper.url) ? paper.url : "";
+  const identifiers = [];
+  if (paper.pmid) identifiers.push(`<a href="https://pubmed.ncbi.nlm.nih.gov/${escapeHtml(paper.pmid)}/" target="_blank" rel="noreferrer">PMID ${escapeHtml(paper.pmid)}</a>`);
+  if (paper.pmcid) identifiers.push(`<a href="https://europepmc.org/article/PMC/${escapeHtml(paper.pmcid)}" target="_blank" rel="noreferrer">${escapeHtml(paper.pmcid)}</a>`);
+  if (paper.doi) identifiers.push(`<a href="https://doi.org/${escapeHtml(paper.doi)}" target="_blank" rel="noreferrer">DOI</a>`);
+  return `
+    <details ${open ? "open" : ""}>
+      <summary>
+        <span class="literature-rank">${escapeHtml(paper.rank)}</span>
+        <span class="literature-paper-title"><strong>${escapeHtml(paper.title)}</strong><small>${escapeHtml([paper.journal, paper.year].filter(Boolean).join(" · "))}</small></span>
+        <span class="literature-study-type">${escapeHtml(paper.study_type || "Publication")}</span>
+      </summary>
+      <div class="literature-paper-body">
+        <div class="literature-paper-meta">
+          <span>${escapeHtml(paper.authors || "Authors unavailable")}</span>
+          <span>${identifiers.join("") || escapeHtml(`${paper.source_code || ""}:${paper.id || ""}`)}</span>
+          <span>${paper.open_access ? "Open access" : "Access status not open"} · cited by ${escapeHtml(paper.cited_by_count || 0)} <small>(context only)</small></span>
+        </div>
+        <div class="literature-paper-types">${(paper.publication_types || []).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
+        <p class="literature-abstract">${escapeHtml(paper.abstract || "No abstract returned for this record.")}</p>
+        <div class="literature-paper-links">
+          ${paperUrl ? `<a href="${escapeHtml(paperUrl)}" target="_blank" rel="noreferrer">Europe PMC record</a>` : ""}
+          ${(paper.keywords || []).slice(0, 6).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+        </div>
+      </div>
+    </details>
+  `;
 }
 
 function renderRnaseqPreflight(title, data) {
@@ -1092,6 +1178,8 @@ function renderWorkflowPreflight(preflight) {
   let detail = "";
   if (preflight.disease && preflight.targets) {
     detail = `${preflight.disease.name} · ${(preflight.targets || []).map((target) => target.symbol).join(", ")}`;
+  } else if (preflight.exact_query && preflight.hit_count !== undefined) {
+    detail = `${preflight.exact_query} · ${Number(preflight.hit_count || 0).toLocaleString("en-US")} matches`;
   } else if (preflight.design_formula || preflight.contrast) {
     detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
   }
@@ -1259,6 +1347,7 @@ function workflowFieldDefault(templateId, field) {
   const sample = getActiveSample();
   if (templateId === "target-evidence-review" && field.name === "disease") return "asthma";
   if (templateId === "target-evidence-review" && field.name === "candidates") return "IL4R, TSLP, IL6R, JAK1";
+  if (templateId === "literature-evidence-review" && field.name === "query") return "(IL4R OR TSLP) AND asthma";
   if (field.name === "smiles") return sample.smiles || "";
   if (field.name === "sequence" || field.name === "sequence_a") return sample.sequence || "";
   if (field.name === "pdb_id") return sample.pdbId || "";
@@ -2628,6 +2717,8 @@ function safeExternalUrl(value) {
       "www.rcsb.org",
       "platform.opentargets.org",
       "pubmed.ncbi.nlm.nih.gov",
+      "europepmc.org",
+      "doi.org",
     ].includes(url.hostname);
   } catch {
     return false;

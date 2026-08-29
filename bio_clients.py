@@ -16,11 +16,12 @@ ALLOWED_HOSTS = {
     "rest.uniprot.org",
     "data.rcsb.org",
     "files.rcsb.org",
+    "www.ebi.ac.uk",
 }
 MAX_JSON_BYTES = 6 * 1024 * 1024
 MAX_JSON_REQUEST_BYTES = 256 * 1024
 MAX_STRUCTURE_BYTES = 24 * 1024 * 1024
-USER_AGENT = "Molemo-WorkBench/0.6 (public scientific database client)"
+USER_AGENT = "Molemo-WorkBench/0.7 (public scientific database client)"
 
 
 class ExternalDataError(RuntimeError):

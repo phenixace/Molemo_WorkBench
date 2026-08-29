@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -198,6 +198,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         "sequence similarity search": "序列相似性搜索",
         "protein structure and sequence": "蛋白结构与序列",
         "molecular chemistry": "分子化学",
+        "literature and study discovery": "文献与研究发现",
     }
     lane = ", ".join(lane_labels.get(item, item) for item in raw_lanes)
     evidence_text = " ".join(evidence) if evidence else "No structured molecule or protein is active yet."
@@ -205,6 +206,11 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         reply = (
             f"当前问题被路由到 {lane}。{evidence_text} "
             "计划尚未执行；请在“运行”页审阅输入与步骤，并由研究者明确批准。"
+        )
+    elif "literature and study discovery" in raw_lanes:
+        reply = (
+            f"当前问题被路由到 {lane}。{evidence_text} "
+            "结果按 Europe PMC relevance 保留，并附 PMID、DOI 或来源链接；该顺序不代表研究质量，形成结论前仍需检查摘要、全文与研究设计。"
         )
     else:
         reply = (
@@ -240,6 +246,23 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
     if fastq and re.search(r"fastq|qc|quality|phred|q20|q30|质控|质量", message, re.I):
         selected.append(("ngs_fastq_qc", {"path": fastq.group(1)}))
 
+    literature_query = extract_literature_query(message)
+    if literature_query and re.search(r"paper|publication|literature|study|文献|论文|研究", message, re.I):
+        start_year, end_year = extract_year_window(message)
+        selected.append(
+            (
+                "literature_search_preview",
+                {
+                    "query": literature_query,
+                    "start_year": start_year,
+                    "end_year": end_year,
+                    "max_results": 8,
+                    "include_preprints": bool(re.search(r"preprint|bioRxiv|medRxiv|预印本", message, re.I)),
+                    "require_abstract": True,
+                },
+            )
+        )
+
     pubchem_query = extract_pubchem_query(message)
     if pubchem_query:
         selected.append(("database_lookup_pubchem", {"query": pubchem_query}))
@@ -251,6 +274,21 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     target_review = extract_target_evidence_plan(message)
     if target_review:
         return "target-evidence-review", target_review
+    literature_query = extract_literature_query(message)
+    if literature_query and re.search(
+        r"literature\s+(?:review|map)|evidence\s+review|systematic\s+search|文献(?:综述|审阅)|证据地图|系统检索|论文证据",
+        message,
+        re.I,
+    ):
+        start_year, end_year = extract_year_window(message)
+        return "literature-evidence-review", {
+            "query": literature_query,
+            "start_year": start_year,
+            "end_year": end_year,
+            "max_results": 15,
+            "include_preprints": bool(re.search(r"preprint|bioRxiv|medRxiv|预印本", message, re.I)),
+            "require_abstract": True,
+        }
     table_paths = re.findall(r"([\w./-]+\.(?:csv|tsv))\b", message, re.I)
     if len(table_paths) >= 2 and re.search(
         r"rna-?seq|count matrix|differential expression|transcriptom|差异表达|转录组",
@@ -363,6 +401,72 @@ def extract_target_evidence_plan(message: str) -> dict[str, Any] | None:
         "candidates": ", ".join(candidates),
         "include_indirect": bool(re.search(r"indirect|descendant|下位疾病|间接证据", message, re.I)),
     }
+
+
+def extract_literature_query(message: str) -> str:
+    if not re.search(r"paper|publication|literature|study|evidence\s+review|文献|论文|研究|证据地图", message, re.I):
+        return ""
+    quoted = re.search(r"[\"']([^\"']{2,300})[\"']|“([^”]{2,300})”|‘([^’]{2,300})’", message)
+    if quoted:
+        quoted_value = next((value for value in quoted.groups() if value), "")
+        if re.search(r"[A-Za-z]", quoted_value):
+            return quoted_value.strip()
+
+    aliases = {
+        "哮喘": "asthma",
+        "乳腺癌": "breast cancer",
+        "肺癌": "lung cancer",
+        "阿尔茨海默病": "Alzheimer disease",
+        "类风湿关节炎": "rheumatoid arthritis",
+        "克罗恩病": "Crohn disease",
+        "溃疡性结肠炎": "ulcerative colitis",
+        "2型糖尿病": "type 2 diabetes mellitus",
+        "二型糖尿病": "type 2 diabetes mellitus",
+    }
+    disease = ""
+    chinese = re.search(r"(?:在|针对)\s*([^，。；,;]{1,60}?)(?:中|中的)(?:文献|论文|研究|证据)", message)
+    if chinese:
+        disease = aliases.get(chinese.group(1).strip(), "")
+    if not disease:
+        english = re.search(
+            r"\bin\s+([A-Za-z][A-Za-z -]{1,60}?)(?:\s+(?:literature|papers?|studies|evidence|from|since|between)|[.,;]|$)",
+            message,
+            re.I,
+        )
+        if english:
+            disease = english.group(1).strip()
+
+    ignored = {
+        "AND", "ABOUT", "EVIDENCE", "FIND", "FOR", "IN", "LITERATURE", "MAP", "OR",
+        "PAPER", "PAPERS", "PUBLICATION", "PUBLICATIONS", "REVIEW", "STUDIES", "STUDY",
+    }
+    symbols = []
+    for token in re.findall(r"\b[A-Z][A-Z0-9.-]{1,20}\b", message):
+        if token in ignored or re.fullmatch(r"(?:19|20)\d{2}", token):
+            continue
+        if token not in symbols:
+            symbols.append(token)
+    if symbols and disease:
+        target_clause = symbols[0] if len(symbols) == 1 else f"({' OR '.join(symbols)})"
+        return f"{target_clause} AND {disease}"
+
+    english_topic = re.search(
+        r"(?:papers?|publications?|literature|studies)\s+(?:about|on|for)\s+(.{2,240}?)(?:\s+(?:since|between|from)\s+(?:19|20)\d{2}|[。;]|$)",
+        message,
+        re.I,
+    )
+    if english_topic and re.search(r"[A-Za-z]", english_topic.group(1)):
+        return english_topic.group(1).strip(" .")
+    return ""
+
+
+def extract_year_window(message: str) -> tuple[int | None, int | None]:
+    years = [int(value) for value in re.findall(r"(?<!\d)(?:19|20)\d{2}(?!\d)", message)]
+    if len(years) >= 2:
+        return min(years[0], years[1]), max(years[0], years[1])
+    if years and re.search(r"since|from|自|以来|起", message, re.I):
+        return years[0], None
+    return None, None
 
 
 def extract_pubchem_query(message: str) -> str:

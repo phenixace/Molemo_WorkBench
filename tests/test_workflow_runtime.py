@@ -121,6 +121,35 @@ class WorkflowRuntimeTests(unittest.TestCase):
         self.assertEqual(completed["status"], "completed")
         self.assertEqual(registry.calls[0][0], "target_evidence_compare")
 
+    def test_literature_plan_records_exact_query_but_collects_only_after_approval(self):
+        registry = RecordingRegistry()
+        preflight = {
+            "ready": True,
+            "summary": "Europe PMC found 28 records.",
+            "exact_query": "(IL4R AND asthma) AND HAS_ABSTRACT:Y AND NOT SRC:PPR",
+            "hit_count": 28,
+        }
+        with patch("workflow_runtime.preflight_literature_review", return_value=preflight):
+            run = self.manager.create_plan(
+                "literature-evidence-review",
+                {
+                    "query": "IL4R AND asthma",
+                    "start_year": "",
+                    "end_year": "",
+                    "max_results": 10,
+                    "include_preprints": "false",
+                    "require_abstract": "true",
+                },
+            )
+
+        self.assertEqual(run["status"], "pending_approval")
+        self.assertEqual(run["preflight"]["hit_count"], 28)
+        self.assertEqual(registry.calls, [])
+
+        completed = self.manager.approve(run["id"], registry)
+        self.assertEqual(completed["status"], "completed")
+        self.assertEqual(registry.calls[0][0], "literature_review_collect")
+
 
 if __name__ == "__main__":
     unittest.main()
