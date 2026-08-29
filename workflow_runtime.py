@@ -41,6 +41,11 @@ from variant_structure import (
     normalize_variant_structure_inputs,
     preflight_variant_structure,
 )
+from multiple_alignment import (
+    MultipleAlignmentError,
+    normalize_alignment_inputs,
+    preflight_multiple_alignment,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -481,6 +486,38 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "输入是上游流程生成的 processed VCF；caller、panel、测序深度和实验误差模型已经由研究者确认。",
             "VAF 不是肿瘤比例、克隆比例或疗效指标；低频调用必须结合 assay LOD 与 read-level 证据。",
             "此流程不判定 somatic/germline、driver、耐药、治疗推荐或临床可行动性。",
+        ],
+    },
+    "protein-family-conservation-review": {
+        "title": "蛋白家族位点保守性",
+        "description": "预检蛋白 FASTA 与精确参考位点，批准后运行 MAFFT 多序列比对并审阅位点保守性。",
+        "fields": [
+            _field(
+                "fasta_path",
+                "Workspace protein FASTA",
+                "text",
+                required=True,
+                placeholder="examples/ras_family.faa",
+            ),
+            _field(
+                "reference_id",
+                "参考序列 ID",
+                "text",
+                required=True,
+                placeholder="P01116|KRAS",
+            ),
+            _field(
+                "site",
+                "参考位点 / 替换",
+                "text",
+                required=True,
+                placeholder="G12C",
+            ),
+        ],
+        "assumptions": [
+            "输入序列集合、参考序列身份和参考位点必须在审批前确认；流程不判断这些序列是否构成完整、无偏或正交的蛋白家族。",
+            "MAFFT 是启发式比对；低复杂度、富含缺口或弱同源区域需要人工复核。",
+            "保守性按输入序列等权描述，不包含系统发育加权，也不证明功能重要性、致病性、结构等价或突变效应。",
         ],
     },
     "pairwise-alignment-review": {
@@ -1038,6 +1075,41 @@ def _alignment_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _protein_conservation_arguments(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        normalized = normalize_alignment_inputs(
+            fasta_path=_require_text(inputs, "fasta_path", "Workspace protein FASTA"),
+            reference_id=_require_text(inputs, "reference_id", "Reference sequence ID"),
+            site=_require_text(inputs, "site", "Reference site"),
+        )
+    except MultipleAlignmentError as exc:
+        raise WorkflowError(str(exc), "invalid_workflow_inputs") from exc
+    arguments = {
+        "fasta_path": normalized["fasta_path"],
+        "reference_id": normalized["reference_id"],
+        "site": normalized["site"],
+    }
+    inputs.update(arguments)
+    return arguments
+
+
+def _protein_conservation_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        _step(
+            "运行 MAFFT 并保存位点保守性证据",
+            "protein_conservation_run",
+            _protein_conservation_arguments(inputs),
+        )
+    ]
+
+
+def _protein_conservation_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_multiple_alignment(**_protein_conservation_arguments(inputs))
+    except MultipleAlignmentError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _sequence_search_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     query = _require_text(inputs, "query", "Query sequence")
     database_path = _require_text(inputs, "database_path", "Workspace FASTA database")
@@ -1143,6 +1215,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "clinical-trial-landscape-review": _clinical_trials_steps,
     "clinical-trial-results-review": _clinical_trial_results_steps,
     "vcf-cohort-review": _vcf_cohort_steps,
+    "protein-family-conservation-review": _protein_conservation_steps,
     "pairwise-alignment-review": _alignment_steps,
     "sequence-similarity-search": _sequence_search_steps,
     "hmmer-profile-search": _hmmer_search_steps,
@@ -1161,6 +1234,7 @@ PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "clinical-trial-landscape-review": _clinical_trials_preflight,
     "clinical-trial-results-review": _clinical_trial_results_preflight,
     "vcf-cohort-review": _vcf_cohort_preflight,
+    "protein-family-conservation-review": _protein_conservation_preflight,
     "hmmer-profile-search": _hmmer_search_preflight,
 }
 

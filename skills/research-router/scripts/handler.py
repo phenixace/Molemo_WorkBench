@@ -8,6 +8,11 @@ from typing import Any
 
 LANES = (
     (
+        "protein alignment and conservation",
+        r"multiple[- ]sequence alignment|\bmsa\b|\bmafft\b|sequence conservation|"
+        r"多序列比对|多重序列比对|序列保守性|位点保守性|保守性审阅",
+    ),
+    (
         "protein variant structural context",
         r"variant.{0,16}(?:structure|pocket|contact|ligand)|"
         r"(?:structure|pocket|contact|ligand).{0,16}variant|"
@@ -65,6 +70,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
     if not lanes:
         lanes = ["general life science"]
     suggested = []
+    if "protein alignment and conservation" in lanes:
+        suggested.extend(["protein_conservation_preflight", "workflow_create_plan"])
     if "protein variant structural context" in lanes:
         suggested.extend(["variant_structure_preflight", "workflow_create_plan"])
     if "target-ligand bioactivity" in lanes:

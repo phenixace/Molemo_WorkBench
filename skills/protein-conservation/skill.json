@@ -1,0 +1,39 @@
+{
+  "id": "protein-conservation",
+  "title": "Protein Alignment and Conservation",
+  "kind": "analysis",
+  "description": "Run a bounded MAFFT protein multiple-sequence alignment and map one exact reference site into unweighted column conservation evidence.",
+  "tools": [
+    {
+      "name": "protein_conservation_preflight",
+      "description": "Validate a workspace protein FASTA, exact reference identifier, and position or substitution before a researcher-approved MAFFT run.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "fasta_path": { "type": "string", "description": "Workspace-relative protein FASTA path." },
+          "reference_id": { "type": "string", "description": "Exact first token of the reference FASTA header." },
+          "site": { "type": "string", "description": "Positive reference position or one-letter substitution such as G12C." }
+        },
+        "required": ["fasta_path", "reference_id", "site"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "protein_conservation_run",
+      "description": "Run and persist an approved MAFFT alignment with full alignment, conservation, site observations, report, manifest, and summary outputs.",
+      "handler": "scripts/handler.py:run",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "fasta_path": { "type": "string" },
+          "reference_id": { "type": "string" },
+          "site": { "type": "string" }
+        },
+        "required": ["fasta_path", "reference_id", "site"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

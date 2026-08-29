@@ -583,8 +583,8 @@ function renderHeader() {
   const sample = getActiveSample();
   els.activeTitle.textContent = sample.name;
   els.activeType.textContent = sample.type === "protein" ? "Protein" : "Molecule";
-  els.activeType.style.background = sample.type === "protein" ? "var(--amber-soft)" : "var(--teal-soft)";
-  els.activeType.style.color = sample.type === "protein" ? "var(--amber)" : "var(--teal)";
+  els.activeType.style.removeProperty("background");
+  els.activeType.style.removeProperty("color");
   const preset = VIEWER_PRESETS[state.viewerStyle] || VIEWER_PRESETS.ballstick;
   if (isPaeMode(sample)) {
     const pae = sample.structure.pae;
@@ -826,6 +826,12 @@ function renderArtifacts() {
             <code>${escapeHtml(data.labelB || "B")} ${escapeHtml(data.sequenceB || "")}</code>
           </div>
         `;
+      } else if (artifact.type === "protein-conservation-preflight") {
+        card.classList.add("protein-conservation-artifact");
+        card.innerHTML = renderProteinConservationPreflight(title, artifact.data || {});
+      } else if (artifact.type === "protein-conservation-review") {
+        card.classList.add("protein-conservation-artifact");
+        card.innerHTML = renderProteinConservationReview(title, artifact.data || {});
       } else if (artifact.type === "sequence-search") {
         const data = artifact.data || {};
         const hits = data.hits || [];
@@ -962,6 +968,110 @@ function renderArtifacts() {
       }
       els.artifactList.appendChild(card);
     });
+}
+
+function renderProteinConservationPreflight(title, data) {
+  const reference = data.reference || {};
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(`${data.engine || "MAFFT"} ${data.version || ""}`.trim())}</span></header>
+    <div class="conservation-reference-line">
+      <span>Reference</span>
+      <code>${escapeHtml(reference.id || data.inputs?.reference_id || "")}</code>
+      <strong>${escapeHtml(reference.site || data.inputs?.site || "")}</strong>
+    </div>
+    <div class="conservation-metrics conservation-preflight-metrics">
+      ${[
+        ["Sequences", data.sequence_count || 0],
+        ["Residues", Number(data.total_residues || 0).toLocaleString("en-US")],
+        ["Reference length", `${reference.length || 0} aa`],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="conservation-input-list">
+      ${(data.records || []).map((record) => `<div><code>${escapeHtml(record.id)}</code><span>${escapeHtml(`${record.length || 0} aa`)}</span></div>`).join("")}
+    </div>
+    <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || "Confirm the sequence set, exact reference ID and site before execution.")}</p>
+  `;
+}
+
+function renderProteinConservationReview(title, data) {
+  const site = data.site || {};
+  const display = data.display || {};
+  const bins = data.conservation_track?.bins || [];
+  const sequences = data.sequences || [];
+  const sequenceById = new Map(sequences.map((sequence) => [sequence.id, sequence]));
+  const matching = site.matching_sequence_count || 0;
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(`${data.engine || "MAFFT"} ${data.version || ""}`.trim())}</span></header>
+    <div class="conservation-reference-line">
+      <span>Reference</span>
+      <code>${escapeHtml(site.reference_id || data.inputs?.reference_id || "")}</code>
+      <strong>${escapeHtml(site.label || data.inputs?.site || "")}</strong>
+    </div>
+    <div class="conservation-metrics">
+      ${[
+        ["Sequences", data.sequence_count || 0],
+        ["Alignment", `${data.alignment_length || 0} columns`],
+        ["Site column", site.alignment_column || 0],
+        ["Site consensus", `${site.consensus_residue || "-"} · ${matching}/${data.sequence_count || 0}`],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <section class="conservation-section">
+      <header><strong>Alignment overview</strong><span>mean consensus support per ${escapeHtml(data.conservation_track?.bin_size || 1)} column bin</span></header>
+      <div class="conservation-track" role="img" aria-label="Alignment-wide consensus support; reference site is marked">
+        ${bins.map((bin) => `<i class="${bin.contains_site ? "is-site" : ""}" style="--support:${clamp(Number(bin.mean_consensus_support || 0) * 100, 2, 100)}%" title="Columns ${escapeHtml(bin.start_column)}–${escapeHtml(bin.end_column)} · support ${escapeHtml(formatPercent(bin.mean_consensus_support))}"></i>`).join("")}
+      </div>
+      <div class="conservation-track-axis"><span>1</span><span>${escapeHtml(data.alignment_length || 0)}</span></div>
+    </section>
+    <section class="conservation-section">
+      <header><strong>Reference-site window</strong><span>columns ${escapeHtml(display.start_column || 0)}–${escapeHtml(display.end_column || 0)}</span></header>
+      <div class="conservation-alignment-scroll">
+        <div class="conservation-alignment">
+          ${(display.sequences || []).map((sequence) => `<div class="conservation-alignment-row">
+            <code class="conservation-sequence-id">${escapeHtml(sequence.id)}</code>
+            <code class="conservation-sequence">${renderConservationSequence(sequence.aligned_sequence || "", display.consensus || "", display.site_offset)}</code>
+          </div>`).join("")}
+          <div class="conservation-alignment-row is-consensus">
+            <code class="conservation-sequence-id">Consensus</code>
+            <code class="conservation-sequence">${renderConservationSequence(display.consensus || "", display.consensus || "", display.site_offset)}</code>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="conservation-section">
+      <header><strong>Site observations</strong><span>${escapeHtml(formatPercent(site.consensus_support))} support · ${escapeHtml(formatPercent(site.occupancy))} occupancy</span></header>
+      <div class="conservation-observations">
+        ${(site.observations || []).map((observation) => {
+          const sequence = sequenceById.get(observation.sequence_id) || {};
+          return `<div>
+            <code>${escapeHtml(observation.sequence_id)}</code>
+            <strong>${escapeHtml(observation.residue || "-")}</strong>
+            <span>${escapeHtml(formatPercent(sequence.identity_to_reference))} identity</span>
+            <small>${escapeHtml(conservationStatusLabel(observation.status))}</small>
+          </div>`;
+        }).join("")}
+      </div>
+    </section>
+    <div class="conservation-footer">
+      <code>${escapeHtml(data.outputs?.alignment || "")}</code>
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "Conservation describes only the approved input sequence set.")}</p>
+    </div>
+  `;
+}
+
+function renderConservationSequence(sequence, consensus, siteOffset) {
+  return String(sequence || "")
+    .split("")
+    .map((residue, index) => {
+      const classes = [];
+      if (index === Number(siteOffset)) classes.push("is-site");
+      if (residue !== "-" && consensus[index] && residue !== consensus[index]) classes.push("is-mismatch");
+      return `<span class="${classes.join(" ")}">${escapeHtml(residue)}</span>`;
+    })
+    .join("");
+}
+
+function conservationStatusLabel(status) {
+  return ({ match: "match", substitution: "substitution", gap: "gap", unknown: "unknown" })[status] || status || "";
 }
 
 function renderHmmerProfilePreflight(title, data) {
@@ -2500,6 +2610,8 @@ function renderWorkflowPreflight(preflight) {
     detail = `${preflight.vcf_path} · ${preflight.sample_count || 0} samples · ${preflight.record_count || 0} records`;
   } else if (preflight.hmm_path) {
     detail = `${preflight.hmm_path} · ${preflight.model_count || 0} models · ${preflight.sequence_count || 0} sequences`;
+  } else if (preflight.inputs?.fasta_path && preflight.reference?.site) {
+    detail = `${preflight.inputs.fasta_path} · ${preflight.sequence_count || 0} sequences · ${preflight.reference.id}:${preflight.reference.site}`;
   } else if (preflight.input_mode === "cell_by_gene_raw_counts") {
     detail = `${preflight.count_matrix_path} · ${preflight.input_format || "table"} / ${preflight.count_layer || "X"} · ${preflight.cells_after_filter || 0} cells · ${preflight.genes_after_filter || 0} genes`;
   } else if (preflight.mappings && preflight.organism?.taxon_id) {
@@ -2686,6 +2798,9 @@ function createWorkflowControl(templateId, field) {
 
 function workflowFieldDefault(templateId, field) {
   const sample = getActiveSample();
+  if (templateId === "protein-family-conservation-review" && field.name === "fasta_path") return "examples/ras_family.faa";
+  if (templateId === "protein-family-conservation-review" && field.name === "reference_id") return "P01116|KRAS";
+  if (templateId === "protein-family-conservation-review" && field.name === "site") return "G12C";
   if (templateId === "protein-variant-structure-review" && field.name === "pdb_id") return sample.pdbId || "6OIM";
   if (templateId === "protein-variant-structure-review" && field.name === "chain") return sample.structure?.focus?.chain || "A";
   if (templateId === "protein-variant-structure-review" && field.name === "variant") return sample.structure?.focus?.variant || sample.metadata?.variant || "G12C";
@@ -4380,6 +4495,12 @@ function formatScientific(value) {
   if (!Number.isFinite(number)) return "n/a";
   if (number === 0) return "0";
   return number.toExponential(2).replace("e+", "e");
+}
+
+function formatPercent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "n/a";
+  return `${(numeric * 100).toFixed(numeric === 0 || numeric === 1 ? 0 : 1)}%`;
 }
 
 function formatDecimal(value, digits = 2) {

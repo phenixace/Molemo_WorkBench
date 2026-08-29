@@ -7,6 +7,7 @@ dependencies:
   - rdkit>=2024.03
   - blast>=2.16,<2.18
   - hmmer>=3.4,<3.5
+  - mafft=7.526
   - scanpy>=1.11,<1.12
   - leidenalg>=0.10,<0.11
   - scikit-image>=0.24,<0.26

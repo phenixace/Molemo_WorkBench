@@ -180,6 +180,30 @@ def compact_tool_result(result: dict[str, Any], limit: int = 24000) -> str:
             "viewer_coordinates_omitted": True,
         }
         return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+    if isinstance(data, dict) and data.get("method") == "MAFFT protein multiple-sequence alignment with unweighted column conservation":
+        compact = {
+            "ok": result.get("ok", True),
+            "tool": result.get("tool"),
+            "skill": result.get("skill"),
+            "summary": result.get("summary"),
+            "data": {
+                "method": data.get("method"),
+                "engine": data.get("engine"),
+                "version": data.get("version"),
+                "created_at": data.get("created_at"),
+                "inputs": data.get("inputs"),
+                "sequence_count": data.get("sequence_count"),
+                "alignment_length": data.get("alignment_length"),
+                "fully_conserved_columns": data.get("fully_conserved_columns"),
+                "mean_consensus_support": data.get("mean_consensus_support"),
+                "site": data.get("site"),
+                "sequences": list(data.get("sequences") or [])[:20],
+                "outputs": data.get("outputs"),
+                "caveats": data.get("caveats"),
+            },
+            "alignment_display_omitted": True,
+        }
+        return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
     if len(encoded) <= limit:
         return encoded
     if isinstance(data, dict) and isinstance(data.get("activities"), list) and data.get("source") == "ChEMBL":
