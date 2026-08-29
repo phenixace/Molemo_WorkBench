@@ -1,16 +1,16 @@
 :root {
   color-scheme: light;
   --bg: #ffffff;
-  --sidebar: #f7f7f5;
+  --sidebar: #f8f8f7;
   --surface: #ffffff;
-  --surface-subtle: #f7f7f5;
-  --ink: #1f1f1d;
-  --carbon: #343431;
-  --muted: #74746f;
-  --line: #deded9;
-  --line-strong: #c7c7c1;
-  --teal: #176f68;
-  --teal-soft: #e7f1ef;
+  --surface-subtle: #f5f5f3;
+  --ink: #20201e;
+  --carbon: #3f3f3b;
+  --muted: #777773;
+  --line: #e4e4e0;
+  --line-strong: #d0d0ca;
+  --teal: #2b665f;
+  --teal-soft: #edf3f2;
   --amber: #96601e;
   --amber-soft: #f5eee4;
   --rose: #9c4253;
@@ -64,7 +64,7 @@ p {
 .app-shell {
   height: 100vh;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 204px minmax(0, 1fr);
 }
 
 .sidebar {
@@ -72,13 +72,15 @@ p {
   overflow-y: auto;
   border-right: 1px solid var(--line);
   background: var(--sidebar);
-  padding: 15px 12px;
+  padding: 12px 10px;
 }
 
 .brand-block {
-  display: block;
+  min-height: 30px;
+  display: flex;
   align-items: center;
-  min-height: 34px;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .brand-mark {
@@ -102,25 +104,24 @@ p {
 }
 
 .brand-block h1 {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.15;
   font-weight: 750;
 }
 
-.brand-block p {
-  margin-top: 3px;
+.brand-block > span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
+  font-weight: 600;
 }
 
-.status-strip {
-  min-height: 30px;
-  margin-top: 12px;
+.runtime-status {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 9px;
+  font-weight: 550;
 }
 
 .status-dot {
@@ -132,7 +133,7 @@ p {
 }
 
 .sidebar-section {
-  margin-top: 16px;
+  margin-top: 15px;
 }
 
 .sidebar-section.compact {
@@ -192,8 +193,8 @@ p {
 
 .sample-button {
   width: 100%;
-  min-height: 46px;
-  padding: 7px 4px;
+  min-height: 43px;
+  padding: 6px 4px;
   border: 0;
   border-bottom: 1px solid var(--line);
   background: transparent;
@@ -324,7 +325,7 @@ select:focus {
 .viewer-style,
 .viewer-evidence,
 .chip {
-  min-height: 32px;
+  min-height: 30px;
   border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--surface);
@@ -335,6 +336,33 @@ select:focus {
 .secondary-button,
 .primary-button {
   padding: 0 10px;
+}
+
+.sidebar-primary {
+  width: 100%;
+  min-height: 32px;
+  margin-top: 9px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.sidebar-primary:hover {
+  border-color: #a9a9a3;
+  background: #fdfdfc;
+}
+
+.sidebar-primary span {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 400;
 }
 
 .primary-button {
@@ -430,8 +458,8 @@ select:focus {
   height: 100vh;
   padding: 0;
   display: grid;
-  grid-template-columns: minmax(330px, 0.72fr) minmax(500px, 1.28fr);
-  grid-template-rows: 54px minmax(0, 1fr);
+  grid-template-columns: minmax(430px, 0.95fr) minmax(500px, 1.05fr);
+  grid-template-rows: 48px minmax(0, 1fr);
   gap: 0;
 }
 
@@ -459,7 +487,7 @@ select:focus {
 
 .workspace-title h2 {
   max-width: min(52vw, 720px);
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.2;
   font-weight: 700;
   overflow: hidden;
@@ -487,7 +515,7 @@ select:focus {
 }
 
 .mode-pill {
-  padding: 0 0 0 9px;
+  padding: 0 0 0 8px;
   border-left: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
@@ -505,7 +533,7 @@ select:focus {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(320px, 1fr) minmax(220px, 0.62fr);
+  grid-template-rows: minmax(290px, 0.92fr) minmax(220px, 0.58fr);
   gap: 0;
 }
 
@@ -535,13 +563,13 @@ select:focus {
 .viewer-panel {
   border-bottom: 1px solid var(--line);
   display: grid;
-  grid-template-rows: 45px minmax(250px, 1fr) 46px;
+  grid-template-rows: 40px minmax(240px, 1fr) 38px;
 }
 
 .panel-toolbar {
-  min-height: 42px;
+  min-height: 40px;
   border-bottom: 1px solid var(--line);
-  padding: 6px 10px 6px 12px;
+  padding: 5px 9px 5px 11px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -552,7 +580,7 @@ select:focus {
 .console-header strong {
   display: block;
   margin-top: 1px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 650;
   overflow-wrap: anywhere;
 }
@@ -612,7 +640,7 @@ select:focus {
   min-height: 250px;
   display: block;
   touch-action: none;
-  background: #fbfbfa;
+  background: #ffffff;
 }
 
 #structureCanvas.is-pae {
@@ -620,14 +648,14 @@ select:focus {
 }
 
 .canvas-readout {
-  min-height: 46px;
+  min-height: 38px;
   border-top: 1px solid var(--line);
-  padding: 6px 10px;
+  padding: 5px 10px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
   align-items: center;
   gap: 12px;
-  background: var(--surface-subtle);
+  background: var(--surface);
 }
 
 .canvas-readout strong {
@@ -642,7 +670,7 @@ select:focus {
 
 .inspector-panel {
   display: grid;
-  grid-template-rows: 38px minmax(0, 1fr);
+  grid-template-rows: 36px minmax(0, 1fr);
 }
 
 .tabs {
@@ -657,7 +685,7 @@ select:focus {
 
 .tab {
   flex: 1 0 auto;
-  min-height: 37px;
+  min-height: 35px;
   padding: 0 9px;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -674,7 +702,7 @@ select:focus {
 .tab-panel {
   display: none;
   min-height: 0;
-  padding: 10px;
+  padding: 11px;
   overflow: auto;
 }
 
@@ -4928,12 +4956,12 @@ select:focus {
   grid-row: 2;
   border-right: 1px solid var(--line);
   display: grid;
-  grid-template-rows: 45px minmax(0, 1fr) 54px;
+  grid-template-rows: 40px minmax(0, 1fr) 60px;
 }
 
 .console-header {
-  min-height: 42px;
-  padding: 6px 9px 6px 12px;
+  min-height: 40px;
+  padding: 5px 11px 5px 14px;
   border-bottom: 1px solid var(--line);
   justify-content: space-between;
 }
@@ -4959,15 +4987,15 @@ select:focus {
 
 .chat-log {
   min-height: 0;
-  padding: 11px;
+  padding: 16px 18px;
   overflow: auto;
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: 16px;
 }
 
 .chat-message {
-  max-width: 94%;
+  max-width: 92%;
   padding: 0;
   line-height: 1.5;
 }
@@ -4987,7 +5015,7 @@ select:focus {
 .chat-message.user {
   justify-self: end;
   max-width: 86%;
-  padding: 8px 10px;
+  padding: 7px 9px;
   border-radius: 4px;
   background: var(--surface-subtle);
 }
@@ -4998,23 +5026,32 @@ select:focus {
 
 .chat-message.system {
   max-width: 100%;
-  padding: 6px 8px;
-  border-left: 2px solid var(--line-strong);
+  padding: 0;
   color: var(--muted);
   font-size: 10px;
 }
 
 .command-bar {
-  min-height: 54px;
-  padding: 8px;
+  min-height: 60px;
+  padding: 9px 10px;
   border-top: 1px solid var(--line);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
+  gap: 7px;
 }
 
 .command-bar input {
   min-width: 0;
+  min-height: 40px;
+  padding: 0 12px;
+}
+
+.command-submit {
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .settings-dialog {
@@ -5111,7 +5148,7 @@ button:disabled {
   opacity: 0.56;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   body {
     overflow: auto;
   }
@@ -5119,14 +5156,14 @@ button:disabled {
   .app-shell {
     height: auto;
     min-height: 100vh;
-    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-columns: 204px minmax(0, 1fr);
   }
 
   .workspace {
     height: auto;
     min-height: 100vh;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 54px minmax(500px, auto) auto;
+    grid-template-rows: 48px minmax(460px, auto) auto;
   }
 
   .topbar {
@@ -5137,7 +5174,7 @@ button:disabled {
   .console-panel {
     grid-column: 1;
     grid-row: 2;
-    min-height: 500px;
+    min-height: 460px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
@@ -5145,7 +5182,7 @@ button:disabled {
   .workbench {
     grid-column: 1;
     grid-row: 3;
-    grid-template-rows: minmax(430px, 56vh) minmax(300px, auto);
+    grid-template-rows: minmax(400px, 54vh) minmax(280px, auto);
   }
 
   .inspector-panel {
@@ -5170,15 +5207,34 @@ button:disabled {
   }
 
   .sidebar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 10px;
     min-height: auto;
     overflow: visible;
     border-right: 0;
     border-bottom: 1px solid var(--line);
-    padding: 10px 12px 12px;
+    padding: 8px 10px 9px;
   }
 
-  .status-strip {
-    margin-top: 5px;
+  .sidebar-primary {
+    width: auto;
+    min-width: 108px;
+    margin-top: 0;
+  }
+
+  .sidebar > .sidebar-section:not(.sidebar-disclosure) {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
+
+  .sidebar .section-heading {
+    display: none;
+  }
+
+  .sidebar-disclosure {
+    display: none;
   }
 
   .sample-list {
@@ -5193,30 +5249,30 @@ button:disabled {
   }
 
   .sample-button {
-    min-width: 150px;
+    min-width: 138px;
     border-right: 1px solid var(--line);
   }
 
   .workspace {
     min-height: 0;
-    padding: 8px;
-    gap: 8px;
+    padding: 0;
+    gap: 0;
   }
 
   .topbar {
-    min-height: 58px;
-    align-items: stretch;
+    min-height: 48px;
+    align-items: center;
   }
 
   .workspace-title {
-    align-items: start;
-    flex-direction: column;
-    gap: 3px;
+    align-items: center;
+    flex-direction: row;
+    gap: 7px;
   }
 
   .workspace-title h2 {
-    max-width: 52vw;
-    font-size: 15px;
+    max-width: 46vw;
+    font-size: 13px;
   }
 
   #runDefaultPrompt {
@@ -5224,29 +5280,32 @@ button:disabled {
   }
 
   .workbench {
-    gap: 8px;
+    gap: 0;
   }
 
   .panel-toolbar {
-    align-items: start;
-    flex-direction: column;
-    min-height: 78px;
+    min-height: 44px;
+    align-items: center;
+    flex-direction: row;
   }
 
   .viewer-panel {
-    grid-template-rows: 78px minmax(250px, 1fr) 76px;
+    grid-template-rows: 44px minmax(250px, 1fr) 58px;
   }
 
   .tool-group {
-    width: 100%;
+    width: auto;
+    min-width: 0;
+    justify-content: flex-end;
+    overflow-x: auto;
   }
 
   .viewer-style-control {
-    flex: 1;
+    flex: 0 0 auto;
   }
 
   .viewer-style {
-    flex: 1;
+    flex: 0 0 29px;
   }
 
   .canvas-readout {

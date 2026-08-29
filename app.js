@@ -266,7 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
   resizeCanvas();
   requestAnimationFrame(drawLoop);
   loadWorkbenchMetadata();
-  addSystemMessage("Molemo WorkBench 已加载。选择示例、导入本地文件，或直接提出研究问题。");
+  addSystemMessage("研究工作区已就绪。");
 });
 
 function bindElements() {
@@ -729,7 +729,7 @@ function renderToolTrace() {
     const empty = document.createElement("div");
     empty.className = "tool-call";
     empty.innerHTML =
-      "<span>No tool calls yet</span><p>运行自然语言命令后，这里会显示 Agent 规划和工具调用轨迹。</p>";
+      "<span>运行记录</span><p>尚无工具调用。</p>";
     els.toolTrace.appendChild(empty);
     return;
   }
@@ -2534,7 +2534,7 @@ function renderSkills() {
   els.skillList.innerHTML = "";
   if (!state.skills.length) {
     els.skillList.innerHTML =
-      '<div class="skill-card"><span>Local service offline</span><p>启动本地服务后会自动发现 skills。</p></div>';
+      '<div class="skill-card"><span>Skills</span><p>本地服务未连接。</p></div>';
     return;
   }
   state.skills.forEach((skill) => {
@@ -2553,7 +2553,7 @@ function renderWorkflowRuns() {
   els.workflowList.innerHTML = "";
   if (!state.workflowRuns.length) {
     els.workflowList.innerHTML =
-      '<div class="workflow-empty"><span>No guided runs</span><p>制定计划后，可在这里审阅步骤并批准执行。</p></div>';
+      '<div class="workflow-empty"><span>分析计划</span><p>尚无运行。</p></div>';
     return;
   }
 
@@ -2665,7 +2665,7 @@ function renderDesigns() {
   if (!state.candidates.length) {
     const empty = document.createElement("div");
     empty.className = "candidate-card";
-    empty.innerHTML = "<span>No candidates</span><p>让 Agent 执行“设计”“优化”或“突变”任务后会生成候选方案。</p>";
+    empty.innerHTML = "<span>候选设计</span><p>尚无候选。</p>";
     els.designList.appendChild(empty);
     return;
   }

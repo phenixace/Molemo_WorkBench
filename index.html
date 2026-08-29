@@ -14,16 +14,14 @@
     <div class="app-shell">
       <aside class="sidebar" aria-label="molemo workspace">
         <div class="brand-block">
-          <div>
-            <h1>Molemo</h1>
-            <p>生命科学工作台</p>
-          </div>
+          <h1>Molemo</h1>
+          <span>Workbench</span>
         </div>
 
-        <div class="status-strip">
-          <span class="status-dot"></span>
-          <span id="localStatusText">正在连接本地 Agent</span>
-        </div>
+        <button class="sidebar-primary" id="planWorkflow" type="button">
+          <span aria-hidden="true">＋</span>
+          新建分析
+        </button>
 
         <section class="sidebar-section">
           <div class="section-heading">
@@ -87,10 +85,7 @@
       <main class="workspace">
         <header class="topbar">
           <div class="workspace-title">
-            <div>
-              <p class="eyebrow">研究工作区</p>
-              <h2 id="activeTitle">Aspirin lead review</h2>
-            </div>
+            <h2 id="activeTitle">Aspirin lead review</h2>
             <span class="mode-pill" id="activeType">Molecule</span>
           </div>
           <div class="topbar-actions">
@@ -99,8 +94,8 @@
               <button class="segment" data-mode="design">设计</button>
               <button class="segment" data-mode="risk">风险</button>
             </div>
-            <button class="icon-button wide" id="apiSettings" title="API 设置" aria-label="API 设置">⚙ API</button>
-            <button class="secondary-button" id="planWorkflow">新建分析</button>
+            <button class="secondary-button" id="apiSettings" title="模型设置" aria-label="模型设置">模型</button>
+            <button class="secondary-button" id="exportReport">导出</button>
             <button class="primary-button" id="runDefaultPrompt">运行</button>
           </div>
         </header>
@@ -190,8 +185,11 @@
 
         <section class="console-panel" aria-label="自然语言 Agent">
           <div class="console-header">
-            <strong>研究对话</strong>
-            <button class="secondary-button" id="exportReport">导出</button>
+            <strong>对话</strong>
+            <span class="runtime-status">
+              <span class="status-dot"></span>
+              <span id="localStatusText">连接中</span>
+            </span>
           </div>
           <div class="prompt-chips" id="promptChips"></div>
           <div class="chat-log" id="chatLog" aria-live="polite"></div>
@@ -202,7 +200,7 @@
               autocomplete="off"
               placeholder="提出一个生命科学问题…"
             />
-            <button class="primary-button" type="submit">发送</button>
+            <button class="primary-button command-submit" type="submit" title="发送" aria-label="发送">↑</button>
           </form>
         </section>
       </main>
