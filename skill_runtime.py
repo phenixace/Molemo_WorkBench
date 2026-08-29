@@ -204,6 +204,52 @@ def compact_tool_result(result: dict[str, Any], limit: int = 24000) -> str:
             "alignment_display_omitted": True,
         }
         return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+    if isinstance(data, dict) and data.get("method") == "NCBI GEO Series metadata discovery":
+        compact_data = {
+            key: value
+            for key, value in data.items()
+            if key not in {"datasets", "search_api_url", "summary_api_url"}
+        }
+        compact_data["datasets"] = []
+        for dataset in list(data.get("datasets") or [])[:10]:
+            if not isinstance(dataset, dict):
+                continue
+            item = {
+                key: value
+                for key, value in dataset.items()
+                if key in {
+                    "rank",
+                    "accession",
+                    "title",
+                    "summary",
+                    "organisms",
+                    "dataset_types",
+                    "n_samples",
+                    "platform_accessions",
+                    "release_date",
+                    "supplementary_file_types",
+                    "has_supplementary",
+                    "geo2r_available",
+                    "pubmed_ids",
+                    "bioproject",
+                    "url",
+                    "download_url",
+                    "analysis_handoff",
+                }
+            }
+            item["summary"] = str(item.get("summary") or "")[:700]
+            item["sample_examples"] = list(dataset.get("sample_examples") or [])[:3]
+            compact_data["datasets"].append(item)
+        compact = {
+            "ok": result.get("ok", True),
+            "tool": result.get("tool"),
+            "skill": result.get("skill"),
+            "summary": result.get("summary"),
+            "data": compact_data,
+            "caveats": result.get("caveats") or [],
+            "artifacts_omitted": True,
+        }
+        return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
     if len(encoded) <= limit:
         return encoded
     if isinstance(data, dict) and isinstance(data.get("activities"), list) and data.get("source") == "ChEMBL":

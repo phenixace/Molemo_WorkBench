@@ -912,6 +912,11 @@ function renderArtifacts() {
         card.classList.add("variant-structure-artifact");
         card.innerHTML = renderVariantStructureReview(title, data, false);
         bindVariantStructureActions(card, data);
+      } else if (["geo-dataset-preview", "geo-dataset-landscape"].includes(artifact.type)) {
+        const data = artifact.data || {};
+        card.classList.add("geo-dataset-artifact");
+        card.innerHTML = renderGeoDatasetLandscape(title, data, artifact.type === "geo-dataset-preview");
+        bindGeoDatasetActions(card);
       } else if (artifact.type === "literature-evidence-map") {
         card.classList.add("literature-evidence-artifact");
         card.innerHTML = renderLiteratureEvidenceMap(title, artifact.data || {});
@@ -1625,6 +1630,105 @@ function formatTimestamp(value) {
   const date = new Date(value || "");
   if (Number.isNaN(date.getTime())) return "n/a";
   return date.toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function renderGeoDatasetLandscape(title, data, preview) {
+  const datasets = data.datasets || [];
+  const sourceUrl = safeExternalUrl(data.search_url) ? data.search_url : "";
+  const assayCounts = data.assay_type_counts || [];
+  const organismCounts = data.organism_counts || [];
+  return `
+    <header><strong>${title}</strong><span>${preview ? "Preview" : escapeHtml(data.source || "NCBI GEO")}</span></header>
+    <div class="geo-query">
+      <span>Exact query</span>
+      <code>${escapeHtml(data.exact_query || data.query || "")}</code>
+    </div>
+    <div class="geo-metrics">
+      ${[
+        ["Matches", Number(data.hit_count || 0).toLocaleString("en-US")],
+        ["Mapped", data.returned_count || datasets.length],
+        ["GEO samples", Number(data.total_samples || 0).toLocaleString("en-US")],
+        ["Publications", data.publication_count || 0],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="geo-filters">
+      <span>${escapeHtml(data.organism || "Any organism")}</span>
+      <span>${escapeHtml(data.assay_label || data.assay_scope || "All assays")}</span>
+      <span>samples ≥ ${escapeHtml(data.min_samples || 1)}</span>
+      <span>${escapeHtml(data.sort || "NCBI relevance")}</span>
+    </div>
+    <div class="geo-distributions">
+      <section>
+        <header><strong>Assay metadata</strong><span>${assayCounts.length} types</span></header>
+        ${renderGeoCountRows(assayCounts)}
+      </section>
+      <section>
+        <header><strong>Organisms</strong><span>${organismCounts.length} values</span></header>
+        ${renderGeoCountRows(organismCounts)}
+      </section>
+    </div>
+    <div class="geo-datasets">
+      ${datasets.map((dataset) => renderGeoDataset(dataset, false)).join("")}
+    </div>
+    <div class="geo-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "GEO inclusion does not establish dataset quality or fitness for purpose.")}</p>
+      ${Object.keys(data.outputs || {}).length ? `<div class="target-output-paths">${Object.entries(data.outputs).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>` : ""}
+      ${sourceUrl ? `<a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open exact query in NCBI GEO</a>` : ""}
+    </div>
+  `;
+}
+
+function renderGeoCountRows(rows) {
+  return `<div class="geo-count-list">${rows.slice(0, 6).map((item) => `<div><span>${escapeHtml(item.label)}</span><b>${escapeHtml(item.count)}</b></div>`).join("") || "<p>No metadata returned.</p>"}</div>`;
+}
+
+function renderGeoDataset(dataset, open) {
+  const recordUrl = safeExternalUrl(dataset.url) ? dataset.url : "";
+  const downloadUrl = safeExternalUrl(dataset.download_url) ? dataset.download_url : "";
+  const assay = (dataset.dataset_types || []).join("; ") || "Assay not specified";
+  const organism = (dataset.organisms || []).join("; ") || "Organism not specified";
+  const files = (dataset.supplementary_file_types || []).join(", ") || "none reported";
+  return `
+    <details ${open ? "open" : ""}>
+      <summary>
+        <span class="geo-rank">${escapeHtml(dataset.rank)}</span>
+        <span class="geo-dataset-title">
+          <strong>${recordUrl ? `<a href="${escapeHtml(recordUrl)}" target="_blank" rel="noreferrer">${escapeHtml(dataset.accession)}</a>` : escapeHtml(dataset.accession)}</strong>
+          <small>${escapeHtml(dataset.title)}</small>
+        </span>
+        <span class="geo-sample-count"><b>${escapeHtml(dataset.n_samples || 0)}</b> samples</span>
+        <span class="geo-release-date">${escapeHtml(dataset.release_date || "No date")}</span>
+      </summary>
+      <div class="geo-dataset-body">
+        <div class="geo-dataset-meta">
+          <span>${escapeHtml(organism)}</span>
+          <span>${escapeHtml(assay)}</span>
+          <span>${escapeHtml((dataset.platform_accessions || []).join(", ") || "No platform accession")}</span>
+          <span>Supplementary: ${escapeHtml(files)}${dataset.geo2r_available ? " · GEO2R available" : ""}</span>
+        </div>
+        <p>${escapeHtml(dataset.summary || "No study summary returned.")}</p>
+        ${(dataset.sample_examples || []).length ? `<div class="geo-sample-examples"><span>Sample examples</span>${dataset.sample_examples.map((sample) => `<code>${escapeHtml(sample.accession || "GSM")} · ${escapeHtml(sample.title || "")}</code>`).join("")}</div>` : ""}
+        <p class="geo-handoff">${escapeHtml(dataset.analysis_handoff || "Inspect study design and data files before local analysis.")}</p>
+        <div class="geo-actions">
+          <button class="secondary-button" type="button" data-geo-review="${escapeHtml(dataset.accession)}">审阅设计</button>
+          ${recordUrl ? `<a href="${escapeHtml(recordUrl)}" target="_blank" rel="noreferrer">GEO record</a>` : ""}
+          ${downloadUrl ? `<a href="${escapeHtml(downloadUrl)}" target="_blank" rel="noreferrer">Download directory</a>` : ""}
+          ${(dataset.pubmed_ids || []).slice(0, 4).map((pmid) => `<a href="https://pubmed.ncbi.nlm.nih.gov/${escapeHtml(pmid)}/" target="_blank" rel="noreferrer">PMID ${escapeHtml(pmid)}</a>`).join("")}
+          ${dataset.bioproject ? `<a href="https://www.ncbi.nlm.nih.gov/bioproject/${escapeHtml(dataset.bioproject)}" target="_blank" rel="noreferrer">${escapeHtml(dataset.bioproject)}</a>` : ""}
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function bindGeoDatasetActions(card) {
+  card.querySelectorAll("[data-geo-review]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const accession = button.dataset.geoReview || "GEO Series";
+      els.commandInput.value = `审阅 ${accession} 的研究设计、样本分组、可用矩阵和适合的本地分析路径`;
+      els.commandInput.focus();
+    });
+  });
 }
 
 function renderLiteratureEvidenceMap(title, data) {
@@ -2599,7 +2703,7 @@ function renderWorkflowPreflight(preflight) {
   if (preflight.disease && preflight.targets) {
     detail = `${preflight.disease.name} · ${(preflight.targets || []).map((target) => target.symbol).join(", ")}`;
   } else if (preflight.exact_query && preflight.hit_count !== undefined) {
-    detail = `${preflight.exact_query} · ${Number(preflight.hit_count || 0).toLocaleString("en-US")} matches`;
+    detail = `${preflight.organism ? `${preflight.organism} · ` : ""}${preflight.exact_query} · ${Number(preflight.hit_count || 0).toLocaleString("en-US")} matches`;
   } else if (preflight.variant?.accession) {
     detail = `${preflight.variant.accession} · ${preflight.variant.hgvs_c || preflight.variant.canonical_spdi || preflight.query}`;
   } else if (preflight.condition && preflight.hit_count !== undefined) {
@@ -4473,6 +4577,7 @@ function safeExternalUrl(value) {
       "europepmc.org",
       "doi.org",
       "www.ncbi.nlm.nih.gov",
+      "ftp.ncbi.nlm.nih.gov",
       "rest.ensembl.org",
       "gnomad.broadinstitute.org",
       "clinicaltrials.gov",

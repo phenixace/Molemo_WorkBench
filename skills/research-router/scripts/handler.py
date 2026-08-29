@@ -23,6 +23,12 @@ LANES = (
         r"chembl|pchembl|bioactivit|potency|\bic50\b|\bki\b|\bkd\b|\bec50\b|"
         r"靶点.{0,10}(?:小分子|配体|活性)|(?:小分子|配体).{0,10}靶点|活性证据",
     ),
+    (
+        "public omics dataset discovery",
+        r"(?:\bGEO\b|Gene Expression Omnibus).{0,40}(?:dataset|series|study|search|find|数据集|研究|查找|检索)|"
+        r"public\s+(?:omics|expression|rna-?seq|single[- ]?cell)\s+datasets?|"
+        r"公共组学数据集|公开(?:组学|转录组|表达|单细胞)数据集",
+    ),
     ("molecular chemistry", r"smiles|molecule|compound|ligand|药|分子|化合物|配体|logp|tpsa"),
     (
         "protein family and domain analysis",
@@ -76,6 +82,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
         suggested.extend(["variant_structure_preflight", "workflow_create_plan"])
     if "target-ligand bioactivity" in lanes:
         suggested.extend(["chembl_bioactivity_preflight", "workflow_create_plan"])
+    if "public omics dataset discovery" in lanes:
+        suggested.extend(["geo_dataset_preview", "workflow_create_plan"])
     if "molecular chemistry" in lanes:
         suggested.append("chem_analyze_molecule")
     if "protein structure and sequence" in lanes:

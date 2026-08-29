@@ -15,6 +15,7 @@ from typing import Any, Callable
 from transcriptomics import TranscriptomicsError, preflight_bulk_rnaseq
 from target_evidence import TargetEvidenceError, resolve_target_review_inputs
 from literature_review import LiteratureReviewError, preflight_literature_review
+from geo_dataset_discovery import GeoDatasetError, preflight_geo_dataset_discovery
 from variant_evidence import VariantEvidenceError, preflight_variant_evidence
 from clinical_trials import ClinicalTrialsError, preflight_clinical_trial_landscape
 from clinical_trial_results import ClinicalTrialResultsError, preflight_clinical_trial_results
@@ -392,6 +393,42 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "Europe PMC relevance 仅表示检索排序，不代表研究质量或证据确定性。",
             "当前 evidence map 基于元数据与摘要，不等同于全文系统综述或风险偏倚评价。",
             "引用次数仅作书目信息展示，不参与排序或证据评级。",
+        ],
+    },
+    "public-omics-dataset-discovery": {
+        "title": "公共组学数据集发现",
+        "description": "用精确检索式发现 NCBI GEO Series，审阅研究设计、样本规模、测定类型与可用数据线索。",
+        "fields": [
+            _field(
+                "query",
+                "疾病 / 组织 / 表型 / 扰动",
+                "textarea",
+                required=True,
+                rows=3,
+                placeholder="asthma",
+            ),
+            _field("organism", "物种", "text", value="Homo sapiens"),
+            _field(
+                "assay_scope",
+                "测定范围",
+                "select",
+                required=True,
+                options=[
+                    {"value": "rna_seq", "label": "RNA-seq"},
+                    {"value": "single_cell", "label": "单细胞 RNA-seq"},
+                    {"value": "array", "label": "表达芯片"},
+                    {"value": "methylation", "label": "甲基化"},
+                    {"value": "all", "label": "全部 GEO Series"},
+                ],
+            ),
+            _field("min_samples", "最少 GEO samples", "number", value=4, min=1, max=100000),
+            _field("max_results", "最多收集 Series", "number", value=12, min=1, max=20),
+        ],
+        "assumptions": [
+            "GEO metadata 由提交者提供；检索命中和 NCBI relevance 不代表数据质量或适用性。",
+            "GEO sample 数量不等于独立生物学重复数，审批前必须检查受试者、配对、批次与实验设计。",
+            "补充文件存在不表示 raw counts、归一化矩阵或样本注释已经适合本地分析。",
+            "该步骤只发现并保存元数据，不下载或分析表达数据。",
         ],
     },
     "variant-evidence-review": {
@@ -950,6 +987,38 @@ def _literature_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
         raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
 
 
+def _geo_dataset_arguments(inputs: dict[str, Any]) -> dict[str, Any]:
+    query = _require_text(inputs, "query", "GEO query")
+    organism = str(inputs.get("organism") or "").strip()
+    assay_scope = str(inputs.get("assay_scope") or "all").strip().casefold()
+    try:
+        min_samples = int(inputs.get("min_samples") or 4)
+        max_results = int(inputs.get("max_results") or 12)
+    except (TypeError, ValueError) as exc:
+        raise WorkflowError("GEO sample and result limits must be integers.", "invalid_workflow_inputs") from exc
+    arguments = {
+        "query": query,
+        "organism": organism,
+        "assay_scope": assay_scope,
+        "min_samples": min_samples,
+        "max_results": max_results,
+    }
+    inputs.update(arguments)
+    return arguments
+
+
+def _geo_dataset_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    arguments = _geo_dataset_arguments(inputs)
+    return [_step("收集并保存 GEO Series 数据集版图", "geo_dataset_collect", arguments)]
+
+
+def _geo_dataset_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_geo_dataset_discovery(**_geo_dataset_arguments(inputs))
+    except GeoDatasetError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _variant_evidence_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     variant = _require_text(inputs, "variant", "Variant identifier")
     inputs["variant"] = variant
@@ -1211,6 +1280,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "target-evidence-review": _target_evidence_steps,
     "target-ligand-bioactivity-review": _chembl_bioactivity_steps,
     "literature-evidence-review": _literature_steps,
+    "public-omics-dataset-discovery": _geo_dataset_steps,
     "variant-evidence-review": _variant_evidence_steps,
     "clinical-trial-landscape-review": _clinical_trials_steps,
     "clinical-trial-results-review": _clinical_trial_results_steps,
@@ -1230,6 +1300,7 @@ PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "target-evidence-review": _target_evidence_preflight,
     "target-ligand-bioactivity-review": _chembl_bioactivity_preflight,
     "literature-evidence-review": _literature_preflight,
+    "public-omics-dataset-discovery": _geo_dataset_preflight,
     "variant-evidence-review": _variant_evidence_preflight,
     "clinical-trial-landscape-review": _clinical_trials_preflight,
     "clinical-trial-results-review": _clinical_trial_results_preflight,

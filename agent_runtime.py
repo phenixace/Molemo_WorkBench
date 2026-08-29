@@ -29,7 +29,7 @@ class AgentError(RuntimeError):
 
 
 SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research agent.
-Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. For protein multiple-sequence alignments, preserve the exact input FASTA, reference identifier and position, alignment engine and version, aligned column, consensus support, occupancy, sequence count, and the unweighted input-set boundary. Conservation across an approved sequence set is descriptive: it does not prove orthology, functional importance, structural equivalence, pathogenicity, or mutational effect. For experimental variant structures, preserve the exact PDB entry, author chain and residue number, reference and alternate amino acids, observed structure allele, distance cutoff, nearest atom pair, ligand instance, experimental method, resolution, and retrieval time. Treat heavy-atom distance as geometric proximity in one deposited model, not proof of covalency, affinity, mechanism, functional effect, pathogenicity, or actionability; HETATM groups are not automatically inhibitors. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For ChEMBL bioactivity, preserve the exact UniProt and ChEMBL target, pChEMBL, endpoint, relation, value, unit, assay type and format, confidence score, document, filters, and retrieval bounds. Confidence score 9 supports direct single-protein target assignment but does not prove direct physical binding or assay quality; mixed IC50, Ki, Kd, EC50 and assay contexts are not interchangeable, and potency does not establish selectivity, mechanism, developability, safety, or efficacy. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. For single-cell analyses, preserve the input format, selected raw-count layer, QC thresholds, retained cells and genes, normalization, feature selection, random seed, graph and clustering parameters, biological sample metadata, and any Scrublet batch key, thresholds, prediction count, and exclusion decision. UMAP geometry, Leiden clusters, Scrublet predictions, and cell-level marker rankings are exploratory; never name a cell type without external annotation evidence or treat cells as biological replicates. For gene-set functional analysis, preserve organism, exact inputs and mappings, reference coverage, FDR threshold, database versions, STRING confidence threshold, and unmapped identifiers. Reactome overrepresentation is not causal evidence, FDR is not a truth probability, STRING functional associations are not necessarily direct physical interactions, and genes are not biological replicates. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
+Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. For protein multiple-sequence alignments, preserve the exact input FASTA, reference identifier and position, alignment engine and version, aligned column, consensus support, occupancy, sequence count, and the unweighted input-set boundary. Conservation across an approved sequence set is descriptive: it does not prove orthology, functional importance, structural equivalence, pathogenicity, or mutational effect. For experimental variant structures, preserve the exact PDB entry, author chain and residue number, reference and alternate amino acids, observed structure allele, distance cutoff, nearest atom pair, ligand instance, experimental method, resolution, and retrieval time. Treat heavy-atom distance as geometric proximity in one deposited model, not proof of covalency, affinity, mechanism, functional effect, pathogenicity, or actionability; HETATM groups are not automatically inhibitors. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For public GEO dataset discovery, preserve the exact GSE-only query, organism, assay scope, minimum sample-count filter, NCBI relevance order, accession, submitter metadata, sample-design uncertainty, public links, and retrieval time. Never treat GEO sample count as independent biological replicates, relevance order as quality, or supplementary-file presence as analysis readiness; discovery does not download or analyze expression data. For ChEMBL bioactivity, preserve the exact UniProt and ChEMBL target, pChEMBL, endpoint, relation, value, unit, assay type and format, confidence score, document, filters, and retrieval bounds. Confidence score 9 supports direct single-protein target assignment but does not prove direct physical binding or assay quality; mixed IC50, Ki, Kd, EC50 and assay contexts are not interchangeable, and potency does not establish selectivity, mechanism, developability, safety, or efficacy. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. For single-cell analyses, preserve the input format, selected raw-count layer, QC thresholds, retained cells and genes, normalization, feature selection, random seed, graph and clustering parameters, biological sample metadata, and any Scrublet batch key, thresholds, prediction count, and exclusion decision. UMAP geometry, Leiden clusters, Scrublet predictions, and cell-level marker rankings are exploratory; never name a cell type without external annotation evidence or treat cells as biological replicates. For gene-set functional analysis, preserve organism, exact inputs and mappings, reference coverage, FDR threshold, database versions, STRING confidence threshold, and unmapped identifiers. Reactome overrepresentation is not causal evidence, FDR is not a truth probability, STRING functional associations are not necessarily direct physical interactions, and genes are not biological replicates. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
@@ -205,6 +205,7 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         "protein alignment and conservation": "蛋白比对与位点保守性",
         "molecular chemistry": "分子化学",
         "literature and study discovery": "文献与研究发现",
+        "public omics dataset discovery": "公共组学数据集发现",
         "human genetics and variant evidence": "人类遗传与变异证据",
         "clinical and translational evidence": "临床与转化证据",
         "sequencing and cohort variants": "测序与队列变异",
@@ -215,6 +216,11 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         reply = (
             f"当前问题被路由到 {lane}。{evidence_text} "
             "计划尚未执行；请在“运行”页审阅输入与步骤，并由研究者明确批准。"
+        )
+    elif "public omics dataset discovery" in raw_lanes:
+        reply = (
+            f"当前问题被路由到 {lane}。{evidence_text} "
+            "结果保留精确 GEO Series 检索式、物种、测定与样本数过滤；NCBI relevance 不是质量排序，GEO sample 数也不等于独立生物学重复。"
         )
     elif "literature and study discovery" in raw_lanes:
         reply = (
@@ -305,6 +311,12 @@ def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
     variant = extract_variant_identifier(message)
     if variant and re.search(r"variant|mutation|clinvar|hgvs|变异|突变|位点", message, re.I):
         selected.append(("variant_evidence_preflight", {"variant": variant}))
+
+    geo_dataset = extract_geo_dataset_plan(message)
+    if geo_dataset and re.search(r"preview|先看看|预览", message, re.I):
+        preview_arguments = dict(geo_dataset)
+        preview_arguments["max_results"] = min(int(preview_arguments["max_results"]), 8)
+        selected.append(("geo_dataset_preview", preview_arguments))
 
     literature_query = extract_literature_query(message)
     if literature_query and re.search(r"paper|publication|literature|study|文献|论文|研究", message, re.I):
@@ -450,6 +462,9 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     protein_conservation = extract_protein_conservation_plan(message)
     if protein_conservation:
         return "protein-family-conservation-review", protein_conservation
+    geo_dataset = extract_geo_dataset_plan(message)
+    if geo_dataset and not re.search(r"preview|先看看|预览", message, re.I):
+        return "public-omics-dataset-discovery", geo_dataset
     variant_structure = extract_variant_structure_plan(message)
     if variant_structure:
         return "protein-variant-structure-review", variant_structure
@@ -942,6 +957,95 @@ def extract_target_evidence_plan(message: str) -> dict[str, Any] | None:
         "disease": disease,
         "candidates": ", ".join(candidates),
         "include_indirect": bool(re.search(r"indirect|descendant|下位疾病|间接证据", message, re.I)),
+    }
+
+
+def extract_geo_dataset_plan(message: str) -> dict[str, Any] | None:
+    if not re.search(
+        r"(?:\bGEO\b|Gene Expression Omnibus).{0,40}(?:dataset|series|study|search|find|数据集|研究|查找|检索)|"
+        r"public\s+(?:omics|expression|rna-?seq|single[- ]?cell)\s+datasets?|"
+        r"公共组学数据集|公开(?:组学|转录组|表达|单细胞)数据集",
+        message,
+        re.I,
+    ):
+        return None
+
+    aliases = {
+        "哮喘": "asthma",
+        "乳腺癌": "breast cancer",
+        "肺癌": "lung cancer",
+        "阿尔茨海默病": "Alzheimer disease",
+        "类风湿关节炎": "rheumatoid arthritis",
+        "克罗恩病": "Crohn disease",
+        "溃疡性结肠炎": "ulcerative colitis",
+        "2型糖尿病": "type 2 diabetes mellitus",
+        "二型糖尿病": "type 2 diabetes mellitus",
+    }
+    query = ""
+    labelled = re.search(
+        r"(?:query|topic|disease|tissue|phenotype|主题|疾病|组织|表型)\s*[:：=]\s*([^，。；,;]{2,120})",
+        message,
+        re.I,
+    )
+    if labelled:
+        query = labelled.group(1).strip()
+    if not query:
+        quoted = re.search(r"[\"']([^\"']{2,160})[\"']|“([^”]{2,160})”|‘([^’]{2,160})’", message)
+        if quoted:
+            query = next((value for value in quoted.groups() if value), "").strip()
+    if not query:
+        for chinese, english in aliases.items():
+            if chinese in message:
+                query = english
+                break
+    if not query:
+        english = re.search(
+            r"(?:datasets?|series|studies)\s+(?:for|about|on)\s+([A-Za-z][A-Za-z0-9 .'-]{1,80}?)"
+            r"(?=\s+(?:in|from|with|at\s+least|minimum|human|mouse|rna|single|array|methyl)|[.,;]|$)",
+            message,
+            re.I,
+        )
+        if english:
+            query = english.group(1).strip()
+    query = aliases.get(query, query)
+    if not query or len(query) > 240:
+        return None
+
+    organism = "Homo sapiens"
+    if re.search(r"Mus musculus|\bmouse\b|\bmice\b|小鼠", message, re.I):
+        organism = "Mus musculus"
+    elif re.search(r"Rattus norvegicus|\brat\b|\brats\b|大鼠", message, re.I):
+        organism = "Rattus norvegicus"
+    elif re.search(r"any organism|all organisms|不限物种|任意物种", message, re.I):
+        organism = ""
+
+    if re.search(r"single[- ]?cell|scRNA-?seq|单细胞", message, re.I):
+        assay_scope = "single_cell"
+    elif re.search(r"methylation|甲基化", message, re.I):
+        assay_scope = "methylation"
+    elif re.search(r"microarray|expression array|表达芯片|基因芯片", message, re.I):
+        assay_scope = "array"
+    elif re.search(r"rna-?seq|transcriptom|转录组|测序表达", message, re.I):
+        assay_scope = "rna_seq"
+    else:
+        assay_scope = "all"
+
+    minimum = re.search(
+        r"(?:at\s+least|minimum|min\.?|至少|不少于)\s*(\d{1,6})\s*(?:samples?|样本)",
+        message,
+        re.I,
+    )
+    result_limit = re.search(
+        r"(?:top|first|最多|前)\s*(\d{1,2})\s*(?:datasets?|series|records?|个|条)?",
+        message,
+        re.I,
+    )
+    return {
+        "query": query,
+        "organism": organism,
+        "assay_scope": assay_scope,
+        "min_samples": min(max(int(minimum.group(1)) if minimum else 4, 1), 100000),
+        "max_results": min(max(int(result_limit.group(1)) if result_limit else 12, 1), 20),
     }
 
 

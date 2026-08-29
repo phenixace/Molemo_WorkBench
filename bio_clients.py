@@ -33,10 +33,13 @@ ALLOWED_HOSTS = {
 MAX_JSON_BYTES = 6 * 1024 * 1024
 MAX_JSON_REQUEST_BYTES = 256 * 1024
 MAX_STRUCTURE_BYTES = 24 * 1024 * 1024
-USER_AGENT = "Molemo-WorkBench/0.18 (public scientific database client)"
+USER_AGENT = "Molemo-WorkBench/0.21 (public scientific database client)"
 MAX_STRING_QUERY_BYTES = 16 * 1024
 _STRING_REQUEST_LOCK = threading.Lock()
 _STRING_LAST_REQUEST = 0.0
+_EUTILS_REQUEST_LOCK = threading.Lock()
+_EUTILS_LAST_REQUEST = 0.0
+_EUTILS_INTERVAL_SECONDS = 0.36
 
 
 class ExternalDataError(RuntimeError):
@@ -229,9 +232,23 @@ def _request(
     if body is not None and content_type:
         headers["Content-Type"] = content_type
     request = urllib.request.Request(url, data=body, headers=headers, method=method)
-    try:
+    def read_response() -> bytes:
         with urllib.request.urlopen(request, timeout=30) as response:
-            raw = response.read(max_bytes + 1)
+            return response.read(max_bytes + 1)
+
+    try:
+        if parsed.hostname == "eutils.ncbi.nlm.nih.gov":
+            global _EUTILS_LAST_REQUEST
+            with _EUTILS_REQUEST_LOCK:
+                delay = _EUTILS_INTERVAL_SECONDS - (time.monotonic() - _EUTILS_LAST_REQUEST)
+                if delay > 0:
+                    time.sleep(delay)
+                try:
+                    raw = read_response()
+                finally:
+                    _EUTILS_LAST_REQUEST = time.monotonic()
+        else:
+            raw = read_response()
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             raise ExternalDataError("No matching public database record was found.") from exc

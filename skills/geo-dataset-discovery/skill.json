@@ -1,0 +1,51 @@
+{
+  "id": "geo-dataset-discovery",
+  "title": "GEO Dataset Discovery",
+  "kind": "retrieval",
+  "description": "Discover bounded NCBI GEO Series with exact query provenance, study metadata, sample counts, public links, and analysis-readiness caveats.",
+  "tools": [
+    {
+      "name": "geo_dataset_preview",
+      "description": "Preview up to eight NCBI GEO Series in source relevance order, preserving the exact GSE-only query, organism, assay, sample-count filter, accessions, study metadata, and public links.",
+      "handler": "scripts/handler.py:preview",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Disease, tissue, phenotype, perturbation, or fielded GEO query." },
+          "organism": { "type": "string", "default": "Homo sapiens", "description": "Exact organism scientific name, or blank for any organism." },
+          "assay_scope": {
+            "type": "string",
+            "enum": ["all", "rna_seq", "single_cell", "array", "methylation"],
+            "default": "all"
+          },
+          "min_samples": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 4 },
+          "max_results": { "type": "integer", "minimum": 1, "maximum": 8, "default": 8 }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "geo_dataset_collect",
+      "description": "Collect and persist an approved NCBI GEO Series discovery with up to 20 source-ordered records, sample examples, exact filters, report, manifest, and interpretation limits.",
+      "handler": "scripts/handler.py:collect",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "organism": { "type": "string", "default": "Homo sapiens" },
+          "assay_scope": {
+            "type": "string",
+            "enum": ["all", "rna_seq", "single_cell", "array", "methylation"],
+            "default": "all"
+          },
+          "min_samples": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 4 },
+          "max_results": { "type": "integer", "minimum": 1, "maximum": 20, "default": 12 }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

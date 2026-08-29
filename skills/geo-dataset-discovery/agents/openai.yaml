@@ -1,0 +1,3 @@
+interface:
+  display_name: "GEO Dataset Discovery"
+  short_description: "Find source-linked public omics studies"
