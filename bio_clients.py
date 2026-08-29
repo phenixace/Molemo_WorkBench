@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import subprocess
+import threading
+import time
 import urllib.error
 import urllib.request
 from typing import Any
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 
 ALLOWED_HOSTS = {
@@ -19,6 +23,8 @@ ALLOWED_HOSTS = {
     "pubchem.ncbi.nlm.nih.gov",
     "rest.ensembl.org",
     "rest.uniprot.org",
+    "reactome.org",
+    "version-12-0.string-db.org",
     "data.rcsb.org",
     "files.rcsb.org",
     "www.ebi.ac.uk",
@@ -26,7 +32,10 @@ ALLOWED_HOSTS = {
 MAX_JSON_BYTES = 6 * 1024 * 1024
 MAX_JSON_REQUEST_BYTES = 256 * 1024
 MAX_STRUCTURE_BYTES = 24 * 1024 * 1024
-USER_AGENT = "Molemo-WorkBench/0.14 (public scientific database client)"
+USER_AGENT = "Molemo-WorkBench/0.15 (public scientific database client)"
+MAX_STRING_QUERY_BYTES = 16 * 1024
+_STRING_REQUEST_LOCK = threading.Lock()
+_STRING_LAST_REQUEST = 0.0
 
 
 class ExternalDataError(RuntimeError):
@@ -69,7 +78,14 @@ def post_json(url: str, payload: dict[str, Any]) -> dict[str, Any]:
         raise ExternalDataError("The public database request could not be encoded as JSON.") from exc
     if len(body) > MAX_JSON_REQUEST_BYTES:
         raise ExternalDataError("Public database request exceeded the local size limit.")
-    raw = _request(url, "application/json", MAX_JSON_BYTES, method="POST", body=body)
+    raw = _request(
+        url,
+        "application/json",
+        MAX_JSON_BYTES,
+        method="POST",
+        body=body,
+        content_type="application/json",
+    )
     try:
         data = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -77,6 +93,119 @@ def post_json(url: str, payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ExternalDataError("The public database returned an unexpected response shape.")
     return data
+
+
+def post_text_json(url: str, text: str) -> dict[str, Any]:
+    """POST bounded plain text and require a JSON object response."""
+    body = str(text or "").encode("utf-8")
+    if not body or len(body) > MAX_JSON_REQUEST_BYTES:
+        raise ExternalDataError("Public database text request must be non-empty and within the local size limit.")
+    raw = _request(
+        url,
+        "application/json",
+        MAX_JSON_BYTES,
+        method="POST",
+        body=body,
+        content_type="text/plain; charset=utf-8",
+    )
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ExternalDataError("The public database returned invalid JSON.") from exc
+    if not isinstance(data, dict):
+        raise ExternalDataError("The public database returned an unexpected response shape.")
+    return data
+
+
+def post_form_json_array(url: str, fields: dict[str, Any]) -> list[Any]:
+    """POST bounded form data and require a JSON array response."""
+    body = urlencode({key: str(value) for key, value in fields.items()}).encode("utf-8")
+    if len(body) > MAX_JSON_REQUEST_BYTES:
+        raise ExternalDataError("Public database form request exceeded the local size limit.")
+    parsed = urlparse(url)
+    if parsed.hostname == "version-12-0.string-db.org" and shutil.which("curl"):
+        global _STRING_LAST_REQUEST
+        with _STRING_REQUEST_LOCK:
+            delay = 1.05 - (time.monotonic() - _STRING_LAST_REQUEST)
+            if delay > 0:
+                time.sleep(delay)
+            try:
+                raw = _curl_form_request(url, body, MAX_JSON_BYTES)
+            finally:
+                _STRING_LAST_REQUEST = time.monotonic()
+    else:
+        raw = _request(
+            url,
+            "application/json",
+            MAX_JSON_BYTES,
+            method="POST",
+            body=body,
+            content_type="application/x-www-form-urlencoded; charset=utf-8",
+        )
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ExternalDataError("The public database returned invalid JSON.") from exc
+    if not isinstance(data, list):
+        raise ExternalDataError("The public database returned an unexpected response shape.")
+    return data
+
+
+def _curl_form_request(url: str, body: bytes, max_bytes: int) -> bytes:
+    """Use a bounded curl GET for STRING endpoints challenged by its CDN."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname != "version-12-0.string-db.org":
+        raise ExternalDataError("External requests are restricted to approved scientific databases.")
+    curl = shutil.which("curl")
+    if not curl:
+        raise ExternalDataError("The STRING API requires a local curl executable in this environment.")
+    if len(body) > MAX_STRING_QUERY_BYTES:
+        raise ExternalDataError("STRING API query exceeded the local URL size limit.")
+    command = [
+        curl,
+        "--silent",
+        "--show-error",
+        "--max-time",
+        "30",
+        "--max-filesize",
+        str(max_bytes),
+        "--header",
+        "Accept: application/json",
+        "--header",
+        f"User-Agent: {USER_AGENT}",
+        "--get",
+        "--data-binary",
+        "@-",
+        "--write-out",
+        "\n%{http_code}",
+        url,
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            input=body,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=35,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ExternalDataError(f"Could not reach the public database: {exc}") from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.decode("utf-8", errors="replace").strip()
+        raise ExternalDataError(f"Could not reach the public database: {detail or 'curl failed'}")
+    try:
+        raw, status_text = completed.stdout.rsplit(b"\n", 1)
+        status = int(status_text)
+    except (ValueError, TypeError) as exc:
+        raise ExternalDataError("The public database returned an unexpected transport response.") from exc
+    if status == 404:
+        raise ExternalDataError("No matching public database record was found.")
+    if not 200 <= status < 300:
+        raise ExternalDataError(f"Public database request failed with HTTP {status}.")
+    if len(raw) > max_bytes:
+        raise ExternalDataError("Public database response exceeded the local size limit.")
+    return raw
 
 
 def _get(url: str, accept: str, max_bytes: int) -> bytes:
@@ -90,13 +219,14 @@ def _request(
     *,
     method: str,
     body: bytes | None = None,
+    content_type: str | None = None,
 ) -> bytes:
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.hostname not in ALLOWED_HOSTS:
         raise ExternalDataError("External requests are restricted to approved scientific databases.")
     headers = {"Accept": accept, "User-Agent": USER_AGENT}
-    if body is not None:
-        headers["Content-Type"] = "application/json"
+    if body is not None and content_type:
+        headers["Content-Type"] = content_type
     request = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         with urllib.request.urlopen(request, timeout=30) as response:

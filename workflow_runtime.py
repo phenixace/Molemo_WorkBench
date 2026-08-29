@@ -25,6 +25,12 @@ from hmmer_search import (
     preflight_hmmer_profile_search,
 )
 from single_cell import SingleCellError, preflight_single_cell
+from functional_analysis import (
+    FunctionalAnalysisError,
+    normalize_parameters as normalize_functional_parameters,
+    parse_gene_terms,
+    preflight_functional_analysis,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -196,6 +202,39 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "UMAP 与 Leiden cluster 是探索性表示，不自动等同于细胞类型。",
             "marker 排名按细胞比较，不替代基于生物学重复的 pseudobulk 推断。",
             "Scrublet 是模型化 QC 信号；自动阈值与预测细胞需要按样本复核。",
+        ],
+    },
+    "gene-set-functional-analysis": {
+        "title": "人类基因集功能分析",
+        "description": "确认人类基因映射，批准后运行 Reactome 通路富集与 STRING 功能网络。",
+        "fields": [
+            _field(
+                "genes",
+                "基因 / 蛋白标识符（2–50 个）",
+                "textarea",
+                required=True,
+                rows=5,
+                placeholder="TP53, MDM2, ATM, CDKN1A",
+            ),
+            _field("required_score", "STRING 最低置信分", "number", value=400, min=150, max=900, step=50),
+            _field("fdr_threshold", "FDR 阈值", "number", value=0.05, min=0.0001, max=0.25, step=0.01),
+            _field("max_terms", "最多展示条目", "number", value=20, min=5, max=50),
+            _field(
+                "include_disease_pathways",
+                "Reactome 疾病通路",
+                "select",
+                required=True,
+                options=[
+                    {"value": "false", "label": "排除"},
+                    {"value": "true", "label": "包含"},
+                ],
+            ),
+        ],
+        "assumptions": [
+            "当前工作流仅使用 Homo sapiens（NCBI taxon 9606），审批前应核对每个 STRING 映射。",
+            "过表达分析依赖输入列表与参考覆盖，不构成机制或因果证据。",
+            "STRING 边表示功能关联，不必然是直接物理互作。",
+            "FDR 是多重检验校正，不是通路为真的概率。",
         ],
     },
     "target-evidence-review": {
@@ -634,6 +673,40 @@ def _target_evidence_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _functional_analysis_arguments(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        terms = parse_gene_terms(_require_text(inputs, "genes", "Gene or protein identifiers"))
+        parameters = normalize_functional_parameters(
+            required_score=inputs.get("required_score", 400),
+            fdr_threshold=inputs.get("fdr_threshold", 0.05),
+            max_terms=inputs.get("max_terms", 20),
+            include_disease_pathways=inputs.get("include_disease_pathways", False),
+        )
+    except FunctionalAnalysisError as exc:
+        raise WorkflowError(str(exc), "invalid_workflow_inputs") from exc
+    arguments = {"genes": ", ".join(terms), **parameters}
+    inputs.update(arguments)
+    return arguments
+
+
+def _functional_analysis_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    arguments = _functional_analysis_arguments(inputs)
+    return [
+        _step(
+            "运行 Reactome 通路富集与 STRING 功能网络",
+            "functional_analysis_run",
+            arguments,
+        )
+    ]
+
+
+def _functional_analysis_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_functional_analysis(**inputs)
+    except FunctionalAnalysisError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _target_evidence_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
     try:
         return resolve_target_review_inputs(
@@ -895,6 +968,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "fastq-qc-review": _fastq_steps,
     "bulk-rnaseq-differential-expression": _rnaseq_steps,
     "single-cell-exploratory-analysis": _single_cell_steps,
+    "gene-set-functional-analysis": _functional_analysis_steps,
     "target-evidence-review": _target_evidence_steps,
     "literature-evidence-review": _literature_steps,
     "variant-evidence-review": _variant_evidence_steps,
@@ -910,6 +984,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
 PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "bulk-rnaseq-differential-expression": _rnaseq_preflight,
     "single-cell-exploratory-analysis": _single_cell_preflight,
+    "gene-set-functional-analysis": _functional_analysis_preflight,
     "target-evidence-review": _target_evidence_preflight,
     "literature-evidence-review": _literature_preflight,
     "variant-evidence-review": _variant_evidence_preflight,

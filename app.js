@@ -763,6 +763,11 @@ function renderArtifacts() {
         card.classList.add("single-cell-analysis-artifact");
         card.innerHTML = renderSingleCellAnalysis(title, data);
         bindSingleCellControls(card, data);
+      } else if (artifact.type === "functional-analysis-preflight") {
+        card.innerHTML = renderFunctionalAnalysisPreflight(title, artifact.data || {});
+      } else if (artifact.type === "functional-analysis") {
+        card.classList.add("functional-analysis-artifact");
+        card.innerHTML = renderFunctionalAnalysis(title, artifact.data || {});
       } else if (artifact.type === "target-evidence-preflight") {
         card.innerHTML = renderTargetEvidencePreflight(title, artifact.data || {});
       } else if (artifact.type === "target-evidence-review") {
@@ -955,6 +960,150 @@ function renderTargetEvidencePreflight(title, data) {
     </div>
     <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || "Entities resolved. Review them before execution.")}</p>
   `;
+}
+
+function renderFunctionalAnalysisPreflight(title, data) {
+  const organism = data.organism || {};
+  const mappings = data.mappings || [];
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(`${organism.name || "Homo sapiens"} · ${organism.taxon_id || 9606}`)}</span></header>
+    <div class="functional-preflight-summary">
+      <div><span>Input</span><strong>${escapeHtml((data.input_terms || []).length)}</strong></div>
+      <div><span>Mapped</span><strong>${escapeHtml(data.mapped_count || 0)}</strong></div>
+      <div><span>Unmapped</span><strong>${escapeHtml((data.unmapped_terms || []).length)}</strong></div>
+      <div><span>STRING score</span><strong>${escapeHtml(data.parameters?.required_score || 400)}</strong></div>
+      <div><span>FDR</span><strong>${escapeHtml(data.parameters?.fdr_threshold || 0.05)}</strong></div>
+    </div>
+    <div class="functional-mapping-list">
+      ${mappings.map((mapping) => `
+        <div>
+          <code>${escapeHtml(mapping.query)}</code>
+          <strong>${escapeHtml(mapping.preferred_name)}</strong>
+          <span>${escapeHtml(mapping.string_id)}</span>
+        </div>
+      `).join("")}
+    </div>
+    <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || "Review organism, mappings and thresholds before approval.")}</p>
+  `;
+}
+
+function renderFunctionalAnalysis(title, data) {
+  const reactome = data.reactome || {};
+  const network = data.network || {};
+  const ppi = data.ppi_enrichment || {};
+  const enrichment = data.string_enrichment || {};
+  const pathways = reactome.pathways || [];
+  const terms = enrichment.terms || [];
+  const sources = (data.sources || []).filter((source) => safeExternalUrl(source.url));
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(formatTimestamp(data.retrieved_at))}</span></header>
+    <div class="functional-metrics">
+      ${[
+        ["Input", (data.input_terms || []).length],
+        ["Mapped", data.mapped_count || 0],
+        ["Reactome", reactome.significant_count || 0],
+        ["Edges", network.available === false ? "n/a" : network.edge_count || 0],
+        ["PPI P", ppi.available === false ? "n/a" : formatScientific(ppi.p_value)],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="functional-analysis-grid">
+      <section class="functional-network-section">
+        <header><strong>STRING functional network</strong><span>${escapeHtml(`score ≥ ${network.required_score || 400}`)}</span></header>
+        ${renderFunctionalNetwork(network.nodes || [], network.edges || [])}
+      </section>
+      <section class="functional-pathway-section">
+        <header><strong>Reactome pathways</strong><span>${escapeHtml(`${reactome.significant_count || 0} at FDR ≤ ${data.parameters?.fdr_threshold || 0.05}`)}</span></header>
+        <div class="functional-pathways">
+          ${pathways.map((pathway) => renderFunctionalPathway(pathway, pathways)).join("") || '<p>No Reactome pathways returned.</p>'}
+        </div>
+      </section>
+    </div>
+    <section class="functional-enrichment-section">
+      <header><strong>STRING enrichment</strong><span>${escapeHtml(`${enrichment.significant_count || 0} significant terms`)}</span></header>
+        ${enrichment.available === false ? '<p class="functional-source-warning">STRING enrichment was unavailable for this run.</p>' : ""}
+        <div class="functional-enrichment-table">
+        <div><b>Category</b><b>Term</b><b>Genes</b><b>FDR</b></div>
+        ${terms.slice(0, 20).map((term) => `<div>
+          <code>${escapeHtml(term.category || "")}</code>
+          <span title="${escapeHtml(term.description || term.term)}">${escapeHtml(term.description || term.term)}</span>
+          <strong>${escapeHtml(term.input_gene_count || 0)}</strong>
+          <code>${escapeHtml(formatScientific(term.fdr))}</code>
+        </div>`).join("")}
+      </div>
+    </section>
+    <div class="functional-analysis-footer">
+      <p class="evidence-caveat">${escapeHtml((data.caveats || [])[0] || "Enrichment and association networks are hypothesis-generating evidence.")}</p>
+      <div class="functional-source-links">
+        ${sources.map((source) => `<a class="source-link" href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.name)}</a>`).join("")}
+        ${safeExternalUrl(network.source_url) ? `<a class="source-link" href="${escapeHtml(network.source_url)}" target="_blank" rel="noreferrer">Open network in STRING</a>` : ""}
+      </div>
+      <div class="target-output-paths">${Object.entries(data.outputs || {}).map(([label, path]) => `<span>${escapeHtml(label.replaceAll("_", " "))}<code>${escapeHtml(path)}</code></span>`).join("")}</div>
+    </div>
+  `;
+}
+
+function renderFunctionalNetwork(nodes, edges) {
+  const visibleNodes = nodes.slice(0, 18);
+  if (!visibleNodes.length) return '<p class="functional-network-empty">No STRING proteins were returned.</p>';
+  const positions = functionalNetworkPositions(visibleNodes);
+  const visibleIds = new Set(visibleNodes.map((node) => node.id));
+  const visibleEdges = edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+  return `
+    <div class="functional-network" role="img" aria-label="STRING functional association network with ${visibleNodes.length} proteins and ${visibleEdges.length} visible edges">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        ${visibleEdges.map((edge) => {
+          const source = positions.get(edge.source);
+          const target = positions.get(edge.target);
+          if (!source || !target) return "";
+          return `<line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" style="--edge:${clamp(Number(edge.score) || 0, 0.08, 1)}" />`;
+        }).join("")}
+      </svg>
+      ${visibleNodes.map((node) => {
+        const position = positions.get(node.id);
+        return `<span class="functional-node" style="left:${position.x}%;top:${position.y}%" title="${escapeHtml(`${node.name} · degree ${node.degree} · ${node.annotation || "No annotation returned"}`)}"><b>${escapeHtml(node.name)}</b><small>${escapeHtml(node.degree)}</small></span>`;
+      }).join("")}
+      <small class="functional-network-count">${escapeHtml(`showing ${visibleNodes.length}/${nodes.length} proteins`)}</small>
+    </div>
+  `;
+}
+
+function functionalNetworkPositions(nodes) {
+  const positions = new Map();
+  const count = nodes.length;
+  if (count === 1) {
+    positions.set(nodes[0].id, { x: 50, y: 50 });
+    return positions;
+  }
+  nodes.forEach((node, index) => {
+    const angle = -Math.PI / 2 + (index / count) * Math.PI * 2;
+    const radiusX = count <= 8 ? 34 : index % 2 === 0 ? 35 : 25;
+    const radiusY = count <= 8 ? 35 : index % 2 === 0 ? 36 : 26;
+    positions.set(node.id, {
+      x: Number((50 + Math.cos(angle) * radiusX).toFixed(2)),
+      y: Number((50 + Math.sin(angle) * radiusY).toFixed(2)),
+    });
+  });
+  return positions;
+}
+
+function renderFunctionalPathway(pathway, pathways) {
+  const fdrValue = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric >= 0 ? Math.max(numeric, Number.MIN_VALUE) : 1;
+  };
+  const scores = pathways.map((item) => -Math.log10(fdrValue(item.fdr)));
+  const maxScore = Math.max(...scores, 1);
+  const score = -Math.log10(fdrValue(pathway.fdr));
+  const width = clamp((score / maxScore) * 100, 2, 100);
+  const url = safeExternalUrl(pathway.url) ? pathway.url : "";
+  return `<div class="functional-pathway-row">
+    <div>
+      ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(pathway.name)}</a>` : `<strong>${escapeHtml(pathway.name)}</strong>`}
+      <span>${escapeHtml(`${pathway.entities_found || 0}/${pathway.entities_total || 0} entities`)}</span>
+    </div>
+    <i><b style="width:${width}%"></b></i>
+    <code>${escapeHtml(formatScientific(pathway.fdr))}</code>
+  </div>`;
 }
 
 function renderTargetEvidenceReview(title, data) {
@@ -2032,6 +2181,8 @@ function renderWorkflowPreflight(preflight) {
     detail = `${preflight.hmm_path} · ${preflight.model_count || 0} models · ${preflight.sequence_count || 0} sequences`;
   } else if (preflight.input_mode === "cell_by_gene_raw_counts") {
     detail = `${preflight.count_matrix_path} · ${preflight.input_format || "table"} / ${preflight.count_layer || "X"} · ${preflight.cells_after_filter || 0} cells · ${preflight.genes_after_filter || 0} genes`;
+  } else if (preflight.mappings && preflight.organism?.taxon_id) {
+    detail = `${preflight.organism.name || "Homo sapiens"} · ${preflight.mapped_count || 0}/${(preflight.input_terms || []).length} STRING mappings · score ≥ ${preflight.parameters?.required_score || 400}`;
   } else if (preflight.design_formula || preflight.contrast) {
     detail = `${preflight.design_formula || ""} · ${preflight.contrast?.test || "test"} vs ${preflight.contrast?.reference || "reference"}`;
   }
@@ -2197,6 +2348,7 @@ function createWorkflowControl(templateId, field) {
 
 function workflowFieldDefault(templateId, field) {
   const sample = getActiveSample();
+  if (templateId === "gene-set-functional-analysis" && field.name === "genes") return "TP53, MDM2, ATM, CDKN1A";
   if (templateId === "target-evidence-review" && field.name === "disease") return "asthma";
   if (templateId === "target-evidence-review" && field.name === "candidates") return "IL4R, TSLP, IL6R, JAK1";
   if (templateId === "literature-evidence-review" && field.name === "query") return "(IL4R OR TSLP) AND asthma";

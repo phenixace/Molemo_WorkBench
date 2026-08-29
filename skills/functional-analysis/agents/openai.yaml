@@ -1,0 +1,3 @@
+interface:
+  display_name: "Gene-set Functional Analysis"
+  short_description: "Review human pathways and functional networks"

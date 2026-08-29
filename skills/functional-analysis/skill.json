@@ -1,0 +1,43 @@
+{
+  "id": "functional-analysis",
+  "title": "Gene-set Functional Analysis",
+  "kind": "pipeline",
+  "description": "Map a bounded human gene set, then review Reactome pathway overrepresentation and STRING functional associations through a researcher-approved workflow.",
+  "tools": [
+    {
+      "name": "functional_analysis_preflight",
+      "description": "Map two to fifty human gene or protein identifiers to STRING and preview the approved Reactome/STRING analysis parameters without persisting results.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "genes": { "type": "string", "description": "Two to fifty unique human gene symbols, Ensembl IDs, UniProt accessions, or STRING-recognized identifiers." },
+          "required_score": { "type": "integer", "minimum": 150, "maximum": 900, "default": 400 },
+          "fdr_threshold": { "type": "number", "minimum": 0.0001, "maximum": 0.25, "default": 0.05 },
+          "max_terms": { "type": "integer", "minimum": 5, "maximum": 50, "default": 20 },
+          "include_disease_pathways": { "type": "boolean", "default": false }
+        },
+        "required": ["genes"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "functional_analysis_run",
+      "description": "Execute and persist an approved human gene-set review using Reactome overrepresentation, STRING enrichment, functional network edges, PPI enrichment, and provenance files.",
+      "handler": "scripts/handler.py:run",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "genes": { "type": "string" },
+          "required_score": { "type": "integer", "minimum": 150, "maximum": 900, "default": 400 },
+          "fdr_threshold": { "type": "number", "minimum": 0.0001, "maximum": 0.25, "default": 0.05 },
+          "max_terms": { "type": "integer", "minimum": 5, "maximum": 50, "default": 20 },
+          "include_disease_pathways": { "type": "boolean", "default": false }
+        },
+        "required": ["genes"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
