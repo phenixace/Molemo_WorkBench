@@ -17,16 +17,16 @@ jobs:
       - name: Run unit tests
         run: |
           set +e
-          python -m unittest discover -s tests -v 2>&1 | tee unit-test.log
+          python -m unittest discover -s tests -q 2>&1 | tee unit-test.log
           exit_code=${PIPESTATUS[0]}
           if [ "$exit_code" -ne 0 ]; then
             {
               echo "### Unit tests failed"
               echo '```text'
-              tail -n 120 unit-test.log
+              tail -n 80 unit-test.log
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
-            annotation=$(tail -n 120 unit-test.log | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+            annotation=$(tail -n 80 unit-test.log | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
             echo "::error title=Unit tests failed::$annotation"
             exit "$exit_code"
           fi
