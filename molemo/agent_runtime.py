@@ -493,6 +493,9 @@ def local_workflow_plan(message: str, context: dict[str, Any]) -> tuple[str, dic
     hmmer_search = extract_hmmer_profile_plan(message)
     if hmmer_search:
         return "hmmer-profile-search", hmmer_search
+    dna_variant_calling = extract_dna_variant_calling_plan(message)
+    if dna_variant_calling:
+        return "paired-end-dna-variant-calling", dna_variant_calling
     vcf_cohort = extract_vcf_cohort_plan(message)
     if vcf_cohort:
         return "vcf-cohort-review", vcf_cohort
@@ -732,6 +735,34 @@ def extract_vcf_cohort_plan(message: str) -> dict[str, Any] | None:
         "include_filtered": bool(
             re.search(r"include\s+(?:non-pass|filtered)|包含(?:非\s*pass|过滤记录)", message, re.I)
         ),
+    }
+
+
+def extract_dna_variant_calling_plan(message: str) -> dict[str, Any] | None:
+    fastq_paths = re.findall(r"([\w./-]+\.(?:fastq|fq)(?:\.gz)?)\b", message, re.I)
+    reference = re.search(r"([\w./-]+\.(?:fa|fasta|fna))\b", message, re.I)
+    if len(fastq_paths) < 2 or not reference or not re.search(
+        r"variant\s+call|fastq.{0,40}(?:bam|vcf)|bwa|samtools|bcftools|"
+        r"变异(?:检测|调用)|fastq.{0,40}(?:比对|变异)",
+        message,
+        re.I,
+    ):
+        return None
+    sample = re.search(
+        r"(?:sample(?:\s+id)?|样本(?:\s*id|编号)?)\s*[:：=]?\s*([A-Za-z0-9][A-Za-z0-9_.-]{0,63})",
+        message,
+        re.I,
+    )
+    return {
+        "read1_path": fastq_paths[0],
+        "read2_path": fastq_paths[1],
+        "reference_path": reference.group(1),
+        "sample_id": sample.group(1) if sample else "MOLEMO_SAMPLE",
+        "ploidy": 2,
+        "min_base_quality": 13,
+        "min_mapping_quality": 20,
+        "max_depth": 10000,
+        "threads": 1,
     }
 
 

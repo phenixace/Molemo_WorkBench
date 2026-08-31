@@ -28,7 +28,7 @@
 
 `molemo/skill_runtime.py` 从 `skills/*/skill.json` 加载 schema 与 handler。标记为 `agent_callable: false` 的执行工具不会出现在第三方模型 schema 中，也不能被模型直接调用；它们只能由研究者批准后的 workflow 执行。发送给模型的 GEO、结构、矩阵、文献和临床结果会先压缩，保留来源与关键边界，省略大型显示数据。
 
-`molemo/workflow_runtime.py` 把二十二类研究流程转为持久化计划。新计划从 `pending_approval` 开始且 trace 为空。GEO、蛋白保守性、实验变体结构、bulk/single-cell RNA-seq、ChEMBL、人类基因集、VCF、HMMER、靶点证据、文献、临床试验和变异证据等流程会在创建计划时执行有界 preflight。只有本地运行接口能够批准计划。
+`molemo/workflow_runtime.py` 把二十三类研究流程转为持久化计划。新计划从 `pending_approval` 开始且 trace 为空。paired-end DNA calling、GEO、蛋白保守性、实验变体结构、bulk/single-cell RNA-seq、ChEMBL、人类基因集、VCF、HMMER、靶点证据、文献、临床试验和变异证据等流程会在创建计划时执行有界 preflight。只有本地运行接口能够批准计划。
 
 `molemo/workspace_utils.py` 将路径限制在 `workspace/`，限定文件类型、文本读取和上传大小。Agent 可以列出与读取受支持文件；写入只来自显式上传或批准后的有界 pipeline。
 
@@ -43,6 +43,8 @@
 `molemo/transcriptomics.py` 只接受基因级非负整数 raw counts 与精确匹配的样本设计，批准后调用 PyDESeq2。`molemo/single_cell.py` 接受有界 CSV/TSV、AnnData 与标准 10x 输入，批准后调用 Scanpy 完成 QC、可选 Scrublet、归一化、HVG、PCA、neighbors、UMAP、Leiden 和描述性 marker 排名。
 
 `molemo/vcf_cohort.py` 审阅有界 VCF 4.x 和可选样本 metadata，保留 REF/ALT、GT、AD、DP、VAF、FILTER、样本 QC 与轨迹，不做 raw-read calling、somatic/germline 判定或临床解释。
+
+`molemo/dna_variant_calling.py` 在审批前验证同步的 paired FASTQ、有界 FASTA 参考、样本名、资源限制以及本地 BWA/samtools/bcftools 版本。批准后以固定参数、无 shell 的方式把 BWA-MEM 流式接入坐标排序，生成并索引 BAM，记录比对与 coverage，再输出标准化、未过滤的候选 VCF。BAM/BAI、VCF、coverage、变异表、摘要、版本、哈希与 manifest 会原子写入 `workspace/analyses/`。这条通道用于验证小型参考上的系统闭环，不是生产级 WGS/WES 或临床 caller。
 
 蛋白与结构通道由 `sequence_search.py`、`hmmer_search.py`、`multiple_alignment.py`、`structure_io.py` 和 `variant_structure.py` 实现；公共证据通道由 `target_evidence.py`、`chembl_bioactivity.py`、`functional_analysis.py`、`literature_review.py`、`clinical_trials.py`、`clinical_trial_results.py` 和 `variant_evidence.py` 实现。每条通道保留原始标识符、参数、版本、来源和适用边界，不把数据库分数包装成因果或临床结论。
 

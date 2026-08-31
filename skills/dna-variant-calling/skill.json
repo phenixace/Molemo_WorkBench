@@ -1,0 +1,51 @@
+{
+  "id": "dna-variant-calling",
+  "title": "Paired-end DNA Variant Calling",
+  "kind": "pipeline",
+  "description": "Validate and run a bounded paired-end FASTQ-to-BAM/VCF workflow with local BWA, samtools, and bcftools through explicit researcher approval.",
+  "tools": [
+    {
+      "name": "dna_variant_calling_preflight",
+      "description": "Validate synchronized paired-end FASTQ files, a small reference FASTA, sample identity, resource limits, and the local BWA/samtools/bcftools toolchain without creating outputs.",
+      "handler": "scripts/handler.py:preflight",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "read1_path": { "type": "string", "description": "Workspace-relative read 1 FASTQ or FASTQ.gz." },
+          "read2_path": { "type": "string", "description": "Workspace-relative read 2 FASTQ or FASTQ.gz." },
+          "reference_path": { "type": "string", "description": "Workspace-relative reference FASTA." },
+          "sample_id": { "type": "string", "description": "Sample identifier written into the BAM read group and VCF sample column." },
+          "ploidy": { "type": "integer", "enum": [1, 2], "default": 2 },
+          "min_base_quality": { "type": "integer", "minimum": 0, "maximum": 60, "default": 13 },
+          "min_mapping_quality": { "type": "integer", "minimum": 0, "maximum": 60, "default": 20 },
+          "max_depth": { "type": "integer", "minimum": 50, "maximum": 100000, "default": 10000 },
+          "threads": { "type": "integer", "minimum": 1, "maximum": 4, "default": 1 }
+        },
+        "required": ["read1_path", "read2_path", "reference_path", "sample_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "dna_variant_calling_run",
+      "description": "Run the approved BWA-MEM, samtools, and bcftools pipeline and persist BAM/BAI, coverage, normalized candidate VCF, tables, report, hashes, and manifest.",
+      "handler": "scripts/handler.py:run",
+      "agent_callable": false,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "read1_path": { "type": "string" },
+          "read2_path": { "type": "string" },
+          "reference_path": { "type": "string" },
+          "sample_id": { "type": "string" },
+          "ploidy": { "type": "integer", "enum": [1, 2], "default": 2 },
+          "min_base_quality": { "type": "integer", "minimum": 0, "maximum": 60, "default": 13 },
+          "min_mapping_quality": { "type": "integer", "minimum": 0, "maximum": 60, "default": 20 },
+          "max_depth": { "type": "integer", "minimum": 50, "maximum": 100000, "default": 10000 },
+          "threads": { "type": "integer", "minimum": 1, "maximum": 4, "default": 1 }
+        },
+        "required": ["read1_path", "read2_path", "reference_path", "sample_id"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

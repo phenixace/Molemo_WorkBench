@@ -6,6 +6,9 @@ dependencies:
   - python>=3.11
   - rdkit>=2024.03
   - blast>=2.16,<2.18
+  - bwa>=0.7.19,<0.8
+  - samtools>=1.24,<1.25
+  - bcftools>=1.24,<1.25
   - hmmer>=3.4,<3.5
   - mafft=7.526
   - scanpy>=1.11,<1.12

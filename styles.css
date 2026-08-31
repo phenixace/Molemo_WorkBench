@@ -4164,6 +4164,106 @@ select:focus {
   min-width: 0;
 }
 
+.dna-variant-artifact {
+  width: 100%;
+  gap: 9px;
+}
+
+.dna-variant-artifact > * {
+  min-width: 0;
+}
+
+.dna-toolchain {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.dna-toolchain > span {
+  min-width: 0;
+  padding: 6px 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  border: 1px solid var(--line);
+}
+
+.dna-toolchain > span.available {
+  border-left: 2px solid var(--teal);
+}
+
+.dna-toolchain b,
+.dna-toolchain code {
+  font-size: 8px;
+}
+
+.dna-toolchain code {
+  min-width: 0;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dna-stage-list,
+.dna-variant-table {
+  overflow-x: auto;
+  border-top: 1px solid var(--line);
+}
+
+.dna-stage-list > div,
+.dna-variant-table > div {
+  min-height: 29px;
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 8px;
+}
+
+.dna-stage-list > div {
+  grid-template-columns: minmax(150px, 1.4fr) minmax(120px, 1fr) 58px;
+}
+
+.dna-stage-list span {
+  color: var(--muted);
+  text-align: right;
+}
+
+.dna-variant-table > div {
+  min-width: 540px;
+  grid-template-columns: minmax(180px, 1.7fr) repeat(5, minmax(48px, 0.55fr));
+}
+
+.dna-stage-list > div > *,
+.dna-variant-table > div > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dna-output-paths {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.dna-output-paths span {
+  min-width: 0;
+  padding: 5px 6px;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 5px;
+  border: 1px solid var(--line);
+  font-size: 8px;
+}
+
+.dna-output-paths code {
+  min-width: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .vcf-input-line {
   min-width: 0;
   padding: 7px 8px;

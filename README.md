@@ -42,7 +42,7 @@ The key is kept only in page memory and the current local request. It is not wri
 5. Review typed scientific artifacts, provenance, caveats, and saved outputs.
 6. Continue from the result into the next biological question or analysis.
 
-The stable build currently registers **25 skills, 48 tools, and 22 guided workflows**.
+The stable build currently registers **26 skills, 50 tools, and 23 guided workflows**.
 
 ## Implemented capabilities
 
@@ -65,6 +65,7 @@ The stable build currently registers **25 skills, 48 tools, and 22 guided workfl
 ### Sequencing and local analysis
 
 - Streaming FASTQ quality control.
+- Approval-gated paired-end DNA alignment and candidate calling with BWA-MEM, samtools, and bcftools; BAM/BAI, coverage, VCF, tabular calls, hashes, and manifests remain inspectable.
 - Raw-count bulk RNA-seq differential expression with PyDESeq2.
 - Raw-count CSV/TSV, AnnData, and 10x single-cell exploration with Scanpy, optional Scrublet, UMAP, Leiden, and marker ranking.
 - Bounded processed multi-sample VCF review with depth/VAF rules, mutation matrices, and longitudinal trajectories.
@@ -81,6 +82,7 @@ tools/              Isolated analysis runners
 tests/              Unit and workflow-boundary tests
 benchmarks/         Deterministic Molemo_Bench tasks
 workspace/examples/ Versioned synthetic and small reference fixtures
+showcase/           English and Simplified Chinese runnable case guide
 docs/               English and Simplified Chinese technical documentation
 server.py           Compatibility server launcher
 bench.py            Compatibility benchmark launcher
@@ -93,15 +95,24 @@ python bench.py
 python -m unittest discover -s tests -v
 ```
 
-The committed v0.22 baseline passes 141 tests and 38/38 deterministic benchmark tasks. The benchmark evaluates tool correctness, approval boundaries, trace completeness, provenance, and artifact generation; it is not a claim about general life-science model intelligence.
+The committed v0.22 baseline passes 146 tests and 39/39 deterministic benchmark tasks. The benchmark evaluates tool correctness, approval boundaries, trace completeness, provenance, and artifact generation; it is not a claim about general life-science model intelligence.
+
+## Runnable showcase
+
+```bash
+python -m molemo.showcase
+python -m molemo.showcase --full
+```
+
+The quick showcase runs caffeine, Trp-cage, and the paired-end DNA truth set. Full mode also executes the real PyDESeq2 and Scanpy examples and writes `reports/showcase.json`. See the [showcase guide](showcase/README.md) for expected signals and scientific boundaries.
 
 ## Current boundaries
 
 Molemo is a local research workbench, not a clinical system. It does not provide diagnostic or treatment recommendations, execute arbitrary shell commands from a model, infer causality from database scores, or convert exploratory outputs into biological truth claims.
 
-The current NGS surface starts from FASTQ QC, count matrices, processed VCFs, and supported single-cell inputs. Production FASTQ-to-count, human WGS/WES, metagenomics, pathology slides, laboratory automation, procurement, hosted collaboration, and a cloud execution backend remain outside the stable release. GitHub Pages can host only the static interface; the Python API requires a separate runtime.
+The current NGS surface includes FASTQ QC, a bounded paired-end FASTQ-to-BAM/VCF demonstration, count-matrix analysis, processed VCF review, and supported single-cell inputs. The DNA example uses a small synthetic reference and emits unfiltered research candidates; it is not a production or clinical caller. Production FASTQ-to-expression, human WGS/WES, metagenomics, proteomics, pathology slides, laboratory automation, procurement, hosted collaboration, and a cloud execution backend remain outside the stable release. GitHub Pages can host only the static interface; the Python API requires a separate runtime.
 
-See the [capability matrix](docs/CAPABILITY_MATRIX.md) and [architecture](docs/ARCHITECTURE.md) for the exact scope. Public references include [OpenAI Rosalind](https://openai.com/rosalind/), the [OpenAI Life Science Research plugin](https://github.com/openai/plugins/tree/main/plugins/life-science-research), [NCBI GEO programmatic access](https://www.ncbi.nlm.nih.gov/geo/info/geo_paccess.html), and the [GEO download instructions](https://www.ncbi.nlm.nih.gov/geo/info/download.html).
+See the [capability matrix](docs/CAPABILITY_MATRIX.md), [roadmap](docs/ROADMAP.md), and [architecture](docs/ARCHITECTURE.md) for the exact scope. Public references include [OpenAI Rosalind](https://openai.com/rosalind/), the [OpenAI Life Science Research plugin](https://github.com/openai/plugins/tree/main/plugins/life-science-research), [NCBI GEO programmatic access](https://www.ncbi.nlm.nih.gov/geo/info/geo_paccess.html), and the [GEO download instructions](https://www.ncbi.nlm.nih.gov/geo/info/download.html).
 
 ## License
 

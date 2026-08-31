@@ -21,6 +21,11 @@ from .variant_evidence import VariantEvidenceError, preflight_variant_evidence
 from .clinical_trials import ClinicalTrialsError, preflight_clinical_trial_landscape
 from .clinical_trial_results import ClinicalTrialResultsError, preflight_clinical_trial_results
 from .vcf_cohort import VcfCohortError, preflight_vcf_cohort
+from .dna_variant_calling import (
+    DnaVariantCallingError,
+    normalize_dna_variant_inputs,
+    preflight_dna_variant_calling,
+)
 from .hmmer_search import (
     HmmerSearchError,
     normalize_hmmer_inputs,
@@ -144,6 +149,26 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             _field("max_reads", "最多分析 reads", "number", value=10000, min=1, max=100000),
         ],
         "assumptions": ["输入为 Phred+33 编码的 FASTQ 文件。"],
+    },
+    "paired-end-dna-variant-calling": {
+        "title": "Paired-end DNA 变异检测",
+        "description": "预检 paired-end FASTQ 与小型参考，批准后生成 BAM/BAI、coverage 和候选 VCF。",
+        "fields": [
+            _field("read1_path", "Read 1 FASTQ", "text", required=True, placeholder="examples/dna_variant_R1.fastq"),
+            _field("read2_path", "Read 2 FASTQ", "text", required=True, placeholder="examples/dna_variant_R2.fastq"),
+            _field("reference_path", "Reference FASTA", "text", required=True, placeholder="examples/dna_variant_reference.fa"),
+            _field("sample_id", "Sample ID", "text", required=True, value="MOLEMO_DEMO"),
+            _field("ploidy", "Ploidy", "number", value=2, min=1, max=2),
+            _field("min_base_quality", "最小 base quality", "number", value=13, min=0, max=60),
+            _field("min_mapping_quality", "最小 mapping quality", "number", value=20, min=0, max=60),
+            _field("max_depth", "最大 pileup depth", "number", value=10000, min=50, max=100000),
+            _field("threads", "线程", "number", value=1, min=1, max=4),
+        ],
+        "assumptions": [
+            "这是面向小型参考和短 paired-end DNA reads 的有界研究流程，不是生产级人类 WGS/WES。",
+            "流程不执行 adapter trimming、duplicate marking、BQSR、joint genotyping 或 assay-specific filtering。",
+            "输出是未过滤候选 VCF，不判定 germline/somatic、致病性、临床可行动性或治疗建议。",
+        ],
     },
     "bulk-rnaseq-differential-expression": {
         "title": "Bulk RNA-seq 差异表达",
@@ -777,6 +802,43 @@ def _fastq_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     return [_step("计算 FASTQ 质量指标", "ngs_fastq_qc", {"path": path, "max_reads": max_reads})]
 
 
+def _dna_variant_arguments(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        arguments = normalize_dna_variant_inputs(
+            read1_path=_require_text(inputs, "read1_path", "Read 1 FASTQ"),
+            read2_path=_require_text(inputs, "read2_path", "Read 2 FASTQ"),
+            reference_path=_require_text(inputs, "reference_path", "Reference FASTA"),
+            sample_id=_require_text(inputs, "sample_id", "Sample ID"),
+            ploidy=inputs.get("ploidy", 2),
+            min_base_quality=inputs.get("min_base_quality", 13),
+            min_mapping_quality=inputs.get("min_mapping_quality", 20),
+            max_depth=inputs.get("max_depth", 10000),
+            threads=inputs.get("threads", 1),
+        )
+    except DnaVariantCallingError as exc:
+        raise WorkflowError(str(exc), "invalid_workflow_inputs") from exc
+    inputs.update(arguments)
+    return arguments
+
+
+def _dna_variant_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    arguments = _dna_variant_arguments(inputs)
+    return [
+        _step(
+            "比对 reads 并生成 BAM、coverage 与候选 VCF",
+            "dna_variant_calling_run",
+            arguments,
+        )
+    ]
+
+
+def _dna_variant_preflight(inputs: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preflight_dna_variant_calling(**_dna_variant_arguments(inputs))
+    except DnaVariantCallingError as exc:
+        raise WorkflowError(str(exc), "workflow_preflight_failed") from exc
+
+
 def _rnaseq_steps(inputs: dict[str, Any]) -> list[dict[str, Any]]:
     count_matrix_path = _require_text(inputs, "count_matrix_path", "Raw count matrix")
     metadata_path = _require_text(inputs, "metadata_path", "Sample metadata")
@@ -1323,6 +1385,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
     "protein-structure-review": _structure_steps,
     "protein-variant-structure-review": _variant_structure_steps,
     "fastq-qc-review": _fastq_steps,
+    "paired-end-dna-variant-calling": _dna_variant_steps,
     "bulk-rnaseq-differential-expression": _rnaseq_steps,
     "single-cell-exploratory-analysis": _single_cell_steps,
     "gene-set-functional-analysis": _functional_analysis_steps,
@@ -1344,6 +1407,7 @@ BUILDERS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
 
 PREFLIGHTS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "protein-variant-structure-review": _variant_structure_preflight,
+    "paired-end-dna-variant-calling": _dna_variant_preflight,
     "bulk-rnaseq-differential-expression": _rnaseq_preflight,
     "single-cell-exploratory-analysis": _single_cell_preflight,
     "gene-set-functional-analysis": _functional_analysis_preflight,

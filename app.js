@@ -236,6 +236,7 @@ const WORKFLOW_TEXT_EN = {
   "protein-structure-review": ["Protein structure review", "Load an RCSB experimental structure, AlphaFold DB prediction, or local atomic coordinates."],
   "protein-variant-structure-review": ["Protein variant structure site", "Locate a protein substitution in an experimental structure and review nearby residues and heteroatom groups."],
   "fastq-qc-review": ["FASTQ quality review", "Stream reads to calculate quality, GC, N, and per-cycle metrics."],
+  "paired-end-dna-variant-calling": ["Paired-end DNA variant calling", "Preflight paired FASTQ files and a small reference, then create BAM/BAI, coverage, and a candidate VCF after approval."],
   "bulk-rnaseq-differential-expression": ["Bulk RNA-seq differential expression", "Preflight a raw count matrix and sample design, then run PyDESeq2 after approval."],
   "single-cell-exploratory-analysis": ["Single-cell RNA-seq exploration", "Preflight CSV/TSV, AnnData, or 10x raw counts, then run Scanpy QC, optional Scrublet, UMAP, Leiden, and marker ranking."],
   "gene-set-functional-analysis": ["Human gene-set functional analysis", "Confirm human gene mappings, then run Reactome enrichment and a STRING functional network after approval."],
@@ -1181,6 +1182,12 @@ function renderArtifacts() {
           </div>
           <p>${escapeHtml(`${data.mean_read_length} bp mean length · Q20 ${data.q20_percent}% · N ${data.n_percent}% · ${data.quality_encoding}`)}</p>
         `;
+      } else if (artifact.type === "dna-variant-calling-preflight") {
+        card.classList.add("dna-variant-artifact");
+        card.innerHTML = renderDnaVariantPreflight(title, artifact.data || {});
+      } else if (artifact.type === "dna-variant-calling") {
+        card.classList.add("dna-variant-artifact");
+        card.innerHTML = renderDnaVariantCalling(title, artifact.data || {});
       } else if (artifact.type === "sequence-alignment") {
         const data = artifact.data || {};
         card.innerHTML = `
@@ -2699,6 +2706,81 @@ function renderVcfCohortPreflight(title, data) {
   `;
 }
 
+function renderDnaVariantPreflight(title, data) {
+  const inputs = data.inputs || {};
+  const reads = data.reads || {};
+  const reference = data.reference || {};
+  const tools = Object.entries(data.toolchain?.tools || {});
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(localized("输入与工具链预检", "input and toolchain preflight"))}</span></header>
+    <div class="vcf-input-line">
+      <span>${escapeHtml(inputs.sample_id || "sample")}</span>
+      <code>${escapeHtml(`${inputs.read1_path || ""} + ${inputs.read2_path || ""}`)}</code>
+      <small>${escapeHtml(inputs.reference_path || "")}</small>
+    </div>
+    <div class="vcf-metrics">
+      ${[
+        [localized("Read pairs", "Read pairs"), reads.read_pairs || 0],
+        [localized("平均读长", "Mean read length"), `${reads.read1?.mean_read_length || 0} bp`],
+        [localized("参考碱基", "Reference bases"), Number(reference.total_bases || 0).toLocaleString("en-US")],
+        [localized("Contigs", "Contigs"), reference.contig_count || 0],
+        [localized("Ploidy", "Ploidy"), inputs.ploidy || 2],
+        [localized("线程", "Threads"), inputs.threads || 1],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="dna-toolchain">
+      ${tools.map(([name, item]) => `<span class="${item.available ? "available" : "missing"}"><b>${escapeHtml(name)}</b><code>${escapeHtml(item.version || localized("不可用", "unavailable"))}</code></span>`).join("")}
+    </div>
+    <p class="evidence-caveat">${escapeHtml((data.warnings || [])[0] || localized("此有界流程不是生产级人类 WGS/WES。", "This bounded workflow is not production human WGS/WES."))}</p>
+  `;
+}
+
+function renderDnaVariantCalling(title, data) {
+  const alignment = data.alignment || {};
+  const coverage = data.coverage || {};
+  const variants = data.variants || [];
+  return `
+    <header><strong>${title}</strong><span>${escapeHtml(formatTimestamp(data.created_at))}</span></header>
+    <div class="vcf-input-line">
+      <span>${escapeHtml(data.inputs?.sample_id || "sample")}</span>
+      <code>${escapeHtml(data.inputs?.reference_path || "")}</code>
+      <small>${escapeHtml(`${data.toolchain?.tools?.bwa?.version || "BWA"} · samtools ${data.toolchain?.tools?.samtools?.version || ""} · bcftools ${data.toolchain?.tools?.bcftools?.version || ""}`)}</small>
+    </div>
+    <div class="vcf-metrics">
+      ${[
+        [localized("Read pairs", "Read pairs"), data.reads?.read_pairs || 0],
+        [localized("映射率", "Mapped"), `${Number(alignment.mapped_percent || 0).toFixed(1)}%`],
+        [localized("Proper pairs", "Proper pairs"), `${Number(alignment.properly_paired_percent || 0).toFixed(1)}%`],
+        [localized("覆盖参考", "Reference covered"), `${Number(coverage.covered_percent || 0).toFixed(1)}%`],
+        [localized("平均深度", "Mean depth"), `${Number(coverage.mean_depth || 0).toFixed(2)}x`],
+        [localized("候选变异", "Candidates"), data.variant_count || 0],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <section class="vcf-section">
+      <header><strong>${escapeHtml(localized("管线阶段", "Pipeline stages"))}</strong><span>BWA-MEM / samtools / bcftools</span></header>
+      <div class="dna-stage-list">
+        ${(data.stages || []).map((stage) => `<div><strong>${escapeHtml(stage.name || stage.stage || "stage")}</strong><code>${escapeHtml(stage.engine || stage.command || stage.tool || "")}</code><span>${escapeHtml(`${Number(stage.duration_ms || 0).toFixed(0)} ms`)}</span></div>`).join("")}
+      </div>
+    </section>
+    <section class="vcf-section">
+      <header><strong>${escapeHtml(localized("候选变异", "Candidate variants"))}</strong><span>${escapeHtml(localized("未过滤研究结果", "unfiltered research output"))}</span></header>
+      <div class="dna-variant-table">
+        <div><b>Variant</b><b>GT</b><b>DP</b><b>AD</b><b>VAF</b><b>QUAL</b></div>
+        ${variants.map((variant) => `<div>
+          <strong>${escapeHtml(`${variant.chrom}:${variant.pos} ${variant.ref}>${variant.alt}`)}</strong>
+          <code>${escapeHtml(variant.genotype || "./.")}</code>
+          <span>${escapeHtml(variant.depth ?? "n/a")}</span>
+          <span>${escapeHtml(`${variant.ref_depth ?? "?"},${variant.alt_depth ?? "?"}`)}</span>
+          <span>${escapeHtml(formatVaf(variant.vaf))}</span>
+          <span>${escapeHtml(variant.quality ?? "n/a")}</span>
+        </div>`).join("") || `<p class="vcf-empty">${escapeHtml(localized("没有输出候选变异。", "No candidate variants were emitted."))}</p>`}
+      </div>
+    </section>
+    <div class="dna-output-paths">${Object.entries(data.outputs || {}).map(([label, path]) => `<span><b>${escapeHtml(label.replaceAll("_", " "))}</b><code>${escapeHtml(path)}</code></span>`).join("")}</div>
+    <p class="evidence-caveat">${escapeHtml(data.analysis_handoff || (data.caveats || [])[0] || localized("候选 VCF 需要独立过滤与验证。", "The candidate VCF requires independent filtering and validation."))}</p>
+  `;
+}
+
 function renderVcfCohortReview(title, data) {
   const thresholds = data.thresholds || {};
   const sampleQc = data.sample_qc || [];
@@ -3177,6 +3259,8 @@ function renderWorkflowPreflight(preflight) {
     detail = `${preflight.study?.nct_id || preflight.nct_id} · ${preflight.primary_outcome_count || 0} primary outcomes · ${preflight.serious_event_term_count || 0} serious AE terms`;
   } else if (preflight.vcf_path) {
     detail = `${preflight.vcf_path} · ${preflight.sample_count || 0} samples · ${preflight.record_count || 0} records`;
+  } else if (preflight.inputs?.read1_path && preflight.reads?.read_pairs !== undefined) {
+    detail = `${preflight.inputs.read1_path} + ${preflight.inputs.read2_path} · ${preflight.reads.read_pairs || 0} read pairs · ${preflight.reference?.total_bases || 0} reference bases`;
   } else if (preflight.hmm_path) {
     detail = `${preflight.hmm_path} · ${preflight.model_count || 0} models · ${preflight.sequence_count || 0} sequences`;
   } else if (preflight.inputs?.fasta_path && preflight.reference?.site) {
@@ -3396,6 +3480,9 @@ function workflowFieldDefault(templateId, field) {
   if (templateId === "clinical-trial-results-review" && field.name === "nct_id") return "NCT02414854";
   if (templateId === "vcf-cohort-review" && field.name === "vcf_path") return "examples/ctdna_variants.vcf";
   if (templateId === "vcf-cohort-review" && field.name === "metadata_path") return "examples/ctdna_metadata.csv";
+  if (templateId === "paired-end-dna-variant-calling" && field.name === "read1_path") return "examples/dna_variant_R1.fastq";
+  if (templateId === "paired-end-dna-variant-calling" && field.name === "read2_path") return "examples/dna_variant_R2.fastq";
+  if (templateId === "paired-end-dna-variant-calling" && field.name === "reference_path") return "examples/dna_variant_reference.fa";
   if (templateId === "hmmer-profile-search" && field.name === "hmm_path") return "examples/ubiquitin_demo.hmm";
   if (templateId === "hmmer-profile-search" && field.name === "database_path") return "examples/hmmer_targets.faa";
   if (templateId === "single-cell-exploratory-analysis" && field.name === "count_matrix_path") return "examples/single_cell_demo.h5ad";

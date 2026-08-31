@@ -58,6 +58,11 @@ LANES = (
     ("experimental protein structure", r"pdb|rcsb|mmcif|coordinate|atom-level|原子|坐标|三维结构"),
     ("predicted protein structure", r"alphafold|plddt|predicted structure|预测结构|结构预测|预测蛋白"),
     ("sequencing quality control", r"fastq|phred|q20|q30|read quality|测序|质控|读长"),
+    (
+        "raw DNA alignment and variant calling",
+        r"fastq.{0,50}(?:bam|vcf|variant call|变异检测|变异调用)|"
+        r"(?:bwa|samtools|bcftools)|(?:bam|vcf).{0,50}fastq",
+    ),
     ("single-cell transcriptomics", r"single[- ]?cell|scrna-?seq|单细胞|细胞聚类|leiden|umap"),
     ("transcriptomics and expression", r"rna-?seq|count matrix|differential expression|transcriptom|差异表达|转录组|表达矩阵"),
     (
@@ -117,6 +122,8 @@ def route_question(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[
         suggested.append("structure_fetch_alphafold")
     if "sequencing quality control" in lanes:
         suggested.append("ngs_fastq_qc")
+    if "raw DNA alignment and variant calling" in lanes:
+        suggested.extend(["dna_variant_calling_preflight", "workflow_create_plan"])
     if "single-cell transcriptomics" in lanes:
         suggested.extend(["single_cell_preflight", "workflow_create_plan"])
     if "transcriptomics and expression" in lanes:

@@ -39,11 +39,13 @@ API key 只在当前页面内存与单次本地请求中使用，不保存到文
 2. 单步任务可直接调用结构化科学工具；多步任务先生成具体计划。
 3. 研究者在“运行”页检查输入、工具和步骤，明确批准后才开始执行。
 4. RDKit、NCBI GEO、ChEMBL、NCBI BLAST+、HMMER、MAFFT、PyDESeq2、Scanpy/Leiden、Reactome、STRING、VCF 4.x 解析、序列算法、Europe PMC、ClinVar、Ensembl、gnomAD、其他公共数据库或受控 workspace 按计划生成来源明确的结果。
-5. 前端把结果呈现为 GEO 数据集版图与 Series Matrix QC、蛋白家族多序列比对与参考位点保守性文档、实验蛋白变体位点与局部接触文档、ChEMBL 靶点-配体活性文档、人类基因集通路/网络、文献 evidence map、临床试验版图或单项 posted-results 文档、多样本 VCF 变异景观与轨迹、HMMER domain architecture、单细胞 UMAP/QC/marker 文档、靶点证据矩阵、变异证据文档、分子结构、RCSB 实验结构、可切换 pLDDT 三维模型与 PAE 矩阵的 AlphaFold 预测结构、序列、BLAST 命中与比对、FASTQ QC、PCA、volcano、heatmap 或性质图 artifact。
+5. 前端把结果呈现为 GEO 数据集版图与 Series Matrix QC、paired-end DNA 比对/coverage/候选 VCF 文档、蛋白家族多序列比对与参考位点保守性文档、实验蛋白变体位点与局部接触文档、ChEMBL 靶点-配体活性文档、人类基因集通路/网络、文献 evidence map、临床试验版图或单项 posted-results 文档、多样本 VCF 变异景观与轨迹、HMMER domain architecture、单细胞 UMAP/QC/marker 文档、靶点证据矩阵、变异证据文档、分子结构、RCSB 实验结构、可切换 pLDDT 三维模型与 PAE 矩阵的 AlphaFold 预测结构、序列、BLAST 命中与比对、FASTQ QC、PCA、volcano、heatmap 或性质图 artifact。
 6. 工具 trace、计划状态、结论、候选设计和 artifact 可导出为 JSON。
 7. `Molemo_Bench v0.22` 对工具正确性、审批边界、trace 完整性和 artifact 生成进行回归评测。
 
-当前包含 25 个 skills、48 个工具和二十二类 guided workflow。公共组学主线从研究问题开始：Agent 先形成可审阅的 GEO Series 检索；研究者选择精确 GSE 后，系统预检官方 Series Matrix；只有研究者批准，矩阵及最小化样本元数据才会进入本地工作区并生成 QC 与分析边界。
+当前包含 26 个 skills、50 个工具和二十三类 guided workflow。公共组学主线从研究问题开始：Agent 先形成可审阅的 GEO Series 检索；研究者选择精确 GSE 后，系统预检官方 Series Matrix；只有研究者批准，矩阵及最小化样本元数据才会进入本地工作区并生成 QC 与分析边界。
+
+paired-end DNA 工作流在审批前验证两端 FASTQ、样本名、小型参考和本地工具版本；审批后依次运行 BWA-MEM、samtools 与 bcftools，保存 BAM/BAI、coverage、候选 VCF、表格、哈希与 manifest。合成真值案例包含 80 对 reads 和 `molemo_demo_reference:1201 A>C` 杂合变异。它用于验证调度、审批、provenance 与可视化，不是生产级 WGS/WES 或临床 caller。
 
 GEO 数据集发现保留来源相关性顺序、GSE accession、物种、样本量、测定类型、日期、摘要、样本示例、关联 PubMed 和官方下载入口。即时 preview 最多返回八个 Series；完整结果最多收集二十个，并保存数据集表、样本示例表、JSON 报告、manifest 和摘要。发现阶段不下载表达矩阵、不判断批次可比性，也不把检索顺序包装成质量分数。
 
@@ -82,13 +84,15 @@ python -m unittest discover -s tests -v
 
 基准任务位于 `benchmarks/tasks.jsonl`。它是对 Molemo 工具链的过程评测，不代表模型在完整生命科学研究中的总体能力。
 
+当前基线通过 146 项测试与 39/39 项确定性 benchmark。可以用 `python -m molemo.showcase` 运行咖啡因、Trp-cage 和 DNA 快速案例；`--full` 还会实际执行 PyDESeq2 与 Scanpy，并生成 `reports/showcase.json`。详见[案例说明](showcase/README.zh-CN.md)。
+
 ## 能力边界
 
 AlphaFold 结构可在同一 viewer 内切换 pLDDT 三维模型与方向化 PAE 矩阵；矩阵按连续残基区间有界降采样，悬停或触摸返回 scored/aligned 残基范围和 Å 误差。该视图帮助检查相对位置置信度，不自动划分结构域或推断相互作用。
 
-当前版本已覆盖中心化 Chat、第三方模型接入、研究者审批、本地科学工具、NCBI GEO 公共组学数据集发现与官方 Series Matrix 有界导入、蛋白家族 MAFFT 比对与参考位点保守性、实验蛋白变体位点与局部接触审阅、ChEMBL 靶点-配体活性证据、人类基因集 Reactome/STRING 功能分析、可引用文献 evidence map、ClinicalTrials.gov 临床试验版图与单项 posted-results 审阅、processed 多样本 VCF 技术审阅、HMMER profile-to-sequence domain 搜索、CSV/AnnData/10x single-cell raw counts 的 QC、可选 Scrublet、UMAP、Leiden 与 marker 探索、候选靶点证据比较、单个简单人类变异的多源证据审阅、分子 viewer、RCSB 实验坐标、AlphaFold DB 预测坐标与 pLDDT、公共数据库检索、本地 FASTA 数据库上的 BLASTP/BLASTN、FASTQ QC、raw-count bulk RNA-seq 差异表达、受控文件工作区和可审计运行记录。guided workflow 当前同步执行二十二类固定模板，不是任意 shell 管线。GEO 导入不覆盖任意 supplementary/raw 文件、跨平台合并、批次判断或下游差异分析，Series Matrix 也不被当作 raw counts；多序列保守性只处理有界蛋白 FASTA、一个精确参考 ID 与位点，不做系统发育推断或变异效应预测；实验变体结构能力只处理一个 PDB 首模型、一个 author chain 和无插入码的单氨基酸替换，不做结构叠合、能量计算或共价连接判定。其余边界包括：ChEMBL 不执行跨端点 SAR 建模；单细胞不覆盖自动 cell typing 或 donor-aware pseudobulk；HMMER 不覆盖 `hmmscan`、profile 构建或远程大库；VCF 不覆盖 raw-read calling、CNV/SV 或临床解释；临床试验不执行个体数据重分析、跨试验比较或 meta-analysis；仍未实现病理切片和实验采购。
+当前版本已覆盖中心化 Chat、第三方模型接入、研究者审批、本地科学工具、NCBI GEO 公共组学数据集发现与官方 Series Matrix 有界导入、小型 paired-end FASTQ 到 BAM/VCF、蛋白家族 MAFFT 比对与参考位点保守性、实验蛋白变体位点与局部接触审阅、ChEMBL 靶点-配体活性证据、人类基因集 Reactome/STRING 功能分析、可引用文献 evidence map、ClinicalTrials.gov 临床试验版图与单项 posted-results 审阅、processed 多样本 VCF 技术审阅、HMMER profile-to-sequence domain 搜索、CSV/AnnData/10x single-cell raw counts 的 QC、可选 Scrublet、UMAP、Leiden 与 marker 探索、候选靶点证据比较、单个简单人类变异的多源证据审阅、分子 viewer、RCSB 实验坐标、AlphaFold DB 预测坐标与 pLDDT、公共数据库检索、本地 FASTA 数据库上的 BLASTP/BLASTN、FASTQ QC、raw-count bulk RNA-seq 差异表达、受控文件工作区和可审计运行记录。guided workflow 当前同步执行二十三类固定模板，不是任意 shell 管线。DNA 案例只针对小型参考和合成真值，输出未过滤的研究候选；生产级 WGS/WES、FASTQ 到表达定量、宏基因组、蛋白组和病理切片仍是后续路线。GEO 导入不覆盖任意 supplementary/raw 文件、跨平台合并、批次判断或下游差异分析，Series Matrix 也不被当作 raw counts；多序列保守性只处理有界蛋白 FASTA、一个精确参考 ID 与位点，不做系统发育推断或变异效应预测；实验变体结构能力只处理一个 PDB 首模型、一个 author chain 和无插入码的单氨基酸替换，不做结构叠合、能量计算或共价连接判定。其余边界包括：ChEMBL 不执行跨端点 SAR 建模；单细胞不覆盖自动 cell typing 或 donor-aware pseudobulk；HMMER 不覆盖 `hmmscan`、profile 构建或远程大库；processed VCF 审阅不做 CNV/SV 或临床解释；临床试验不执行个体数据重分析、跨试验比较或 meta-analysis；仍未实现实验采购。
 
-详细范围见 [能力矩阵](docs/CAPABILITY_MATRIX.zh-CN.md) 和 [架构说明](docs/ARCHITECTURE.zh-CN.md)。公开参照为 [OpenAI Rosalind](https://openai.com/rosalind/) 与 [OpenAI Life Science Research plugin](https://github.com/openai/plugins/tree/main/plugins/life-science-research)。
+详细范围见 [能力矩阵](docs/CAPABILITY_MATRIX.zh-CN.md)、[路线图](docs/ROADMAP.zh-CN.md) 和 [架构说明](docs/ARCHITECTURE.zh-CN.md)。公开参照为 [OpenAI Rosalind](https://openai.com/rosalind/) 与 [OpenAI Life Science Research plugin](https://github.com/openai/plugins/tree/main/plugins/life-science-research)。
 
 ## License
 
