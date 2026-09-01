@@ -9,7 +9,7 @@
 
 [![CI](https://github.com/phenixace/Molemo_WorkBench/actions/workflows/ci.yml/badge.svg)](https://github.com/phenixace/Molemo_WorkBench/actions/workflows/ci.yml)
 [![Molemo Bench](https://img.shields.io/badge/Molemo__Bench-39%2F39-147d72)](benchmarks/tasks.jsonl)
-[![Tests](https://img.shields.io/badge/tests-149%20passing-2f6f60)](.github/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-151%20passing-2f6f60)](.github/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.11-356a9a)](environment.yml)
 [![License](https://img.shields.io/badge/license-MIT-242321)](LICENSE)
 
@@ -128,7 +128,7 @@ python bench.py
 python -m unittest discover -s tests -v
 ```
 
-当前提交的 `Molemo_Bench v0.22` 基线通过 **149 项测试**和 **39/39 项确定性 benchmark tasks**。评测覆盖工具正确性、审批边界、trace 完整性、provenance 和 artifact 生成；它是过程评测，不代表通用科学智能。
+当前提交的 `Molemo_Bench v0.22` 基线通过 **151 项测试**和 **39/39 项确定性 benchmark tasks**。评测覆盖工具正确性、审批边界、trace 完整性、provenance 和 artifact 生成；它是过程评测，不代表通用科学智能。
 
 ## 仓库结构
 

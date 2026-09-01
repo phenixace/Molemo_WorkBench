@@ -40,12 +40,16 @@ const VIEWER_PRESETS = {
 };
 
 const LANGUAGE_STORAGE_KEY = "molemo-language";
+const HIDDEN_SAMPLES_STORAGE_KEY = "molemo-hidden-built-in-samples";
 
 const UI_TEXT = {
   "zh-CN": {
     newAnalysis: "新建分析",
     data: "数据",
-    resetWorkspace: "重置工作区",
+    hideExample: "隐藏预制示例 {name}",
+    deleteUserData: "删除用户数据 {name}",
+    noData: "暂无数据",
+    noDataHint: "导入的分子、蛋白质与本地文件会显示在这里。",
     import: "导入",
     localFiles: "本地文件",
     chooseFiles: "选择 FASTA、H5AD/10x、HMM、PDB、FASTQ、VCF 或表格",
@@ -97,12 +101,14 @@ const UI_TEXT = {
     approvalNote: "计划创建后不会自动执行；请在“运行”页审阅并批准。",
     createPendingPlan: "创建待审批计划",
     workspaceReady: "研究工作区已就绪。",
-    workspaceReset: "工作区已重置。",
+    newAnalysisStarted: "已开始新的分析；本地文件与已保存输出仍保留在 workspace 中。",
     sampleLoaded: "已加载 {name}。",
     providerEnabledMessage: "第三方模型已启用；下一次命令将由本地 Agent 调度 skills，并把必要上下文转发给该 provider。",
     localRuntimeMessage: "已切回本地 skill runtime。",
     noToolCallsTitle: "运行记录",
     noToolCalls: "尚无工具调用。",
+    noToolsTitle: "工具",
+    noTools: "当前分析尚未调用工具。",
     noArtifactsTitle: "暂无结果",
     noArtifacts: "结构、序列比对和性质图会作为可检查产物显示在这里。",
     openStructureView: "在结构视图打开",
@@ -112,7 +118,7 @@ const UI_TEXT = {
     similarityCaution: "相似性命中是相关性证据，不单独证明共享功能或生物活性。",
     localServiceDisconnected: "本地服务未连接。",
     analysisPlans: "分析计划",
-    noRuns: "尚无运行。",
+    noRuns: "尚无工作流计划。",
     approveAndRun: "批准并运行",
     preflightReady: "预检已就绪",
     inputsValidated: "输入已验证。",
@@ -138,7 +144,10 @@ const UI_TEXT = {
   en: {
     newAnalysis: "New analysis",
     data: "Data",
-    resetWorkspace: "Reset workspace",
+    hideExample: "Hide preset example {name}",
+    deleteUserData: "Delete user data {name}",
+    noData: "No data",
+    noDataHint: "Imported molecules, proteins, and local files will appear here.",
     import: "Import",
     localFiles: "Local files",
     chooseFiles: "Choose FASTA, H5AD/10x, HMM, PDB, FASTQ, VCF, or tabular data",
@@ -190,12 +199,14 @@ const UI_TEXT = {
     approvalNote: "Creating a plan does not run it. Review and approve it on the Run tab.",
     createPendingPlan: "Create plan for approval",
     workspaceReady: "Research workspace is ready.",
-    workspaceReset: "Workspace reset.",
+    newAnalysisStarted: "Started a new analysis. Local files and saved outputs remain in the workspace.",
     sampleLoaded: "Loaded {name}.",
     providerEnabledMessage: "The third-party model is enabled. The local Agent will orchestrate skills and forward only the required context on the next command.",
     localRuntimeMessage: "Switched back to the local skill runtime.",
     noToolCallsTitle: "Run history",
     noToolCalls: "No tool calls yet.",
+    noToolsTitle: "Tools",
+    noTools: "No tools have been used in this analysis.",
     noArtifactsTitle: "No results yet",
     noArtifacts: "Inspectable structure, alignment, and property artifacts will appear here.",
     openStructureView: "Open in structure view",
@@ -205,7 +216,7 @@ const UI_TEXT = {
     similarityCaution: "Similarity hits support relatedness, but do not by themselves prove shared function or activity.",
     localServiceDisconnected: "Local service is not connected.",
     analysisPlans: "Analysis plans",
-    noRuns: "No runs yet.",
+    noRuns: "No workflow plans yet.",
     approveAndRun: "Approve and run",
     preflightReady: "Preflight ready",
     inputsValidated: "Inputs validated.",
@@ -488,7 +499,32 @@ const SAMPLES = [
   },
 ];
 
+const BUILT_IN_SAMPLE_IDS = new Set(SAMPLES.map((sample) => sample.id));
+const hiddenBuiltInSampleIds = loadHiddenBuiltInSampleIds();
+const sampleObjectIds = new WeakMap();
+let customSampleSequence = 0;
+
+const EMPTY_SAMPLE = {
+  id: "",
+  type: "empty",
+  name: "暂无数据",
+  nameEn: "No data selected",
+  shortName: "",
+  subtitle: "",
+  notes: "请从数据栏导入分子、蛋白质或本地科学文件。",
+  notesEn: "Import a molecule, protein, or local scientific file from the Data section.",
+  selection: "",
+  confidence: "",
+  properties: {},
+  atoms: [],
+  bonds: [],
+  rings: [],
+  prompts: [],
+  promptsEn: [],
+};
+
 const state = {
+  analysisSessionId: 0,
   language: initialLanguage(),
   activeId: "aspirin",
   activeMode: "structure",
@@ -540,7 +576,9 @@ document.addEventListener("DOMContentLoaded", () => {
   bindElements();
   applyStaticTranslations();
   renderSampleList();
-  selectSample("aspirin", { silent: true });
+  const initialSample = visibleSamples().find((sample) => sample.id === state.activeId) || visibleSamples()[0];
+  if (initialSample) selectSample(initialSample.id, { silent: true });
+  else renderAll();
   bindEvents();
   resizeCanvas();
   requestAnimationFrame(drawLoop);
@@ -630,7 +668,6 @@ function setLanguage(language) {
   window.localStorage?.setItem(LANGUAGE_STORAGE_KEY, language);
   applyStaticTranslations();
   renderSampleList();
-  state.candidates = initialCandidates(getActiveSample());
   renderAll();
   if (els.workflowDialog?.open) openWorkflowDialog();
 }
@@ -656,7 +693,8 @@ function bindElements() {
     "commandInput",
     "promptChips",
     "runDefaultPrompt",
-    "resetWorkspace",
+    "toggleImport",
+    "importPanel",
     "loadSmiles",
     "loadFasta",
     "loadStructure",
@@ -716,18 +754,11 @@ function bindEvents() {
 
   els.runDefaultPrompt.addEventListener("click", () => {
     const sample = getActiveSample();
-    runAgent(localizedPrompts(sample)[0]);
+    const prompt = localizedPrompts(sample)[0];
+    if (prompt) runAgent(prompt);
   });
 
-  els.resetWorkspace.addEventListener("click", () => {
-    state.toolCalls = [];
-    state.candidates = [];
-    state.artifacts = [];
-    state.chat = [];
-    selectSample("aspirin", { silent: true });
-    addUiMessage("workspaceReset");
-    renderAll();
-  });
+  els.toggleImport.addEventListener("click", () => setImportPanelOpen(els.importPanel.hidden));
 
   els.loadSmiles.addEventListener("click", () => {
     const value = els.structureInput.value.trim();
@@ -839,7 +870,7 @@ function bindEvents() {
     addUiMessage(state.runtime.useApi ? "providerEnabledMessage" : "localRuntimeMessage");
   });
 
-  els.planWorkflow.addEventListener("click", openWorkflowDialog);
+  els.planWorkflow.addEventListener("click", () => startNewAnalysis({ openPlanner: true }));
   els.workflowTemplate.addEventListener("change", renderWorkflowFields);
   els.createWorkflowPlan.addEventListener("click", createWorkflowPlan);
 
@@ -893,8 +924,19 @@ function bindEvents() {
 
 function renderSampleList() {
   els.sampleList.innerHTML = "";
-  SAMPLES.forEach((sample) => {
+  const samples = visibleSamples();
+  if (!samples.length) {
+    const empty = document.createElement("div");
+    empty.className = "sample-empty";
+    empty.innerHTML = `<strong>${escapeHtml(ui("noData"))}</strong><span>${escapeHtml(ui("noDataHint"))}</span>`;
+    els.sampleList.appendChild(empty);
+    return;
+  }
+  samples.forEach((sample) => {
+    const row = document.createElement("div");
+    row.className = "sample-row";
     const button = document.createElement("button");
+    button.type = "button";
     button.className = "sample-button";
     button.dataset.id = sample.id;
     button.dataset.type = sample.type;
@@ -906,13 +948,65 @@ function renderSampleList() {
       </span>
     `;
     button.addEventListener("click", () => selectSample(sample.id));
-    els.sampleList.appendChild(button);
+    const remove = document.createElement("button");
+    const builtIn = BUILT_IN_SAMPLE_IDS.has(sample.id);
+    remove.type = "button";
+    remove.className = "sample-remove";
+    remove.textContent = "×";
+    remove.title = ui(builtIn ? "hideExample" : "deleteUserData", { name: sample.shortName });
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", () => removeSample(sample.id));
+    row.append(button, remove);
+    els.sampleList.appendChild(row);
   });
+}
+
+function visibleSamples() {
+  return SAMPLES.filter((sample) => !BUILT_IN_SAMPLE_IDS.has(sample.id) || !hiddenBuiltInSampleIds.has(sample.id));
+}
+
+function loadHiddenBuiltInSampleIds() {
+  try {
+    const saved = JSON.parse(window.localStorage?.getItem(HIDDEN_SAMPLES_STORAGE_KEY) || "[]");
+    return new Set(Array.isArray(saved) ? saved.filter((id) => BUILT_IN_SAMPLE_IDS.has(id)) : []);
+  } catch (_error) {
+    return new Set();
+  }
+}
+
+function persistHiddenBuiltInSampleIds() {
+  try {
+    window.localStorage?.setItem(HIDDEN_SAMPLES_STORAGE_KEY, JSON.stringify([...hiddenBuiltInSampleIds]));
+  } catch (_error) {
+    // Hiding still works for the current page when browser storage is unavailable.
+  }
+}
+
+function removeSample(id) {
+  const index = SAMPLES.findIndex((sample) => sample.id === id);
+  if (index < 0) return;
+  const sample = SAMPLES[index];
+  const builtIn = BUILT_IN_SAMPLE_IDS.has(id);
+  if (builtIn) {
+    hiddenBuiltInSampleIds.add(id);
+    persistHiddenBuiltInSampleIds();
+  } else {
+    SAMPLES.splice(index, 1);
+  }
+  renderSampleList();
+  if (state.activeId === id) {
+    state.activeId = visibleSamples()[0]?.id || "";
+    startNewAnalysis({ messageKey: null });
+  } else {
+    renderAll();
+  }
 }
 
 function selectSample(id, options = {}) {
   const sample = SAMPLES.find((item) => item.id === id);
   if (!sample) return;
+  const changed = state.activeId !== id;
+  if (changed && !options.keepAnalysis) resetAnalysisSession();
   state.activeId = id;
   state.zoom = 1;
   state.structureScope = sample.structure?.focus ? "site" : "global";
@@ -920,9 +1014,36 @@ function selectSample(id, options = {}) {
   state.paeHover = null;
   state.angleX = sample.type === "protein" ? -0.38 : -0.24;
   state.angleY = sample.type === "protein" ? 0.18 : 0.42;
-  if (!options.keepDesigns) state.candidates = initialCandidates(sample);
+  if (!options.keepDesigns) state.candidates = [];
   if (!options.silent) addSystemMessage(ui("sampleLoaded", { name: sample.shortName }));
+  if (changed && !options.keepAnalysis) switchTab("properties");
+  if (options.render !== false) renderAll();
+}
+
+function setImportPanelOpen(open) {
+  els.importPanel.hidden = !open;
+  els.toggleImport.textContent = open ? "−" : "＋";
+  els.toggleImport.setAttribute("aria-expanded", String(open));
+  if (open) els.structureInput.focus();
+}
+
+function startNewAnalysis({ openPlanner = false, messageKey = "newAnalysisStarted", messageValues = {} } = {}) {
+  resetAnalysisSession();
+  if (state.activeId) selectSample(state.activeId, { silent: true, keepAnalysis: true, keepDesigns: true, render: false });
+  switchTab("properties");
+  if (messageKey) addUiMessage(messageKey, messageValues);
   renderAll();
+  if (openPlanner) openWorkflowDialog();
+}
+
+function resetAnalysisSession() {
+  state.analysisSessionId += 1;
+  state.toolCalls = [];
+  state.candidates = [];
+  state.artifacts = [];
+  state.workflowRuns = [];
+  state.chat = [];
+  state.activeMode = "structure";
 }
 
 function renderAll() {
@@ -948,8 +1069,10 @@ function renderAll() {
 
 function renderHeader() {
   const sample = getActiveSample();
-  els.activeTitle.textContent = sample.name;
-  els.activeType.textContent = sample.type === "protein" ? "Protein" : "Molecule";
+  els.activeTitle.textContent = !BUILT_IN_SAMPLE_IDS.has(sample.id) && sample.shortName
+    ? sample.shortName
+    : localizedSampleValue(sample, "name");
+  els.activeType.textContent = sample.type === "empty" ? ui("noData") : sample.type === "protein" ? "Protein" : "Molecule";
   els.activeType.style.removeProperty("background");
   els.activeType.style.removeProperty("color");
   const preset = VIEWER_PRESETS[state.viewerStyle] || VIEWER_PRESETS.ballstick;
@@ -966,7 +1089,9 @@ function renderHeader() {
     }
   } else {
     const focus = sample.structure?.focus;
-    els.viewerLabel.textContent = focus && state.structureScope === "site"
+    els.viewerLabel.textContent = sample.type === "empty"
+      ? ui("noData")
+      : focus && state.structureScope === "site"
       ? `${focus.variant} experimental site context`
       : sample.structure?.atoms?.length
         ? sample.metadata?.coordinateType === "predicted"
@@ -983,6 +1108,7 @@ function renderHeader() {
       : sample.confidence;
   }
   els.structureInput.value = sample.metadata?.accession || sample.pdbId || sample.smiles || sample.sequence || "";
+  els.runDefaultPrompt.disabled = sample.type === "empty";
 }
 
 function renderProperties() {
@@ -996,7 +1122,10 @@ function renderProperties() {
   });
   els.structureNotes.textContent = localizedSampleValue(sample, "notes");
 
-  if (sample.type === "protein") {
+  if (sample.type === "empty") {
+    els.sequenceBlock.innerHTML = "";
+    els.sequenceBlock.style.display = "none";
+  } else if (sample.type === "protein") {
     const sequence = sample.sequence || "";
     els.sequenceBlock.innerHTML = `
       <span>Sequence</span>
@@ -1148,8 +1277,8 @@ function renderArtifacts() {
         `;
         card.querySelector(".artifact-open").addEventListener("click", () => {
           if (!sample.type) return;
-          upsertCustomSample(sample);
-          selectSample(sample.id, { keepDesigns: true });
+          const userSample = addUserSample(sample, { reuseObject: true });
+          selectSample(userSample.id, { keepAnalysis: true, keepDesigns: true });
           switchTab("properties");
         });
       } else if (artifact.type === "database-record") {
@@ -1767,8 +1896,8 @@ function bindVariantStructureActions(card, data) {
   card.querySelector(".variant-structure-open")?.addEventListener("click", () => {
     const sample = data.sample;
     if (!sample?.type) return;
-    upsertCustomSample(sample);
-    selectSample(sample.id, { keepDesigns: true });
+    const userSample = addUserSample(sample, { reuseObject: true });
+    selectSample(userSample.id, { keepAnalysis: true, keepDesigns: true });
     state.structureScope = "site";
     switchTab("properties");
     renderAll();
@@ -3185,17 +3314,24 @@ function bindSingleCellControls(card, data) {
 
 function renderSkills() {
   els.skillList.innerHTML = "";
-  if (!state.skills.length) {
+  if (state.localService.loaded && !state.localService.connected) {
     els.skillList.innerHTML = `<div class="skill-card"><span>Skills</span><p>${escapeHtml(ui("localServiceDisconnected"))}</p></div>`;
     return;
   }
-  state.skills.forEach((skill) => {
+  if (!state.toolCalls.length) {
+    els.skillList.innerHTML = `<div class="skill-card"><span>${escapeHtml(ui("noToolsTitle"))}</span><p>${escapeHtml(ui("noTools"))}</p></div>`;
+    return;
+  }
+  state.toolCalls.forEach((call) => {
+    const skill = state.skills.find(
+      (item) => item.id === call.skill || (item.tools || []).some((tool) => tool.name === call.name),
+    );
     const card = document.createElement("article");
     card.className = "skill-card";
     card.innerHTML = `
-      <header><strong>${escapeHtml(skill.title)}</strong><span>${escapeHtml(skill.kind)}</span></header>
-      <p>${escapeHtml(skill.description)}</p>
-      <div class="skill-tools">${(skill.tools || []).map((tool) => `<code>${escapeHtml(tool.name)}</code>`).join("")}</div>
+      <header><strong>${escapeHtml(call.name)}</strong><span>${escapeHtml(call.status || "completed")}</span></header>
+      <p>${escapeHtml(call.summary || skill?.description || "Tool completed.")}</p>
+      <div class="skill-tools"><code>${escapeHtml(skill?.title || call.skill || "local tool")}</code></div>
     `;
     els.skillList.appendChild(card);
   });
@@ -3515,6 +3651,7 @@ function defaultWorkflowTemplate(sample) {
 async function createWorkflowPlan() {
   const template = state.workflowTemplates.find((item) => item.id === els.workflowTemplate.value);
   if (!template) return;
+  const sessionId = state.analysisSessionId;
   const inputs = {};
   for (const control of els.workflowFields.querySelectorAll("[data-workflow-field]")) {
     if (!control.checkValidity()) {
@@ -3535,6 +3672,7 @@ async function createWorkflowPlan() {
       }),
     });
     const data = await response.json();
+    if (sessionId !== state.analysisSessionId) return;
     if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
     upsertWorkflowRun(data.run);
     mergeArtifacts(data.run.artifacts || []);
@@ -3546,6 +3684,7 @@ async function createWorkflowPlan() {
     ));
     renderAll();
   } catch (error) {
+    if (sessionId !== state.analysisSessionId) return;
     addSystemMessage(localized(`计划创建失败：${error.message}`, `Could not create the plan: ${error.message}`));
   } finally {
     els.createWorkflowPlan.disabled = false;
@@ -3555,6 +3694,7 @@ async function createWorkflowPlan() {
 async function approveWorkflow(runId) {
   const run = state.workflowRuns.find((item) => item.id === runId);
   if (!run || run.status !== "pending_approval") return;
+  const sessionId = state.analysisSessionId;
   run.status = "running";
   renderWorkflowRuns();
   try {
@@ -3564,11 +3704,13 @@ async function approveWorkflow(runId) {
       body: "{}",
     });
     const data = await response.json();
+    if (sessionId !== state.analysisSessionId) return;
     if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
     upsertWorkflowRun(data.run);
     mergeAgentTrace(data.run.trace || []);
     mergeArtifacts(data.run.artifacts || []);
-    await refreshWorkspaceFiles();
+    await refreshWorkspaceFiles({ sessionId });
+    if (sessionId !== state.analysisSessionId) return;
     addSystemMessage(
       data.run.status === "completed"
         ? localized(
@@ -3581,6 +3723,7 @@ async function approveWorkflow(runId) {
         ),
     );
   } catch (error) {
+    if (sessionId !== state.analysisSessionId) return;
     run.status = "pending_approval";
     addSystemMessage(localized(`工作流启动失败：${error.message}`, `Could not start the workflow: ${error.message}`));
   }
@@ -3588,6 +3731,7 @@ async function approveWorkflow(runId) {
 }
 
 async function cancelWorkflow(runId) {
+  const sessionId = state.analysisSessionId;
   try {
     const response = await fetch(pipelineEndpoint(`/api/runs/${encodeURIComponent(runId)}/cancel`), {
       method: "POST",
@@ -3595,11 +3739,13 @@ async function cancelWorkflow(runId) {
       body: "{}",
     });
     const data = await response.json();
+    if (sessionId !== state.analysisSessionId) return;
     if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
     upsertWorkflowRun(data.run);
     addSystemMessage(localized(`已取消“${data.run.title}”。`, `Cancelled “${workflowRunText(data.run, 0)}”.`));
     renderAll();
   } catch (error) {
+    if (sessionId !== state.analysisSessionId) return;
     addSystemMessage(localized(`取消失败：${error.message}`, `Could not cancel the workflow: ${error.message}`));
   }
 }
@@ -3613,11 +3759,13 @@ function upsertWorkflowRun(run) {
 
 async function runAgent(command) {
   const sample = getActiveSample();
+  const sessionId = state.analysisSessionId;
   state.chat.push({ role: "user", text: command });
   renderChat();
   switchTab("agent");
 
   const result = await tryWorkbenchAgent(command, sample);
+  if (sessionId !== state.analysisSessionId) return;
   if (result?.message) {
     mergeAgentTrace(result.trace || []);
     mergeArtifacts(result.artifacts || []);
@@ -3631,6 +3779,7 @@ async function runAgent(command) {
     addSystemMessage(localized(`本地 Agent 返回错误：${result.error}`, `The local Agent returned an error: ${result.error}`));
     if (state.runtime.useApi) {
       const localResult = await tryWorkbenchAgent(command, sample, { forceLocal: true });
+      if (sessionId !== state.analysisSessionId) return;
       if (localResult?.message) {
         mergeAgentTrace(localResult.trace || []);
         mergeArtifacts(localResult.artifacts || []);
@@ -3651,11 +3800,12 @@ async function runAgent(command) {
     { intent, target: sample.shortName },
     localized(`将自然语言任务路由到 ${intent} 工作流。`, `Routed the natural-language task to the ${intent} workflow.`),
   );
-  await runLocalWorkflow(command, sample, intent);
+  await runLocalWorkflow(command, sample, intent, sessionId);
 }
 
-async function runLocalWorkflow(command, sample, intent) {
+async function runLocalWorkflow(command, sample, intent, sessionId = state.analysisSessionId) {
   await pause(180);
+  if (sessionId !== state.analysisSessionId) return;
   addToolCall(
     sample.type === "protein" ? "structure.parse_fasta" : "chem.parse_smiles",
     { input: sample.sequence || sample.smiles || sample.formula },
@@ -3665,6 +3815,7 @@ async function runLocalWorkflow(command, sample, intent) {
   );
 
   await pause(180);
+  if (sessionId !== state.analysisSessionId) return;
   addToolCall(
     sample.type === "protein" ? "protein.annotate_motifs" : "chem.estimate_properties",
     { properties: sample.properties },
@@ -3675,6 +3826,7 @@ async function runLocalWorkflow(command, sample, intent) {
 
   if (intent === "design" || intent === "risk") {
     await pause(180);
+    if (sessionId !== state.analysisSessionId) return;
     const generated = sample.type === "protein" ? proteinCandidates(sample, command) : moleculeCandidates(sample, command);
     state.candidates = generated;
     addToolCall(
@@ -3688,6 +3840,7 @@ async function runLocalWorkflow(command, sample, intent) {
   }
 
   await pause(120);
+  if (sessionId !== state.analysisSessionId) return;
   const response = composeAgentResponse(command, sample, intent);
   state.chat.push({ role: "agent", text: response });
   renderAll();
@@ -3855,11 +4008,6 @@ function composeAgentResponse(command, sample, intent) {
   );
 }
 
-function initialCandidates(sample) {
-  if (sample.type === "protein") return proteinCandidates(sample, "");
-  return moleculeCandidates(sample, "");
-}
-
 function moleculeCandidates(sample, command) {
   const solubility = /水溶|solubility|polar/i.test(command);
   const cns = /cns|血脑|brain/i.test(command);
@@ -3938,11 +4086,13 @@ function suggestMutation(sequence, index, to) {
 }
 
 async function loadCustomMolecule(smiles) {
+  const sessionId = state.analysisSessionId;
   addToolCall("chem.pipeline_request", { smiles }, localized("请求本地 RDKit 数据管线解析 SMILES。", "Requested SMILES parsing from the local RDKit pipeline."));
   const result = await fetchPipelineSample("molecule", { smiles });
+  if (sessionId !== state.analysisSessionId) return;
   if (result.sample) {
-    upsertCustomSample(result.sample);
-    selectSample(result.sample.id);
+    const userSample = addUserSample(result.sample);
+    selectSample(userSample.id);
     addToolCall(
       "chem.rdkit_parse",
       {
@@ -3961,18 +4111,20 @@ async function loadCustomMolecule(smiles) {
   }
 
   const custom = buildCustomMolecule(smiles);
-  upsertCustomSample(custom);
-  selectSample(custom.id);
+  const userSample = addUserSample(custom);
+  selectSample(userSample.id);
   addToolCall("chem.import_smiles_fallback", { smiles }, localized("未连接本地管线，已降级为浏览器启发式结构视图。", "The local pipeline is disconnected. Using the browser heuristic structure view."));
   addSystemMessage(localized("本地 RDKit 管线不可用。运行 server.py 后可启用真实 SMILES 解析。", "The local RDKit pipeline is unavailable. Run server.py to enable RDKit SMILES parsing."));
 }
 
 async function loadCustomProtein(sequence) {
+  const sessionId = state.analysisSessionId;
   addToolCall("protein.pipeline_request", { length: sequence.length }, localized("请求本地序列数据管线解析 FASTA。", "Requested FASTA parsing from the local sequence pipeline."));
   const result = await fetchPipelineSample("protein", { sequence });
+  if (sessionId !== state.analysisSessionId) return;
   if (result.sample) {
-    upsertCustomSample(result.sample);
-    selectSample(result.sample.id);
+    const userSample = addUserSample(result.sample);
+    selectSample(userSample.id);
     addToolCall(
       "protein.sequence_parse",
       {
@@ -3995,8 +4147,8 @@ async function loadCustomProtein(sequence) {
     return;
   }
   const custom = buildCustomProtein(fallbackSequence);
-  upsertCustomSample(custom);
-  selectSample(custom.id);
+  const userSample = addUserSample(custom);
+  selectSample(userSample.id);
   addToolCall("protein.import_fasta_fallback", { length: fallbackSequence.length }, localized("未连接本地管线，已降级为浏览器序列草图。", "The local pipeline is disconnected. Using the browser sequence sketch."));
   addSystemMessage(localized("本地序列管线不可用。运行 server.py 后可启用真实 FASTA 统计。", "The local sequence pipeline is unavailable. Run server.py to enable FASTA statistics."));
 }
@@ -4024,6 +4176,7 @@ async function loadAlphaFoldStructure(value) {
 }
 
 async function executeLocalTool(name, arguments, options = {}) {
+  const sessionId = state.analysisSessionId;
   addToolCall(name, arguments, localized("正在执行本地 scientific skill…", "Running the local scientific skill..."));
   try {
     const response = await fetch(pipelineEndpoint("/api/tools/call"), {
@@ -4032,25 +4185,33 @@ async function executeLocalTool(name, arguments, options = {}) {
       body: JSON.stringify({ name, arguments }),
     });
     const result = await response.json();
+    if (sessionId !== state.analysisSessionId) return null;
     if (!response.ok || !result.ok) throw new Error(result.error || `HTTP ${response.status}`);
     const latest = state.toolCalls[state.toolCalls.length - 1];
-    latest.summary = result.summary || "Skill completed.";
-    latest.status = "completed";
-    latest.durationMs = result.duration_ms || 0;
-    mergeArtifacts(result.artifacts || []);
     const sampleArtifact = (result.artifacts || []).find((artifact) => artifact.data?.type);
     if (options.openSample && sampleArtifact) {
-      upsertCustomSample(sampleArtifact.data);
-      selectSample(sampleArtifact.data.id, { keepDesigns: true });
+      const userSample = addUserSample(sampleArtifact.data, { reuseObject: true });
+      selectSample(userSample.id);
+      addToolCall(name, arguments, result.summary || "Skill completed.");
+      const importedCall = state.toolCalls[state.toolCalls.length - 1];
+      importedCall.status = "completed";
+      importedCall.durationMs = result.duration_ms || 0;
+      mergeArtifacts(result.artifacts || []);
       switchTab("properties");
-    } else if (options.openArtifacts || result.artifacts?.length) {
-      switchTab("artifacts");
+    } else {
+      latest.summary = result.summary || "Skill completed.";
+      latest.status = "completed";
+      latest.durationMs = result.duration_ms || 0;
+      mergeArtifacts(result.artifacts || []);
+      if (options.openArtifacts || result.artifacts?.length) switchTab("artifacts");
     }
     addSystemMessage(result.summary || localized(`${name} 已完成。`, `${name} completed.`));
     renderAll();
     return result;
   } catch (error) {
+    if (sessionId !== state.analysisSessionId) return null;
     const latest = state.toolCalls[state.toolCalls.length - 1];
+    if (!latest) return null;
     latest.status = "error";
     latest.summary = error.message;
     addSystemMessage(localized(`${name} 失败：${error.message}`, `${name} failed: ${error.message}`));
@@ -4082,36 +4243,29 @@ async function fetchPipelineSample(kind, payload) {
 
 async function loadWorkbenchMetadata() {
   try {
-    const [healthResponse, skillsResponse, workspaceResponse, workflowsResponse, runsResponse] = await Promise.all([
+    const [healthResponse, skillsResponse, workspaceResponse, workflowsResponse] = await Promise.all([
       fetch(pipelineEndpoint("/api/health")),
       fetch(pipelineEndpoint("/api/skills")),
       fetch(pipelineEndpoint("/api/workspace")),
       fetch(pipelineEndpoint("/api/workflows")),
-      fetch(pipelineEndpoint("/api/runs")),
     ]);
-    if (!healthResponse.ok || !skillsResponse.ok || !workspaceResponse.ok || !workflowsResponse.ok || !runsResponse.ok) {
+    if (!healthResponse.ok || !skillsResponse.ok || !workspaceResponse.ok || !workflowsResponse.ok) {
       throw new Error("Local metadata request failed");
     }
-    const [health, skills, workspace, workflows, runs] = await Promise.all([
+    const [health, skills, workspace, workflows] = await Promise.all([
       healthResponse.json(),
       skillsResponse.json(),
       workspaceResponse.json(),
       workflowsResponse.json(),
-      runsResponse.json(),
     ]);
     state.skills = skills.skills || [];
     state.workspaceFiles = workspace.files || [];
     state.workflowTemplates = workflows.workflows || [];
-    state.workflowRuns = runs.runs || [];
     state.localService = {
       loaded: true,
       connected: true,
       skillCount: health.skills || state.skills.length,
     };
-    state.workflowRuns
-      .slice(0, 5)
-      .reverse()
-      .forEach((run) => mergeArtifacts(run.artifacts || []));
     renderLocalStatus();
     renderSkills();
     renderWorkspaceFiles();
@@ -4126,6 +4280,7 @@ async function loadWorkbenchMetadata() {
 }
 
 async function saveSelectedWorkspaceFiles() {
+  const sessionId = state.analysisSessionId;
   const files = Array.from(els.workspaceFiles.files || []);
   if (!files.length) {
     addSystemMessage(localized("请先选择要导入的本地科学文件。", "Choose local scientific files to import first."));
@@ -4134,7 +4289,9 @@ async function saveSelectedWorkspaceFiles() {
   let saved = 0;
   for (const file of files) {
     if (file.size > 20 * 1024 * 1024) {
-      addSystemMessage(localized(`${file.name} 超过 20 MB workspace 上传限制，未导入。`, `${file.name} exceeds the 20 MB workspace upload limit and was not imported.`));
+      if (sessionId === state.analysisSessionId) {
+        addSystemMessage(localized(`${file.name} 超过 20 MB workspace 上传限制，未导入。`, `${file.name} exceeds the 20 MB workspace upload limit and was not imported.`));
+      }
       continue;
     }
     try {
@@ -4150,15 +4307,19 @@ async function saveSelectedWorkspaceFiles() {
       if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
       saved += 1;
     } catch (error) {
-      addSystemMessage(localized(`${file.name} 导入失败：${error.message}`, `Could not import ${file.name}: ${error.message}`));
+      if (sessionId === state.analysisSessionId) {
+        addSystemMessage(localized(`${file.name} 导入失败：${error.message}`, `Could not import ${file.name}: ${error.message}`));
+      }
     }
   }
   els.workspaceFiles.value = "";
-  await refreshWorkspaceFiles();
-  if (saved) addSystemMessage(localized(`已将 ${saved} 个文件导入受控 workspace；Agent 现在可以按需读取。`, `Imported ${saved} file(s) into the controlled workspace. The Agent can now read them as needed.`));
+  await refreshWorkspaceFiles({ sessionId });
+  if (saved && sessionId === state.analysisSessionId) {
+    addSystemMessage(localized(`已将 ${saved} 个文件导入受控 workspace；Agent 现在可以按需读取。`, `Imported ${saved} file(s) into the controlled workspace. The Agent can now read them as needed.`));
+  }
 }
 
-async function refreshWorkspaceFiles() {
+async function refreshWorkspaceFiles({ sessionId = null } = {}) {
   try {
     const response = await fetch(pipelineEndpoint("/api/workspace"));
     const data = await response.json();
@@ -4166,7 +4327,9 @@ async function refreshWorkspaceFiles() {
     state.workspaceFiles = data.files || [];
     renderWorkspaceFiles();
   } catch (error) {
-    addSystemMessage(localized(`无法刷新 workspace：${error.message}`, `Could not refresh the workspace: ${error.message}`));
+    if (sessionId === null || sessionId === state.analysisSessionId) {
+      addSystemMessage(localized(`无法刷新 workspace：${error.message}`, `Could not refresh the workspace: ${error.message}`));
+    }
   }
 }
 
@@ -4177,11 +4340,34 @@ function pipelineEndpoint(path) {
   return `http://127.0.0.1:8765${path}`;
 }
 
-function upsertCustomSample(sample) {
-  const index = SAMPLES.findIndex((item) => item.id === sample.id);
-  if (index >= 0) SAMPLES.splice(index, 1, sample);
-  else SAMPLES.push(sample);
+function addUserSample(sample, { reuseObject = false } = {}) {
+  if (reuseObject && sampleObjectIds.has(sample)) {
+    const existing = SAMPLES.find((item) => item.id === sampleObjectIds.get(sample));
+    if (existing) return existing;
+  }
+  customSampleSequence += 1;
+  const baseId = String(sample.id || sample.type || "data").replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
+  const id = `${baseId}-${Date.now().toString(36)}-${customSampleSequence}`;
+  const shortName = String(sample.shortName || sample.name || localized("用户数据", "User data"));
+  const existingLabels = new Set(
+    SAMPLES.filter((item) => !BUILT_IN_SAMPLE_IDS.has(item.id)).map((item) => item.shortName),
+  );
+  let displayName = shortName;
+  let displaySequence = 2;
+  while (existingLabels.has(displayName)) {
+    displayName = `${shortName} ${displaySequence}`;
+    displaySequence += 1;
+  }
+  const userSample = {
+    ...sample,
+    id,
+    shortName: displayName,
+  };
+  SAMPLES.push(userSample);
+  if (reuseObject) sampleObjectIds.set(sample, id);
+  if (els.importPanel) setImportPanelOpen(false);
   renderSampleList();
+  return userSample;
 }
 
 function buildCustomMolecule(smiles) {
@@ -5159,13 +5345,14 @@ function exportReport() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `molemo-${sample.shortName.toLowerCase().replace(/\s+/g, "-")}-report.json`;
+  const reportName = sample.shortName || "analysis";
+  link.download = `molemo-${reportName.toLowerCase().replace(/\s+/g, "-")}-report.json`;
   link.click();
   URL.revokeObjectURL(url);
 }
 
 function getActiveSample() {
-  return SAMPLES.find((item) => item.id === state.activeId) || SAMPLES[0];
+  return SAMPLES.find((item) => item.id === state.activeId) || EMPTY_SAMPLE;
 }
 
 function formatSequence(sequence) {

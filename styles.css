@@ -182,6 +182,11 @@ p {
   padding-top: 5px;
 }
 
+.data-import-panel {
+  padding: 8px 0 4px;
+  border-bottom: 1px solid var(--line);
+}
+
 .section-count {
   font-weight: 500;
   text-transform: none;
@@ -191,12 +196,18 @@ p {
   border-top: 1px solid var(--line);
 }
 
+.sample-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+}
+
 .sample-button {
   width: 100%;
   min-height: 43px;
   padding: 6px 4px;
   border: 0;
-  border-bottom: 1px solid var(--line);
   background: transparent;
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
@@ -207,6 +218,10 @@ p {
 
 .sample-button:hover,
 .sample-button.is-active {
+  background: var(--surface);
+}
+
+.sample-row:has(.sample-button.is-active) {
   background: var(--surface);
 }
 
@@ -231,6 +246,51 @@ p {
 .sample-main span {
   min-width: 0;
   display: block;
+}
+
+.sample-remove {
+  width: 24px;
+  min-height: 43px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1;
+  opacity: 0;
+}
+
+.sample-row:hover .sample-remove,
+.sample-remove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .sample-remove {
+    opacity: 1;
+  }
+}
+
+.sample-remove:hover {
+  color: var(--rose);
+  background: var(--surface-subtle);
+}
+
+.sample-empty {
+  padding: 12px 4px;
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+}
+
+.sample-empty strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.sample-empty span {
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .sample-main strong {

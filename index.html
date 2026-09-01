@@ -26,16 +26,10 @@
         <section class="sidebar-section">
           <div class="section-heading">
             <span data-i18n="data">数据</span>
-            <button class="icon-button" id="resetWorkspace" data-i18n-title="resetWorkspace" data-i18n-aria="resetWorkspace" title="重置工作区" aria-label="重置工作区">↻</button>
+            <button class="icon-button" id="toggleImport" data-i18n-title="import" data-i18n-aria="import" title="导入" aria-label="导入" aria-expanded="false">＋</button>
           </div>
           <div class="sample-list" id="sampleList"></div>
-        </section>
-
-        <details class="sidebar-section sidebar-disclosure">
-          <summary class="section-heading">
-            <span data-i18n="import">导入</span>
-          </summary>
-          <div class="sidebar-disclosure-body">
+          <div class="sidebar-disclosure-body data-import-panel" id="importPanel" hidden>
             <label class="input-label" for="structureInput">SMILES / FASTA / PDB / UniProt</label>
             <textarea id="structureInput" rows="5" spellcheck="false">CC(=O)OC1=CC=CC=C1C(=O)O</textarea>
             <div class="import-actions">
@@ -45,7 +39,7 @@
               <button class="secondary-button" id="loadAlphaFold">AlphaFold</button>
             </div>
           </div>
-        </details>
+        </section>
 
         <details class="sidebar-section sidebar-disclosure">
           <summary class="section-heading">

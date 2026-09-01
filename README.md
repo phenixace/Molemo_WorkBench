@@ -9,7 +9,7 @@ scientific artifacts, and reproducible evidence.
 
 [![CI](https://github.com/phenixace/Molemo_WorkBench/actions/workflows/ci.yml/badge.svg)](https://github.com/phenixace/Molemo_WorkBench/actions/workflows/ci.yml)
 [![Molemo Bench](https://img.shields.io/badge/Molemo__Bench-39%2F39-147d72)](benchmarks/tasks.jsonl)
-[![Tests](https://img.shields.io/badge/tests-149%20passing-2f6f60)](.github/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-151%20passing-2f6f60)](.github/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.11-356a9a)](environment.yml)
 [![License](https://img.shields.io/badge/license-MIT-242321)](LICENSE)
 
@@ -128,7 +128,7 @@ python bench.py
 python -m unittest discover -s tests -v
 ```
 
-The committed `Molemo_Bench v0.22` baseline passes **149 tests** and **39/39 deterministic benchmark tasks**. The benchmark covers tool correctness, approval boundaries, trace completeness, provenance, and artifact generation. It is a process evaluation, not a claim of general scientific intelligence.
+The committed `Molemo_Bench v0.22` baseline passes **151 tests** and **39/39 deterministic benchmark tasks**. The benchmark covers tool correctness, approval boundaries, trace completeness, provenance, and artifact generation. It is a process evaluation, not a claim of general scientific intelligence.
 
 ## Repository map
 

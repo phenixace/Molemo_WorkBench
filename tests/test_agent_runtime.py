@@ -13,6 +13,38 @@ class AgentRuntimeTests(unittest.TestCase):
 
         self.assertIn("response_language: state.language", script)
 
+    def test_new_analysis_isolates_frontend_session_state(self):
+        script = (Path(__file__).resolve().parents[1] / "app.js").read_text(encoding="utf-8")
+        reset_block = script.split("function resetAnalysisSession", 1)[1].split("function renderAll", 1)[0]
+        metadata_block = script.split("async function loadWorkbenchMetadata", 1)[1].split(
+            "async function saveSelectedWorkspaceFiles", 1
+        )[0]
+
+        for collection in ("toolCalls", "candidates", "artifacts", "workflowRuns", "chat"):
+            self.assertIn(f"state.{collection} = [];", reset_block)
+        self.assertIn("state.analysisSessionId += 1;", reset_block)
+        self.assertIn('startNewAnalysis({ openPlanner: true })', script)
+        self.assertIn("if (changed && !options.keepAnalysis) resetAnalysisSession();", script)
+        self.assertNotIn('fetch(pipelineEndpoint("/api/runs"))', metadata_block)
+        self.assertIn("if (sessionId !== state.analysisSessionId) return;", script)
+
+    def test_data_sidebar_hides_presets_and_removes_unique_user_samples(self):
+        script = (Path(__file__).resolve().parents[1] / "app.js").read_text(encoding="utf-8")
+        remove_block = script.split("function removeSample", 1)[1].split("function selectSample", 1)[0]
+
+        self.assertIn("const BUILT_IN_SAMPLE_IDS = new Set", script)
+        self.assertIn("hiddenBuiltInSampleIds.add(id);", script)
+        self.assertIn("SAMPLES.splice(index, 1);", script)
+        self.assertIn("renderSampleList();", remove_block)
+        self.assertIn("function addUserSample", script)
+        self.assertIn("customSampleSequence += 1;", script)
+        self.assertIn("while (existingLabels.has(displayName))", script)
+        self.assertIn("!BUILT_IN_SAMPLE_IDS.has(sample.id) && sample.shortName", script)
+        self.assertNotIn("function upsertCustomSample", script)
+        self.assertIn("if (!state.toolCalls.length)", script)
+        self.assertIn("function setImportPanelOpen", script)
+        self.assertNotIn('"restoreExamples"', script)
+
     def test_provider_reasoning_tags_are_not_user_visible(self):
         content = "<think>private reasoning</think>\n\nFinal scientific answer."
 
