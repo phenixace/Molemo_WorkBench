@@ -33,6 +33,8 @@ Molemo works locally without a third-party model. To connect one, open the model
 
 The key is kept only in page memory and the current local request. It is not written to disk or included in exported run records. Public NCBI and other supported scientific databases do not require a user API key.
 
+The OpenAI-compatible path was smoke-tested on 2026-09-01 with `MiniMax-M3` against the China endpoint. Both the WorkBench page and the Molemo IDE client completed native `chem_analyze_molecule` tool calling, returned an inspectable molecule artifact, followed the selected response language, and removed provider `<think>` blocks from user-visible output. No key is committed to either repository.
+
 ## Research loop
 
 1. Start from a natural-language biological question.
@@ -95,7 +97,7 @@ python bench.py
 python -m unittest discover -s tests -v
 ```
 
-The committed v0.22 baseline passes 146 tests and 39/39 deterministic benchmark tasks. The benchmark evaluates tool correctness, approval boundaries, trace completeness, provenance, and artifact generation; it is not a claim about general life-science model intelligence.
+The committed v0.22 baseline passes 149 tests and 39/39 deterministic benchmark tasks. The benchmark evaluates tool correctness, approval boundaries, trace completeness, provenance, and artifact generation; it is not a claim about general life-science model intelligence.
 
 ## Runnable showcase
 

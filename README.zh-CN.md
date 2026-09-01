@@ -33,6 +33,8 @@ Python 核心现在位于 `molemo/` 包中；仓库根目录的 `server.py` 与 
 
 API key 只在当前页面内存与单次本地请求中使用，不保存到文件，也不会进入导出的运行记录。
 
+OpenAI-compatible 路径已于 2026-09-01 使用中国区 endpoint 与 `MiniMax-M3` 完成 smoke test。WorkBench 页面和 Molemo IDE 客户端都成功执行了 native `chem_analyze_molecule` tool calling、返回可检查的 molecule artifact、跟随界面回复语言，并从用户可见输出中移除了 provider 的 `<think>` 内容。两个仓库都没有写入 key。
+
 ## 已实现的闭环
 
 1. 从自然语言研究问题进入本地 Agent。
@@ -84,7 +86,7 @@ python -m unittest discover -s tests -v
 
 基准任务位于 `benchmarks/tasks.jsonl`。它是对 Molemo 工具链的过程评测，不代表模型在完整生命科学研究中的总体能力。
 
-当前基线通过 146 项测试与 39/39 项确定性 benchmark。可以用 `python -m molemo.showcase` 运行咖啡因、Trp-cage 和 DNA 快速案例；`--full` 还会实际执行 PyDESeq2 与 Scanpy，并生成 `reports/showcase.json`。详见[案例说明](showcase/README.zh-CN.md)。
+当前基线通过 149 项测试与 39/39 项确定性 benchmark。可以用 `python -m molemo.showcase` 运行咖啡因、Trp-cage 和 DNA 快速案例；`--full` 还会实际执行 PyDESeq2 与 Scanpy，并生成 `reports/showcase.json`。详见[案例说明](showcase/README.zh-CN.md)。
 
 ## 能力边界
 

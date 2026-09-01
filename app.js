@@ -3697,6 +3697,7 @@ async function tryWorkbenchAgent(command, sample, options = {}) {
   const useProvider = state.runtime.useApi && state.runtime.endpoint && !options.forceLocal;
   const payload = {
     message: command,
+    response_language: state.language,
     history: state.chat.slice(0, -1).map((item) => ({
       role: item.role === "agent" ? "assistant" : item.role,
       content: item.text,

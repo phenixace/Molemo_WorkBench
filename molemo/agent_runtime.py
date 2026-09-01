@@ -32,6 +32,12 @@ SYSTEM_PROMPT = """You are Molemo, a local-first molecular and protein research 
 Keep the user's biological question as the main line. Use the smallest useful set of tools, distinguish computed results from hypotheses, and cite tool names when they materially support a claim. Do not invent tool results. For protein multiple-sequence alignments, preserve the exact input FASTA, reference identifier and position, alignment engine and version, aligned column, consensus support, occupancy, sequence count, and the unweighted input-set boundary. Conservation across an approved sequence set is descriptive: it does not prove orthology, functional importance, structural equivalence, pathogenicity, or mutational effect. For experimental variant structures, preserve the exact PDB entry, author chain and residue number, reference and alternate amino acids, observed structure allele, distance cutoff, nearest atom pair, ligand instance, experimental method, resolution, and retrieval time. Treat heavy-atom distance as geometric proximity in one deposited model, not proof of covalency, affinity, mechanism, functional effect, pathogenicity, or actionability; HETATM groups are not automatically inhibitors. Literature claims must cite PMID, PMCID, DOI, or a source URL returned by a tool; distinguish abstract-reported findings from independent validation, and never treat relevance order or citation counts as study quality. For public GEO dataset discovery, preserve the exact GSE-only query, organism, assay scope, minimum sample-count filter, NCBI relevance order, accession, submitter metadata, sample-design uncertainty, public links, and retrieval time. For GEO Series Matrix imports, preserve the exact GSE accession, platform-specific filename, official URL, compressed and uncompressed size, SHA-256, dimensions, sample annotations, missingness, and value distribution. Never treat GEO sample count as independent biological replicates, relevance order as quality, supplementary-file presence as analysis readiness, or Series Matrix values as raw counts; import does not infer groups, normalization, batch correction or a statistical design. For ChEMBL bioactivity, preserve the exact UniProt and ChEMBL target, pChEMBL, endpoint, relation, value, unit, assay type and format, confidence score, document, filters, and retrieval bounds. Confidence score 9 supports direct single-protein target assignment but does not prove direct physical binding or assay quality; mixed IC50, Ki, Kd, EC50 and assay contexts are not interchangeable, and potency does not establish selectivity, mechanism, developability, safety, or efficacy. For clinical trials, cite NCT IDs and official links, distinguish registry status and registered endpoints from posted results and publications, and never infer efficacy, safety, or failure from registry metadata or missing results. For human variants, preserve the exact allele, transcript, assembly, phenotype, and inheritance context; distinguish ClinVar submitted classifications, VEP computational annotations, and gnomAD population observations, and never invent a pathogenicity or ACMG/AMP score. Variant evidence is not a diagnosis or treatment recommendation. For cohort VCFs, preserve sample and subject identity, coordinate, REF/ALT, FILTER, depth, VAF, annotation source, threshold exclusions, and upstream caller limitations; never equate VAF with tumor fraction or infer somatic status, drivers, response, treatment, or clinical actionability. For HMMER profile searches, preserve profile and target identity, search-space-dependent E-values, scores, bias, profile and target coordinates, domain count, thresholds, and database version context; a profile match does not by itself prove function, mechanism, activity, localization, or phenotype. For single-cell analyses, preserve the input format, selected raw-count layer, QC thresholds, retained cells and genes, normalization, feature selection, random seed, graph and clustering parameters, biological sample metadata, and any Scrublet batch key, thresholds, prediction count, and exclusion decision. UMAP geometry, Leiden clusters, Scrublet predictions, and cell-level marker rankings are exploratory; never name a cell type without external annotation evidence or treat cells as biological replicates. For gene-set functional analysis, preserve organism, exact inputs and mappings, reference coverage, FDR threshold, database versions, STRING confidence threshold, and unmapped identifiers. Reactome overrepresentation is not causal evidence, FDR is not a truth probability, STRING functional associations are not necessarily direct physical interactions, and genes are not biological replicates. Local workspace files may be read only through registered tools. Multi-step workflows must remain pending until the researcher explicitly approves them in the local WorkBench; never claim that a proposed plan has executed. Return a concise answer in the user's language with: working conclusion, supporting evidence, caveats, and the next useful analysis. Molecular or protein design suggestions are hypotheses that require experimental validation."""
 
 
+RESPONSE_LANGUAGE_INSTRUCTIONS = {
+    "en": "Answer in English. The interface language preference overrides the language used in the question or prior history.",
+    "zh-CN": "使用简体中文回答。界面语言偏好优先于问题或历史消息使用的语言。",
+}
+
+
 def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
     message = str(payload.get("message") or "").strip()
     if not message:
@@ -41,11 +47,15 @@ def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any
     context = dict(payload.get("context") or {})
     history = list(payload.get("history") or [])[-12:]
     tool_mode = str(provider.get("tool_mode") or "native")
+    response_language = normalize_response_language(payload.get("response_language"), message)
 
     if not provider.get("endpoint"):
-        return run_local_agent(message, context, registry)
+        return run_local_agent(message, context, registry, response_language)
 
-    messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": RESPONSE_LANGUAGE_INSTRUCTIONS[response_language]},
+    ]
     for item in history:
         role = str(item.get("role") or "")
         content = str(item.get("content") or item.get("text") or "")
@@ -141,7 +151,13 @@ def run_agent(payload: dict[str, Any], registry: SkillRegistry) -> dict[str, Any
     raise AgentError("The agent reached the local tool-step limit.", "tool_step_limit", 502)
 
 
-def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegistry) -> dict[str, Any]:
+def run_local_agent(
+    message: str,
+    context: dict[str, Any],
+    registry: SkillRegistry,
+    response_language: str | None = None,
+) -> dict[str, Any]:
+    response_language = normalize_response_language(response_language, message)
     route = registry.execute("research_route", {"question": message})
     trace = [trace_from_result(route, {"question": message})]
     artifacts: list[dict[str, Any]] = []
@@ -210,9 +226,50 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         "human genetics and variant evidence": "人类遗传与变异证据",
         "clinical and translational evidence": "临床与转化证据",
         "sequencing and cohort variants": "测序与队列变异",
+        "raw DNA alignment and variant calling": "原始 DNA 比对与变异检测",
     }
-    lane = ", ".join(lane_labels.get(item, item) for item in raw_lanes)
+    lane = ", ".join(
+        lane_labels.get(item, item) if response_language == "zh-CN" else item
+        for item in raw_lanes
+    )
     evidence_text = " ".join(evidence) if evidence else "No structured molecule or protein is active yet."
+    if response_language == "en":
+        if plan_request:
+            reply = (
+                f"This question was routed to {lane}. {evidence_text} "
+                "The plan has not run; review its inputs and steps in Run, then approve it explicitly."
+            )
+        elif "public omics data import" in raw_lanes:
+            reply = f"This question was routed to {lane}. {evidence_text} Series Matrix values are submitter-processed; import establishes local provenance, sample annotations, and structural QC, but does not make them PyDESeq2 raw counts."
+        elif "public omics dataset discovery" in raw_lanes:
+            reply = f"This question was routed to {lane}. {evidence_text} Results retain the exact GEO Series query, organism, assay, and sample-count filters. NCBI relevance is not a quality ranking, and GEO sample count is not the number of independent biological replicates."
+        elif "literature and study discovery" in raw_lanes:
+            reply = f"This question was routed to {lane}. {evidence_text} Europe PMC relevance order is retained with PMID, DOI, or source links, but it is not a study-quality score; inspect abstracts, full text, and study design before drawing conclusions."
+        elif "clinical and translational evidence" in raw_lanes:
+            reply = f"This question was routed to {lane}. {evidence_text} ClinicalTrials.gov status, design, and registered endpoints are not efficacy or safety conclusions; verify the live NCT record and review posted results, protocols, and linked papers separately."
+        elif "sequencing and cohort variants" in raw_lanes or "raw DNA alignment and variant calling" in raw_lanes:
+            reply = f"This question was routed to {lane}. {evidence_text} Variant calls depend on the upstream caller, filters, depth, and assay error model. VAF is not tumor fraction or a response measure, and low-frequency signals require LOD and read-level review."
+        elif "single-cell transcriptomics" in raw_lanes:
+            reply = f"This question was routed to {lane}. {evidence_text} UMAP, Leiden clusters, and cell-level marker rankings are exploratory. Cells are not biological replicates; cell-type labels and group inference still require sample metadata, external marker evidence, and pseudobulk review."
+        elif "pathway and network biology" in raw_lanes:
+            reply = f"This question was routed to {lane}. {evidence_text} Reactome enrichment depends on the input list and reference coverage, while STRING edges are functional associations rather than necessarily direct physical interactions. Review species, identifier mapping, FDR, and the network confidence threshold."
+        elif "protein alignment and conservation" in raw_lanes:
+            reply = f"This question was routed to {lane}. {evidence_text} Conservation is an unweighted column statistic over the approved sequences. Review the sequence set, reference site, gaps, and local alignment quality; the result does not directly establish function or variant effect."
+        elif "protein family and domain analysis" in raw_lanes:
+            reply = f"This question was routed to {lane}. {evidence_text} Interpret HMMER hits with the profile source, search space, E-value, coverage, bias, and domain architecture. A profile match alone does not prove function."
+        elif "human genetics and variant evidence" in raw_lanes:
+            reply = f"This question was routed to {lane}. {evidence_text} Confirm the allele, transcript, and assembly first. ClinVar, VEP, and gnomAD represent submitted classifications, computational annotation, and population observations, and cannot be collapsed directly into a diagnosis."
+        else:
+            reply = f"This question was routed to {lane}. {evidence_text} These are local computations or structural interpretations, not experimental conclusions. Next, request an alignment, property plot, candidate design, or import a FASTA/SMILES file for further analysis."
+        return {
+            "ok": True,
+            "message": reply,
+            "trace": trace,
+            "artifacts": dedupe_artifacts(artifacts),
+            "usage": {},
+            "provider": {"model": "local-skill-runtime", "tool_mode": "local"},
+        }
+
     if plan_request:
         reply = (
             f"当前问题被路由到 {lane}。{evidence_text} "
@@ -281,6 +338,15 @@ def run_local_agent(message: str, context: dict[str, Any], registry: SkillRegist
         "usage": {},
         "provider": {"model": "local-skill-runtime", "tool_mode": "local"},
     }
+
+
+def normalize_response_language(value: Any, message: str) -> str:
+    requested = str(value or "").strip().lower()
+    if requested in {"zh", "zh-cn", "zh_cn", "chinese"}:
+        return "zh-CN"
+    if requested in {"en", "en-us", "en_us", "english"}:
+        return "en"
+    return "zh-CN" if re.search(r"[\u3400-\u9fff]", message) else "en"
 
 
 def local_intent_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
@@ -1261,14 +1327,20 @@ def normalize_endpoint(endpoint: str) -> str:
 
 def normalize_content(content: Any) -> str:
     if isinstance(content, str):
-        return content.strip()
+        return strip_reasoning_tags(content)
     if isinstance(content, list):
         chunks = []
         for item in content:
             if isinstance(item, dict) and item.get("type") in {"text", "output_text"}:
                 chunks.append(str(item.get("text") or ""))
-        return "\n".join(chunks).strip()
+        return strip_reasoning_tags("\n".join(chunks))
     return ""
+
+
+def strip_reasoning_tags(content: str) -> str:
+    """Remove provider reasoning blocks before returning user-visible text."""
+    cleaned = re.sub(r"<think(?:\s[^>]*)?>.*?</think\s*>", "", content, flags=re.I | re.S)
+    return cleaned.strip()
 
 
 def trace_from_result(result: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
